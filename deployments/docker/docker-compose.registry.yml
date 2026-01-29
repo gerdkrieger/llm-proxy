@@ -1,0 +1,316 @@
+version: '3.8'
+
+# =============================================================================
+# LLM-PROXY DOCKER COMPOSE - GITLAB REGISTRY VERSION
+# =============================================================================
+# This compose file pulls pre-built images from GitLab Container Registry
+# Used for production deployments via CI/CD pipeline
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # PostgreSQL 14 - Primary Database
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:14-alpine
+    container_name: llm-proxy-postgres
+    restart: unless-stopped
+    
+    environment:
+      POSTGRES_DB: ${DB_NAME:-llm_proxy}
+      POSTGRES_USER: ${DB_USER:-proxy_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_INITDB_ARGS: "-E UTF8 --locale=en_US.UTF-8"
+      PGDATA: /var/lib/postgresql/data/pgdata
+    
+    ports:
+      - "${DB_PORT:-5433}:5432"
+    
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d
+    
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-proxy_user} -d ${DB_NAME:-llm_proxy}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    
+    networks:
+      - llm-proxy-network
+    
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ---------------------------------------------------------------------------
+  # Redis 7 - Caching & Rate Limiting
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: llm-proxy-redis
+    restart: unless-stopped
+    
+    command: >
+      redis-server
+      --appendonly yes
+      --appendfsync everysec
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --save 900 1
+      --save 300 10
+      --save 60 10000
+    
+    ports:
+      - "${REDIS_PORT:-6380}:6379"
+    
+    volumes:
+      - redis_data:/data
+    
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    
+    networks:
+      - llm-proxy-network
+    
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ---------------------------------------------------------------------------
+  # LLM-Proxy Backend (From GitLab Registry)
+  # ---------------------------------------------------------------------------
+  backend:
+    image: ${CI_REGISTRY_IMAGE}/backend:${IMAGE_TAG:-latest}
+    container_name: llm-proxy-backend
+    restart: unless-stopped
+    
+    env_file:
+      - ../../.env
+    
+    environment:
+      DB_HOST: postgres
+      REDIS_HOST: redis
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+    
+    ports:
+      - "${SERVER_PORT:-8080}:8080"
+      - "${METRICS_PORT:-9091}:9090"
+    
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    networks:
+      - llm-proxy-network
+    
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+    
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ---------------------------------------------------------------------------
+  # Admin UI (From GitLab Registry)
+  # ---------------------------------------------------------------------------
+  admin-ui:
+    image: ${CI_REGISTRY_IMAGE}/admin-ui:${IMAGE_TAG:-latest}
+    container_name: llm-proxy-admin-ui
+    restart: unless-stopped
+    
+    environment:
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8080}
+    
+    ports:
+      - "${ADMIN_UI_PORT:-3005}:80"
+    
+    depends_on:
+      backend:
+        condition: service_healthy
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    
+    networks:
+      - llm-proxy-network
+    
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+    
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ---------------------------------------------------------------------------
+  # Prometheus - Metrics Collection
+  # ---------------------------------------------------------------------------
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: llm-proxy-prometheus
+    restart: unless-stopped
+    
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    
+    ports:
+      - "9090:9090"
+    
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    
+    networks:
+      - llm-proxy-network
+    
+    depends_on:
+      - backend
+
+  # ---------------------------------------------------------------------------
+  # Grafana - Monitoring Dashboards
+  # ---------------------------------------------------------------------------
+  grafana:
+    image: grafana/grafana:latest
+    container_name: llm-proxy-grafana
+    restart: unless-stopped
+    
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+      - GF_SERVER_ROOT_URL=http://localhost:3001
+      - GF_INSTALL_PLUGINS=redis-datasource
+    
+    ports:
+      - "3001:3000"
+    
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+    
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    
+    networks:
+      - llm-proxy-network
+    
+    depends_on:
+      - prometheus
+
+# =============================================================================
+# NETWORKS
+# =============================================================================
+networks:
+  llm-proxy-network:
+    driver: bridge
+    name: llm-proxy-network
+
+# =============================================================================
+# VOLUMES
+# =============================================================================
+volumes:
+  postgres_data:
+    name: llm-proxy-postgres-data
+    driver: local
+  
+  redis_data:
+    name: llm-proxy-redis-data
+    driver: local
+  
+  prometheus_data:
+    name: llm-proxy-prometheus-data
+    driver: local
+  
+  grafana_data:
+    name: llm-proxy-grafana-data
+    driver: local
+
+# =============================================================================
+# USAGE
+# =============================================================================
+# This compose file expects images to be available in GitLab Container Registry
+#
+# Set required environment variables:
+#   export CI_REGISTRY_IMAGE="registry.gitlab.com/youruser/llm-proxy"
+#   export IMAGE_TAG="v1.0.0"  # or "latest", "main", etc.
+#
+# Login to GitLab Container Registry:
+#   docker login registry.gitlab.com
+#
+# Pull and start services:
+#   docker compose -f docker-compose.registry.yml pull
+#   docker compose -f docker-compose.registry.yml up -d
+#
+# Or use the deployment script:
+#   ./deployments/scripts/deploy-from-registry.sh production v1.0.0
+# =============================================================================

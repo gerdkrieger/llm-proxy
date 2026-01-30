@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Content Filter Management - LLM Proxy</title>
+    <title>Content Filter Management - Advanced - LLM Proxy</title>
     <style>
         * {
             margin: 0;
@@ -18,7 +18,7 @@
         }
         
         .container {
-            max-width: 1200px;
+            max-width: 1400px;
             margin: 0 auto;
             background: white;
             border-radius: 8px;
@@ -34,6 +34,42 @@
         .subtitle {
             color: #666;
             margin-bottom: 30px;
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        
+        .tab {
+            padding: 12px 24px;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: 600;
+            color: #666;
+            border-bottom: 3px solid transparent;
+            transition: all 0.2s;
+        }
+        
+        .tab:hover {
+            color: #0066cc;
+        }
+        
+        .tab.active {
+            color: #0066cc;
+            border-bottom-color: #0066cc;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
         }
         
         .config-section {
@@ -72,13 +108,6 @@
             font-size: 18px;
         }
         
-        .form-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            margin-bottom: 15px;
-        }
-        
         .form-group {
             margin-bottom: 15px;
         }
@@ -98,21 +127,13 @@
             border: 1px solid #ddd;
             border-radius: 4px;
             font-size: 14px;
+            font-family: inherit;
         }
         
         .form-group textarea {
             resize: vertical;
-            min-height: 60px;
-        }
-        
-        .checkbox-group {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        
-        .checkbox-group input[type="checkbox"] {
-            width: auto;
+            min-height: 100px;
+            font-family: 'Courier New', monospace;
         }
         
         .btn-primary {
@@ -135,30 +156,120 @@
             background: #6c757d;
             color: white;
             border: none;
-            padding: 8px 16px;
+            padding: 10px 20px;
             border-radius: 4px;
             font-size: 13px;
             cursor: pointer;
             margin-right: 5px;
         }
         
-        .btn-danger {
-            background: #dc3545;
-            color: white;
-            border: none;
-            padding: 8px 16px;
+        .alert {
+            padding: 15px;
             border-radius: 4px;
-            font-size: 13px;
+            margin-bottom: 20px;
+        }
+        
+        .alert-success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        
+        .alert-error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        
+        .alert-warning {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+        }
+        
+        .info-box {
+            background: #e8f4fd;
+            border-left: 4px solid #0066cc;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .info-box h4 {
+            color: #0066cc;
+            margin-bottom: 8px;
+        }
+        
+        .info-box ul {
+            margin-left: 20px;
+            margin-top: 8px;
+        }
+        
+        .info-box li {
+            margin-bottom: 4px;
+        }
+        
+        .file-upload-area {
+            border: 2px dashed #ddd;
+            border-radius: 4px;
+            padding: 30px;
+            text-align: center;
+            background: #fafafa;
             cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .file-upload-area:hover {
+            border-color: #0066cc;
+            background: #f0f7ff;
+        }
+        
+        .file-upload-area.drag-over {
+            border-color: #0066cc;
+            background: #e3f2fd;
+        }
+        
+        .file-input {
+            display: none;
+        }
+        
+        .upload-icon {
+            font-size: 48px;
+            color: #0066cc;
+            margin-bottom: 10px;
+        }
+        
+        .results-section {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .result-item {
+            padding: 8px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .result-item:last-child {
+            border-bottom: none;
+        }
+        
+        .result-success {
+            color: #28a745;
+        }
+        
+        .result-failed {
+            color: #dc3545;
         }
         
         .filters-list {
             margin-top: 30px;
-        }
-        
-        .filters-list h2 {
-            color: #333;
-            margin-bottom: 15px;
         }
         
         .filter-card {
@@ -166,13 +277,6 @@
             border: 1px solid #ddd;
             border-radius: 4px;
             padding: 15px;
-            margin-bottom: 10px;
-        }
-        
-        .filter-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
             margin-bottom: 10px;
         }
         
@@ -200,89 +304,18 @@
             color: #f57c00;
         }
         
-        .filter-status {
-            display: inline-block;
-            padding: 3px 8px;
-            border-radius: 3px;
-            font-size: 12px;
-            font-weight: 600;
-        }
-        
-        .filter-status.enabled {
-            background: #c8e6c9;
-            color: #2e7d32;
-        }
-        
-        .filter-status.disabled {
-            background: #ffcdd2;
-            color: #c62828;
-        }
-        
-        .filter-pattern {
-            font-family: 'Courier New', monospace;
+        code {
             background: #f5f5f5;
-            padding: 8px;
+            padding: 2px 6px;
             border-radius: 3px;
-            margin-bottom: 8px;
-        }
-        
-        .filter-description {
-            color: #666;
-            font-size: 14px;
-            margin-bottom: 8px;
-        }
-        
-        .filter-meta {
-            display: flex;
-            gap: 15px;
-            font-size: 13px;
-            color: #888;
-        }
-        
-        .alert {
-            padding: 15px;
-            border-radius: 4px;
-            margin-bottom: 20px;
-        }
-        
-        .alert-success {
-            background: #d4edda;
-            border: 1px solid #c3e6cb;
-            color: #155724;
-        }
-        
-        .alert-error {
-            background: #f8d7da;
-            border: 1px solid #f5c6cb;
-            color: #721c24;
-        }
-        
-        .example-box {
-            background: #fff9e6;
-            border: 1px solid #ffd666;
-            border-radius: 4px;
-            padding: 15px;
-            margin-top: 10px;
-        }
-        
-        .example-box h4 {
-            color: #d48806;
-            margin-bottom: 8px;
-        }
-        
-        .example-box pre {
-            background: white;
-            padding: 10px;
-            border-radius: 3px;
-            overflow-x: auto;
-            font-size: 13px;
+            font-family: 'Courier New', monospace;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🛡️ Content Filter Management</h1>
-        <p class="subtitle">Verwalte Wörter, Phrasen und Patterns, die in User-Prompts gefiltert werden sollen</p>
+        <h1>🛡️ Content Filter Management (Advanced)</h1>
+        <p class="subtitle">Bulk-Import von Filtern über Textarea oder CSV-Upload</p>
         
         <!-- Konfiguration -->
         <div class="config-section">
@@ -296,91 +329,197 @@
         <!-- Alert Box -->
         <div id="alertBox" style="display: none;"></div>
         
-        <!-- Neuen Filter erstellen -->
-        <div class="form-section">
-            <h2>➕ Neuen Filter erstellen</h2>
-            
-            <div class="form-row">
-                <div class="form-group">
-                    <label>Pattern (Was gefiltert werden soll):</label>
-                    <input type="text" id="pattern" placeholder="z.B. badword, test@example.com">
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('textarea')">📝 Textarea Import</button>
+            <button class="tab" onclick="switchTab('csv')">📄 CSV Upload</button>
+            <button class="tab" onclick="switchTab('list')">📋 Filter Liste</button>
+        </div>
+        
+        <!-- Tab 1: Textarea Import -->
+        <div id="tab-textarea" class="tab-content active">
+            <div class="form-section">
+                <h2>➕ Bulk Import per Textarea</h2>
+                
+                <div class="info-box">
+                    <h4>📋 Format:</h4>
+                    <p>Jede Zeile ist ein Filter. Verwende eines dieser Formate:</p>
+                    <ul>
+                        <li><strong>Komma-separiert:</strong> <code>pattern, replacement, type, priority, description</code></li>
+                        <li><strong>Tab-separiert (TSV):</strong> <code>pattern	replacement	type	priority	description</code></li>
+                        <li><strong>Einfach (nur Wörter):</strong> Ein Wort pro Zeile wird automatisch als Word-Filter mit [FILTERED] ersetzt</li>
+                    </ul>
+                    <p><strong>Beispiel:</strong></p>
+                    <code style="display: block; margin-top: 5px; white-space: pre;">badword, [FILTERED], word, 100, Filtert Schimpfwörter
+confidential information, [REDACTED], phrase, 95, Vertrauliche Infos
+\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b, [EMAIL], regex, 90, Email-Adressen</code>
                 </div>
                 
                 <div class="form-group">
-                    <label>Ersetzung (Replacement):</label>
-                    <input type="text" id="replacement" placeholder="z.B. [GEFILTERT]">
-                </div>
-            </div>
-            
-            <div class="form-group">
-                <label>Beschreibung:</label>
-                <textarea id="description" placeholder="Warum dieser Filter erstellt wurde..."></textarea>
-            </div>
-            
-            <div class="form-row">
-                <div class="form-group">
-                    <label>Filter-Typ:</label>
-                    <select id="filterType">
-                        <option value="word">Word (Ganzes Wort)</option>
-                        <option value="phrase">Phrase (Exakte Phrase)</option>
-                        <option value="regex">Regex (Pattern)</option>
-                    </select>
+                    <label>Filter-Daten (ein Filter pro Zeile):</label>
+                    <textarea id="bulkTextarea" placeholder="Gib deine Filter ein, eine Zeile pro Filter...
+Beispiel:
+badword, [FILTERED], word, 100, Offensive Sprache
+damn, [*], word, 100, Milde Kraftausdrücke
+confidential, [REDACTED], phrase, 95
+test@example.com"></textarea>
                 </div>
                 
                 <div class="form-group">
-                    <label>Priorität (höher = zuerst):</label>
-                    <input type="number" id="priority" value="100" min="0" max="999">
-                </div>
-            </div>
-            
-            <div class="form-row">
-                <div class="checkbox-group">
-                    <input type="checkbox" id="caseSensitive">
-                    <label for="caseSensitive">Groß-/Kleinschreibung beachten</label>
+                    <label>
+                        <input type="checkbox" id="textareaEnabled" checked>
+                        Alle Filter standardmäßig aktivieren
+                    </label>
                 </div>
                 
-                <div class="checkbox-group">
-                    <input type="checkbox" id="enabled" checked>
-                    <label for="enabled">Filter aktiviert</label>
-                </div>
+                <button class="btn-primary" onclick="bulkImportTextarea()">📤 Filter importieren</button>
+                <button class="btn-secondary" onclick="clearTextarea()">🗑️ Leeren</button>
             </div>
             
-            <button class="btn-primary" onclick="createFilter()">Filter erstellen</button>
-            
-            <!-- Beispiele -->
-            <div class="example-box">
-                <h4>📝 Beispiele:</h4>
-                <pre><strong>Word Filter:</strong>
-Pattern: badword
-Replacement: [GEFILTERT]
-Typ: word
-
-<strong>Phrase Filter:</strong>
-Pattern: confidential information
-Replacement: [VERTRAULICH]
-Typ: phrase
-
-<strong>Regex Filter (Email):</strong>
-Pattern: \b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b
-Replacement: [EMAIL_ENTFERNT]
-Typ: regex</pre>
+            <!-- Results -->
+            <div id="textareaResults" style="display: none;" class="results-section">
+                <h3>Import-Ergebnisse:</h3>
+                <div id="textareaResultsList"></div>
             </div>
         </div>
         
-        <!-- Filter Liste -->
-        <div class="filters-list">
-            <h2>📋 Aktive Filter <button class="btn-secondary" onclick="loadFilters()">🔄 Aktualisieren</button></h2>
-            <div id="filtersList">
-                <p style="color: #999;">Lade Filter...</p>
+        <!-- Tab 2: CSV Upload -->
+        <div id="tab-csv" class="tab-content">
+            <div class="form-section">
+                <h2>📄 CSV-Datei Upload</h2>
+                
+                <div class="info-box">
+                    <h4>📋 CSV Format:</h4>
+                    <p>Die CSV-Datei sollte folgende Spalten haben (Header-Zeile ist optional):</p>
+                    <ul>
+                        <li><code>pattern</code> - Das zu filternde Pattern (erforderlich)</li>
+                        <li><code>replacement</code> - Der Ersetzungstext (erforderlich)</li>
+                        <li><code>filter_type</code> - word, phrase oder regex (optional, Standard: word)</li>
+                        <li><code>priority</code> - Priorität 0-999 (optional, Standard: 100)</li>
+                        <li><code>description</code> - Beschreibung (optional)</li>
+                        <li><code>case_sensitive</code> - true/false (optional, Standard: false)</li>
+                        <li><code>enabled</code> - true/false (optional, Standard: true)</li>
+                    </ul>
+                    <p><strong>Beispiel CSV:</strong></p>
+                    <code style="display: block; margin-top: 5px; white-space: pre;">pattern,replacement,filter_type,priority,description
+badword,[FILTERED],word,100,Offensive Sprache
+damn,[*],word,100,Kraftausdrücke
+confidential information,[REDACTED],phrase,95,Vertraulich</code>
+                </div>
+                
+                <div class="file-upload-area" id="dropZone" onclick="document.getElementById('csvFile').click()">
+                    <div class="upload-icon">📁</div>
+                    <p><strong>Klicke hier oder ziehe eine CSV-Datei hierher</strong></p>
+                    <p style="color: #666; font-size: 14px; margin-top: 5px;">Unterstützte Formate: .csv, .txt</p>
+                    <input type="file" id="csvFile" class="file-input" accept=".csv,.txt" onchange="handleFileSelect(event)">
+                </div>
+                
+                <div id="fileInfo" style="display: none; margin-top: 15px;">
+                    <p><strong>Ausgewählte Datei:</strong> <span id="fileName"></span></p>
+                    <p><strong>Größe:</strong> <span id="fileSize"></span></p>
+                    <button class="btn-primary" onclick="uploadCSV()">📤 CSV importieren</button>
+                    <button class="btn-secondary" onclick="clearFile()">🗑️ Datei entfernen</button>
+                </div>
+            </div>
+            
+            <!-- Results -->
+            <div id="csvResults" style="display: none;" class="results-section">
+                <h3>Import-Ergebnisse:</h3>
+                <div id="csvResultsList"></div>
+            </div>
+        </div>
+        
+        <!-- Tab 3: Filter List -->
+        <div id="tab-list" class="tab-content">
+            <div class="filters-list">
+                <h2>📋 Aktive Filter <button class="btn-secondary" onclick="loadFilters()">🔄 Aktualisieren</button></h2>
+                <div id="filtersList">
+                    <p style="color: #999;">Lade Filter...</p>
+                </div>
             </div>
         </div>
     </div>
     
     <script>
-        // Beim Laden Seite Filter laden
-        window.onload = function() {
-            loadFilters();
-        };
+        let selectedFile = null;
+        
+        // Tab Switching
+        function switchTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            
+            // Show selected tab
+            document.getElementById(`tab-${tabName}`).classList.add('active');
+            event.target.classList.add('active');
+            
+            // Load filters when switching to list tab
+            if (tabName === 'list') {
+                loadFilters();
+            }
+        }
+        
+        // Drag & Drop
+        const dropZone = document.getElementById('dropZone');
+        
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, preventDefaults, false);
+        });
+        
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => dropZone.classList.add('drag-over'), false);
+        });
+        
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => dropZone.classList.remove('drag-over'), false);
+        });
+        
+        dropZone.addEventListener('drop', handleDrop, false);
+        
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            
+            if (files.length > 0) {
+                selectedFile = files[0];
+                showFileInfo(selectedFile);
+            }
+        }
+        
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                selectedFile = file;
+                showFileInfo(file);
+            }
+        }
+        
+        function showFileInfo(file) {
+            document.getElementById('fileName').textContent = file.name;
+            document.getElementById('fileSize').textContent = formatFileSize(file.size);
+            document.getElementById('fileInfo').style.display = 'block';
+        }
+        
+        function formatFileSize(bytes) {
+            if (bytes < 1024) return bytes + ' Bytes';
+            if (bytes < 1048576) return (bytes / 1024).toFixed(2) + ' KB';
+            return (bytes / 1048576).toFixed(2) + ' MB';
+        }
+        
+        function clearFile() {
+            selectedFile = null;
+            document.getElementById('csvFile').value = '';
+            document.getElementById('fileInfo').style.display = 'none';
+        }
+        
+        function clearTextarea() {
+            document.getElementById('bulkTextarea').value = '';
+        }
         
         function showAlert(message, type = 'success') {
             const alertBox = document.getElementById('alertBox');
@@ -393,53 +532,192 @@ Typ: regex</pre>
             }, 5000);
         }
         
-        async function createFilter() {
-            const apiEndpoint = document.getElementById('apiEndpoint').value;
-            const adminKey = document.getElementById('adminKey').value;
+        // Textarea Bulk Import
+        async function bulkImportTextarea() {
+            const text = document.getElementById('bulkTextarea').value.trim();
+            const enabled = document.getElementById('textareaEnabled').checked;
             
-            const filterData = {
-                pattern: document.getElementById('pattern').value,
-                replacement: document.getElementById('replacement').value,
-                description: document.getElementById('description').value,
-                filter_type: document.getElementById('filterType').value,
-                case_sensitive: document.getElementById('caseSensitive').checked,
-                enabled: document.getElementById('enabled').checked,
-                priority: parseInt(document.getElementById('priority').value)
-            };
-            
-            if (!filterData.pattern || !filterData.replacement) {
-                showAlert('Bitte Pattern und Replacement ausfüllen!', 'error');
+            if (!text) {
+                showAlert('Bitte Filter-Daten eingeben!', 'error');
                 return;
             }
             
+            const lines = text.split('\n').filter(line => line.trim());
+            const filters = lines.map((line, index) => parseFilterLine(line, enabled, index + 1));
+            
+            // Remove invalid filters
+            const validFilters = filters.filter(f => f !== null);
+            
+            if (validFilters.length === 0) {
+                showAlert('Keine gültigen Filter gefunden!', 'error');
+                return;
+            }
+            
+            await importFilters(validFilters, 'textareaResults', 'textareaResultsList');
+        }
+        
+        function parseFilterLine(line, enabled, lineNum) {
+            line = line.trim();
+            if (!line) return null;
+            
+            // Try comma-separated
+            if (line.includes(',')) {
+                const parts = line.split(',').map(p => p.trim());
+                return {
+                    pattern: parts[0] || '',
+                    replacement: parts[1] || '[FILTERED]',
+                    filter_type: parts[2] || 'word',
+                    priority: parseInt(parts[3]) || 100,
+                    description: parts[4] || `Imported from line ${lineNum}`,
+                    case_sensitive: false,
+                    enabled: enabled
+                };
+            }
+            
+            // Try tab-separated
+            if (line.includes('\t')) {
+                const parts = line.split('\t').map(p => p.trim());
+                return {
+                    pattern: parts[0] || '',
+                    replacement: parts[1] || '[FILTERED]',
+                    filter_type: parts[2] || 'word',
+                    priority: parseInt(parts[3]) || 100,
+                    description: parts[4] || `Imported from line ${lineNum}`,
+                    case_sensitive: false,
+                    enabled: enabled
+                };
+            }
+            
+            // Simple word list
+            return {
+                pattern: line,
+                replacement: '[FILTERED]',
+                filter_type: 'word',
+                priority: 100,
+                description: `Imported from line ${lineNum}`,
+                case_sensitive: false,
+                enabled: enabled
+            };
+        }
+        
+        // CSV Upload
+        async function uploadCSV() {
+            if (!selectedFile) {
+                showAlert('Bitte wähle eine CSV-Datei aus!', 'error');
+                return;
+            }
+            
+            const text = await selectedFile.text();
+            const lines = text.split('\n').filter(line => line.trim());
+            
+            if (lines.length === 0) {
+                showAlert('CSV-Datei ist leer!', 'error');
+                return;
+            }
+            
+            // Parse CSV
+            const filters = parseCSV(lines);
+            
+            if (filters.length === 0) {
+                showAlert('Keine gültigen Filter in CSV gefunden!', 'error');
+                return;
+            }
+            
+            await importFilters(filters, 'csvResults', 'csvResultsList');
+        }
+        
+        function parseCSV(lines) {
+            const filters = [];
+            let hasHeader = false;
+            
+            // Check if first line is header
+            const firstLine = lines[0].toLowerCase();
+            if (firstLine.includes('pattern') || firstLine.includes('replacement')) {
+                hasHeader = true;
+                lines = lines.slice(1);
+            }
+            
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (!line) continue;
+                
+                const parts = line.split(',').map(p => p.trim().replace(/^"(.*)"$/, '$1'));
+                
+                if (parts.length < 2) continue;
+                
+                filters.push({
+                    pattern: parts[0],
+                    replacement: parts[1],
+                    filter_type: parts[2] || 'word',
+                    priority: parseInt(parts[3]) || 100,
+                    description: parts[4] || `Imported from CSV line ${i + 1}`,
+                    case_sensitive: parts[5] === 'true',
+                    enabled: parts[6] !== 'false'
+                });
+            }
+            
+            return filters;
+        }
+        
+        // Import filters via API
+        async function importFilters(filters, resultsId, resultsListId) {
+            const apiEndpoint = document.getElementById('apiEndpoint').value;
+            const adminKey = document.getElementById('adminKey').value;
+            
             try {
-                const response = await fetch(`${apiEndpoint}/admin/filters`, {
+                const response = await fetch(`${apiEndpoint}/admin/filters/bulk-import`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'X-Admin-API-Key': adminKey
                     },
-                    body: JSON.stringify(filterData)
+                    body: JSON.stringify({ filters })
                 });
                 
                 const data = await response.json();
                 
                 if (response.ok) {
-                    showAlert(`Filter erfolgreich erstellt! ID: ${data.id}`, 'success');
-                    // Formular zurücksetzen
-                    document.getElementById('pattern').value = '';
-                    document.getElementById('replacement').value = '';
-                    document.getElementById('description').value = '';
-                    // Filter neu laden
-                    loadFilters();
+                    const successCount = data.success ? data.success.length : 0;
+                    const failedCount = data.failed ? data.failed.length : 0;
+                    
+                    showAlert(`Import abgeschlossen! ${successCount} erfolgreich, ${failedCount} fehlgeschlagen`, 
+                              failedCount > 0 ? 'warning' : 'success');
+                    
+                    // Show results
+                    document.getElementById(resultsId).style.display = 'block';
+                    const resultsList = document.getElementById(resultsListId);
+                    
+                    let html = `<p><strong>Gesamt:</strong> ${data.total} | <strong>Erfolg:</strong> ${successCount} | <strong>Fehler:</strong> ${failedCount}</p>`;
+                    
+                    if (data.success && data.success.length > 0) {
+                        html += '<h4 class="result-success">✅ Erfolgreich:</h4>';
+                        data.success.forEach(id => {
+                            html += `<div class="result-item result-success">✓ Filter ID ${id} erstellt</div>`;
+                        });
+                    }
+                    
+                    if (data.failed && data.failed.length > 0) {
+                        html += '<h4 class="result-failed">❌ Fehlgeschlagen:</h4>';
+                        data.failed.forEach(error => {
+                            html += `<div class="result-item result-failed">✗ ${error}</div>`;
+                        });
+                    }
+                    
+                    resultsList.innerHTML = html;
+                    
+                    // Refresh filters if on list tab
+                    if (document.getElementById('tab-list').classList.contains('active')) {
+                        loadFilters();
+                    }
                 } else {
                     showAlert(`Fehler: ${data.error?.message || 'Unbekannter Fehler'}`, 'error');
                 }
             } catch (error) {
-                showAlert(`Fehler beim Erstellen: ${error.message}`, 'error');
+                showAlert(`Fehler beim Import: ${error.message}`, 'error');
             }
         }
         
+        // Load filters (from original interface)
         async function loadFilters() {
             const apiEndpoint = document.getElementById('apiEndpoint').value;
             const adminKey = document.getElementById('adminKey').value;
@@ -456,36 +734,16 @@ Typ: regex</pre>
                 
                 if (response.ok && data.filters) {
                     if (data.filters.length === 0) {
-                        filtersList.innerHTML = '<p style="color: #999;">Keine Filter vorhanden. Erstelle deinen ersten Filter!</p>';
+                        filtersList.innerHTML = '<p style="color: #999;">Keine Filter vorhanden.</p>';
                         return;
                     }
                     
                     filtersList.innerHTML = data.filters.map(filter => `
                         <div class="filter-card">
-                            <div class="filter-header">
-                                <div>
-                                    <span class="filter-type ${filter.filter_type}">${filter.filter_type}</span>
-                                    <span class="filter-status ${filter.enabled ? 'enabled' : 'disabled'}">
-                                        ${filter.enabled ? 'Aktiviert' : 'Deaktiviert'}
-                                    </span>
-                                    <strong style="margin-left: 10px;">Priorität: ${filter.priority}</strong>
-                                </div>
-                                <div>
-                                    <button class="btn-secondary" onclick="toggleFilter(${filter.id}, ${!filter.enabled})">
-                                        ${filter.enabled ? '⏸️ Deaktivieren' : '▶️ Aktivieren'}
-                                    </button>
-                                    <button class="btn-danger" onclick="deleteFilter(${filter.id})">🗑️ Löschen</button>
-                                </div>
-                            </div>
-                            <div class="filter-pattern">
-                                <strong>Pattern:</strong> ${escapeHtml(filter.pattern)} → <strong>Replacement:</strong> ${escapeHtml(filter.replacement)}
-                            </div>
-                            ${filter.description ? `<div class="filter-description">${escapeHtml(filter.description)}</div>` : ''}
-                            <div class="filter-meta">
-                                <span>📊 Matches: ${filter.match_count}</span>
-                                <span>📅 Erstellt: ${new Date(filter.created_at).toLocaleString('de-DE')}</span>
-                                ${filter.last_matched_at ? `<span>🎯 Letzter Match: ${new Date(filter.last_matched_at).toLocaleString('de-DE')}</span>` : ''}
-                            </div>
+                            <span class="filter-type ${filter.filter_type}">${filter.filter_type}</span>
+                            <strong>${escapeHtml(filter.pattern)}</strong> → ${escapeHtml(filter.replacement)}
+                            <span style="color: #666; margin-left: 10px;">Priorität: ${filter.priority}</span>
+                            <span style="color: #666; margin-left: 10px;">Matches: ${filter.match_count}</span>
                         </div>
                     `).join('');
                 } else {
@@ -493,56 +751,6 @@ Typ: regex</pre>
                 }
             } catch (error) {
                 filtersList.innerHTML = `<p style="color: #c62828;">Fehler: ${error.message}</p>`;
-            }
-        }
-        
-        async function toggleFilter(id, enabled) {
-            const apiEndpoint = document.getElementById('apiEndpoint').value;
-            const adminKey = document.getElementById('adminKey').value;
-            
-            try {
-                const response = await fetch(`${apiEndpoint}/admin/filters/${id}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-Admin-API-Key': adminKey
-                    },
-                    body: JSON.stringify({ enabled })
-                });
-                
-                if (response.ok) {
-                    showAlert(`Filter ${enabled ? 'aktiviert' : 'deaktiviert'}!`, 'success');
-                    loadFilters();
-                } else {
-                    showAlert('Fehler beim Aktualisieren des Filters', 'error');
-                }
-            } catch (error) {
-                showAlert(`Fehler: ${error.message}`, 'error');
-            }
-        }
-        
-        async function deleteFilter(id) {
-            if (!confirm('Filter wirklich löschen?')) return;
-            
-            const apiEndpoint = document.getElementById('apiEndpoint').value;
-            const adminKey = document.getElementById('adminKey').value;
-            
-            try {
-                const response = await fetch(`${apiEndpoint}/admin/filters/${id}`, {
-                    method: 'DELETE',
-                    headers: {
-                        'X-Admin-API-Key': adminKey
-                    }
-                });
-                
-                if (response.ok) {
-                    showAlert('Filter gelöscht!', 'success');
-                    loadFilters();
-                } else {
-                    showAlert('Fehler beim Löschen des Filters', 'error');
-                }
-            } catch (error) {
-                showAlert(`Fehler: ${error.message}`, 'error');
             }
         }
         
@@ -556,6 +764,11 @@ Typ: regex</pre>
             };
             return text.replace(/[&<>"']/g, m => map[m]);
         }
+        
+        // Load filters on page load
+        window.onload = function() {
+            loadFilters();
+        };
     </script>
 </body>
 </html>

@@ -1,0 +1,50 @@
+═══════════════════════════════════════════════════════════════════
+  📋 GIT WORKFLOW - QUICK REFERENCE
+═══════════════════════════════════════════════════════════════════
+
+🚀 SCRIPT STARTEN
+─────────────────
+  ./git-update.sh
+
+🎯 3 MODI
+─────────
+  1) Simple Mode    → Quick commit & push
+  2) Release Mode   → Commit + Release-Tag
+  3) Full Mode      → Develop→Master + Release
+
+📝 COMMIT MESSAGE FORMAT
+────────────────────────
+  feat:     Neue Features
+  fix:      Bug Fixes
+  docs:     Dokumentation
+  refactor: Code Refactoring
+  perf:     Performance
+  test:     Tests
+  chore:    Build/Config
+  style:    Code Style
+
+🏷️ VERSIONING
+──────────────
+  v1.2.3
+  │ │ │
+  │ │ └─ PATCH (0.0.X) - Bug fixes
+  │ └─── MINOR (0.X.0) - New features
+  └───── MAJOR (X.0.0) - Breaking changes
+
+📤 REMOTE SETUP
+───────────────
+  git remote add origin <url>
+  git push -u origin master
+
+📊 NÜTZLICHE COMMANDS
+─────────────────────
+  git log --oneline -10
+  git tag -l
+  git show <commit>
+  git status
+
+📖 DOKUMENTATION
+────────────────
+  GIT_WORKFLOW.md    - Vollständige Anleitung
+
+═══════════════════════════════════════════════════════════════════

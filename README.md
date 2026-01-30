@@ -41,6 +41,7 @@
 - ✅ **Rate Limiting** - Configurable per-client limits (RPM/RPD)
 - ✅ **Access Lists** - Whitelist/blacklist for clients, IPs, and models
 - ✅ **API Key Encryption** - Secure storage of provider keys
+- ✅ **Content Filtering** - Automatic filtering of user prompts (word, phrase, regex)
 
 ### Analytics & Billing
 - ✅ **Request Logging** - Comprehensive request/response tracking
@@ -62,6 +63,7 @@
 - ✅ **Provider Configuration** - Manage LLM provider API keys
 - ✅ **Access Control** - Manage whitelists/blacklists
 - ✅ **Billing Dashboard** - Credit management and top-up
+- ✅ **Content Filter Management** - Create and manage content filters
 
 ---
 
@@ -292,6 +294,52 @@ curl -X POST http://localhost:8080/admin/clients \
     "rate_limit_rpm": 1000
   }'
 ```
+
+---
+
+## 🛡️ Content Filtering
+
+LLM-Proxy includes a powerful content filtering system to automatically filter and replace unwanted content in user prompts.
+
+### Quick Example
+
+```bash
+# Create a word filter
+curl -X POST http://localhost:8080/admin/filters \
+  -H "X-Admin-API-Key: YOUR_ADMIN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "pattern": "badword",
+    "replacement": "[FILTERED]",
+    "filter_type": "word",
+    "enabled": true
+  }'
+
+# Filters are automatically applied to all chat requests
+curl -X POST http://localhost:8080/v1/chat/completions \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -d '{
+    "model": "claude-3-haiku-20240307",
+    "messages": [{"role": "user", "content": "This badword will be filtered"}]
+  }'
+# → User message is sent as: "This [FILTERED] will be filtered"
+```
+
+### Filter Types
+
+- **Word**: Match whole words with word boundaries
+- **Phrase**: Match exact phrases  
+- **Regex**: Match complex patterns (emails, URLs, etc.)
+
+### Features
+
+- ✅ Priority-based filtering (higher priority applied first)
+- ✅ Case-sensitive/insensitive matching
+- ✅ Real-time statistics and match tracking
+- ✅ Automatic caching (5-minute TTL)
+- ✅ ReDoS protection for regex patterns
+
+**See [CONTENT_FILTERING.md](CONTENT_FILTERING.md) for complete documentation.**
 
 ---
 

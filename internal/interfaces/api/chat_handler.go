@@ -11,6 +11,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
 	"github.com/llm-proxy/llm-proxy/internal/application/caching"
+	"github.com/llm-proxy/llm-proxy/internal/application/filtering"
 	"github.com/llm-proxy/llm-proxy/internal/domain/models"
 	"github.com/llm-proxy/llm-proxy/internal/infrastructure/database/repositories"
 	"github.com/llm-proxy/llm-proxy/internal/infrastructure/providers"
@@ -25,6 +26,7 @@ type ChatHandler struct {
 	requestLogRepo  *repositories.RequestLogRepository
 	clientRepo      *repositories.OAuthClientRepository
 	cacheService    *caching.Service
+	filterService   *filtering.Service
 	logger          *logger.Logger
 }
 
@@ -34,6 +36,7 @@ func NewChatHandler(
 	requestLogRepo *repositories.RequestLogRepository,
 	clientRepo *repositories.OAuthClientRepository,
 	cacheService *caching.Service,
+	filterService *filtering.Service,
 	log *logger.Logger,
 ) *ChatHandler {
 	return &ChatHandler{
@@ -41,6 +44,7 @@ func NewChatHandler(
 		requestLogRepo:  requestLogRepo,
 		clientRepo:      clientRepo,
 		cacheService:    cacheService,
+		filterService:   filterService,
 		logger:          log,
 	}
 }
@@ -76,6 +80,20 @@ func (h *ChatHandler) CreateCompletion(w http.ResponseWriter, r *http.Request) {
 		h.logRequest(ctx, clientID, requestID, openAIReq.Model, http.StatusBadRequest, 0, 0, 0, startTime, nil)
 		h.respondError(w, http.StatusBadRequest, "invalid_request_error", "messages are required")
 		return
+	}
+
+	// Apply content filters to user messages
+	if h.filterService != nil {
+		filteredMessages, matches, err := h.filterService.ApplyFilters(ctx, openAIReq.Messages)
+		if err != nil {
+			h.logger.Warnf("Failed to apply content filters: %v", err)
+			// Continue without filtering on error
+		} else {
+			openAIReq.Messages = filteredMessages
+			if len(matches) > 0 {
+				h.logger.Infof("Applied %d content filters to request %s (client: %s)", len(matches), requestID, clientID)
+			}
+		}
 	}
 
 	// Check cache first (only for non-streaming requests)

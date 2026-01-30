@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Content Filter Management - LLM Proxy</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 30px;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+        }
+        
+        .config-section {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        
+        .config-section label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: #555;
+        }
+        
+        .config-section input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .form-section {
+            background: #f0f7ff;
+            border: 1px solid #b3d9ff;
+            border-radius: 4px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .form-section h2 {
+            color: #0066cc;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: #333;
+        }
+        
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .form-group textarea {
+            resize: vertical;
+            min-height: 60px;
+        }
+        
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .checkbox-group input[type="checkbox"] {
+            width: auto;
+        }
+        
+        .btn-primary {
+            background: #0066cc;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .btn-primary:hover {
+            background: #0052a3;
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-size: 13px;
+            cursor: pointer;
+            margin-right: 5px;
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-size: 13px;
+            cursor: pointer;
+        }
+        
+        .filters-list {
+            margin-top: 30px;
+        }
+        
+        .filters-list h2 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+        
+        .filter-card {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            margin-bottom: 10px;
+        }
+        
+        .filter-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .filter-type {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .filter-type.word {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+        
+        .filter-type.phrase {
+            background: #f3e5f5;
+            color: #7b1fa2;
+        }
+        
+        .filter-type.regex {
+            background: #fff3e0;
+            color: #f57c00;
+        }
+        
+        .filter-status {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .filter-status.enabled {
+            background: #c8e6c9;
+            color: #2e7d32;
+        }
+        
+        .filter-status.disabled {
+            background: #ffcdd2;
+            color: #c62828;
+        }
+        
+        .filter-pattern {
+            font-family: 'Courier New', monospace;
+            background: #f5f5f5;
+            padding: 8px;
+            border-radius: 3px;
+            margin-bottom: 8px;
+        }
+        
+        .filter-description {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+        
+        .filter-meta {
+            display: flex;
+            gap: 15px;
+            font-size: 13px;
+            color: #888;
+        }
+        
+        .alert {
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        
+        .alert-success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        
+        .alert-error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        
+        .example-box {
+            background: #fff9e6;
+            border: 1px solid #ffd666;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 10px;
+        }
+        
+        .example-box h4 {
+            color: #d48806;
+            margin-bottom: 8px;
+        }
+        
+        .example-box pre {
+            background: white;
+            padding: 10px;
+            border-radius: 3px;
+            overflow-x: auto;
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🛡️ Content Filter Management</h1>
+        <p class="subtitle">Verwalte Wörter, Phrasen und Patterns, die in User-Prompts gefiltert werden sollen</p>
+        
+        <!-- Konfiguration -->
+        <div class="config-section">
+            <label>API Endpoint:</label>
+            <input type="text" id="apiEndpoint" value="http://localhost:8080" placeholder="http://localhost:8080">
+            
+            <label style="margin-top: 10px;">Admin API Key:</label>
+            <input type="password" id="adminKey" value="admin_dev_key_12345678901234567890123456789012" placeholder="Dein Admin API Key">
+        </div>
+        
+        <!-- Alert Box -->
+        <div id="alertBox" style="display: none;"></div>
+        
+        <!-- Neuen Filter erstellen -->
+        <div class="form-section">
+            <h2>➕ Neuen Filter erstellen</h2>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Pattern (Was gefiltert werden soll):</label>
+                    <input type="text" id="pattern" placeholder="z.B. badword, test@example.com">
+                </div>
+                
+                <div class="form-group">
+                    <label>Ersetzung (Replacement):</label>
+                    <input type="text" id="replacement" placeholder="z.B. [GEFILTERT]">
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label>Beschreibung:</label>
+                <textarea id="description" placeholder="Warum dieser Filter erstellt wurde..."></textarea>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Filter-Typ:</label>
+                    <select id="filterType">
+                        <option value="word">Word (Ganzes Wort)</option>
+                        <option value="phrase">Phrase (Exakte Phrase)</option>
+                        <option value="regex">Regex (Pattern)</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>Priorität (höher = zuerst):</label>
+                    <input type="number" id="priority" value="100" min="0" max="999">
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="checkbox-group">
+                    <input type="checkbox" id="caseSensitive">
+                    <label for="caseSensitive">Groß-/Kleinschreibung beachten</label>
+                </div>
+                
+                <div class="checkbox-group">
+                    <input type="checkbox" id="enabled" checked>
+                    <label for="enabled">Filter aktiviert</label>
+                </div>
+            </div>
+            
+            <button class="btn-primary" onclick="createFilter()">Filter erstellen</button>
+            
+            <!-- Beispiele -->
+            <div class="example-box">
+                <h4>📝 Beispiele:</h4>
+                <pre><strong>Word Filter:</strong>
+Pattern: badword
+Replacement: [GEFILTERT]
+Typ: word
+
+<strong>Phrase Filter:</strong>
+Pattern: confidential information
+Replacement: [VERTRAULICH]
+Typ: phrase
+
+<strong>Regex Filter (Email):</strong>
+Pattern: \b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b
+Replacement: [EMAIL_ENTFERNT]
+Typ: regex</pre>
+            </div>
+        </div>
+        
+        <!-- Filter Liste -->
+        <div class="filters-list">
+            <h2>📋 Aktive Filter <button class="btn-secondary" onclick="loadFilters()">🔄 Aktualisieren</button></h2>
+            <div id="filtersList">
+                <p style="color: #999;">Lade Filter...</p>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Beim Laden Seite Filter laden
+        window.onload = function() {
+            loadFilters();
+        };
+        
+        function showAlert(message, type = 'success') {
+            const alertBox = document.getElementById('alertBox');
+            alertBox.className = `alert alert-${type}`;
+            alertBox.textContent = message;
+            alertBox.style.display = 'block';
+            
+            setTimeout(() => {
+                alertBox.style.display = 'none';
+            }, 5000);
+        }
+        
+        async function createFilter() {
+            const apiEndpoint = document.getElementById('apiEndpoint').value;
+            const adminKey = document.getElementById('adminKey').value;
+            
+            const filterData = {
+                pattern: document.getElementById('pattern').value,
+                replacement: document.getElementById('replacement').value,
+                description: document.getElementById('description').value,
+                filter_type: document.getElementById('filterType').value,
+                case_sensitive: document.getElementById('caseSensitive').checked,
+                enabled: document.getElementById('enabled').checked,
+                priority: parseInt(document.getElementById('priority').value)
+            };
+            
+            if (!filterData.pattern || !filterData.replacement) {
+                showAlert('Bitte Pattern und Replacement ausfüllen!', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${apiEndpoint}/admin/filters`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Admin-API-Key': adminKey
+                    },
+                    body: JSON.stringify(filterData)
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showAlert(`Filter erfolgreich erstellt! ID: ${data.id}`, 'success');
+                    // Formular zurücksetzen
+                    document.getElementById('pattern').value = '';
+                    document.getElementById('replacement').value = '';
+                    document.getElementById('description').value = '';
+                    // Filter neu laden
+                    loadFilters();
+                } else {
+                    showAlert(`Fehler: ${data.error?.message || 'Unbekannter Fehler'}`, 'error');
+                }
+            } catch (error) {
+                showAlert(`Fehler beim Erstellen: ${error.message}`, 'error');
+            }
+        }
+        
+        async function loadFilters() {
+            const apiEndpoint = document.getElementById('apiEndpoint').value;
+            const adminKey = document.getElementById('adminKey').value;
+            const filtersList = document.getElementById('filtersList');
+            
+            try {
+                const response = await fetch(`${apiEndpoint}/admin/filters`, {
+                    headers: {
+                        'X-Admin-API-Key': adminKey
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.filters) {
+                    if (data.filters.length === 0) {
+                        filtersList.innerHTML = '<p style="color: #999;">Keine Filter vorhanden. Erstelle deinen ersten Filter!</p>';
+                        return;
+                    }
+                    
+                    filtersList.innerHTML = data.filters.map(filter => `
+                        <div class="filter-card">
+                            <div class="filter-header">
+                                <div>
+                                    <span class="filter-type ${filter.filter_type}">${filter.filter_type}</span>
+                                    <span class="filter-status ${filter.enabled ? 'enabled' : 'disabled'}">
+                                        ${filter.enabled ? 'Aktiviert' : 'Deaktiviert'}
+                                    </span>
+                                    <strong style="margin-left: 10px;">Priorität: ${filter.priority}</strong>
+                                </div>
+                                <div>
+                                    <button class="btn-secondary" onclick="toggleFilter(${filter.id}, ${!filter.enabled})">
+                                        ${filter.enabled ? '⏸️ Deaktivieren' : '▶️ Aktivieren'}
+                                    </button>
+                                    <button class="btn-danger" onclick="deleteFilter(${filter.id})">🗑️ Löschen</button>
+                                </div>
+                            </div>
+                            <div class="filter-pattern">
+                                <strong>Pattern:</strong> ${escapeHtml(filter.pattern)} → <strong>Replacement:</strong> ${escapeHtml(filter.replacement)}
+                            </div>
+                            ${filter.description ? `<div class="filter-description">${escapeHtml(filter.description)}</div>` : ''}
+                            <div class="filter-meta">
+                                <span>📊 Matches: ${filter.match_count}</span>
+                                <span>📅 Erstellt: ${new Date(filter.created_at).toLocaleString('de-DE')}</span>
+                                ${filter.last_matched_at ? `<span>🎯 Letzter Match: ${new Date(filter.last_matched_at).toLocaleString('de-DE')}</span>` : ''}
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    filtersList.innerHTML = '<p style="color: #999;">Fehler beim Laden der Filter.</p>';
+                }
+            } catch (error) {
+                filtersList.innerHTML = `<p style="color: #c62828;">Fehler: ${error.message}</p>`;
+            }
+        }
+        
+        async function toggleFilter(id, enabled) {
+            const apiEndpoint = document.getElementById('apiEndpoint').value;
+            const adminKey = document.getElementById('adminKey').value;
+            
+            try {
+                const response = await fetch(`${apiEndpoint}/admin/filters/${id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Admin-API-Key': adminKey
+                    },
+                    body: JSON.stringify({ enabled })
+                });
+                
+                if (response.ok) {
+                    showAlert(`Filter ${enabled ? 'aktiviert' : 'deaktiviert'}!`, 'success');
+                    loadFilters();
+                } else {
+                    showAlert('Fehler beim Aktualisieren des Filters', 'error');
+                }
+            } catch (error) {
+                showAlert(`Fehler: ${error.message}`, 'error');
+            }
+        }
+        
+        async function deleteFilter(id) {
+            if (!confirm('Filter wirklich löschen?')) return;
+            
+            const apiEndpoint = document.getElementById('apiEndpoint').value;
+            const adminKey = document.getElementById('adminKey').value;
+            
+            try {
+                const response = await fetch(`${apiEndpoint}/admin/filters/${id}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'X-Admin-API-Key': adminKey
+                    }
+                });
+                
+                if (response.ok) {
+                    showAlert('Filter gelöscht!', 'success');
+                    loadFilters();
+                } else {
+                    showAlert('Fehler beim Löschen des Filters', 'error');
+                }
+            } catch (error) {
+                showAlert(`Fehler: ${error.message}`, 'error');
+            }
+        }
+        
+        function escapeHtml(text) {
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, m => map[m]);
+        }
+    </script>
+</body>
+</html>

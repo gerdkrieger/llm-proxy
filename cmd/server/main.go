@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/llm-proxy/llm-proxy/internal/application/caching"
+	"github.com/llm-proxy/llm-proxy/internal/application/filtering"
 	"github.com/llm-proxy/llm-proxy/internal/application/oauth"
 	"github.com/llm-proxy/llm-proxy/internal/config"
 	"github.com/llm-proxy/llm-proxy/internal/infrastructure/cache"
@@ -78,10 +79,15 @@ func main() {
 	clientRepo := repositories.NewOAuthClientRepository(db)
 	tokenRepo := repositories.NewOAuthTokenRepository(db)
 	requestLogRepo := repositories.NewRequestLogRepository(db)
+	contentFilterRepo := repositories.NewContentFilterRepository(db)
 
 	// Initialize caching service
 	log.Info("Initializing caching service...")
 	cacheService := caching.NewService(redis, cfg.Cache, log)
+
+	// Initialize content filtering service
+	log.Info("Initializing content filtering service...")
+	filterService := filtering.NewService(contentFilterRepo, log)
 
 	// Initialize metrics
 	log.Info("Initializing Prometheus metrics...")
@@ -106,9 +112,10 @@ func main() {
 	// Initialize handlers
 	log.Info("Initializing API handlers...")
 	oauthHandler := api.NewOAuthHandler(oauthService, log)
-	chatHandler := api.NewChatHandler(providerManager, requestLogRepo, clientRepo, cacheService, log)
+	chatHandler := api.NewChatHandler(providerManager, requestLogRepo, clientRepo, cacheService, filterService, log)
 	modelsHandler := api.NewModelsHandler(providerManager, log)
 	adminHandler := api.NewAdminHandler(clientRepo, tokenRepo, requestLogRepo, cacheService, providerManager, log)
+	filterHandler := api.NewContentFilterHandler(contentFilterRepo, filterService, log)
 
 	// Initialize middleware
 	log.Info("Initializing middleware...")
@@ -118,7 +125,7 @@ func main() {
 
 	// Create router with all handlers
 	log.Info("Initializing router...")
-	router := api.NewRouter(cfg, db, redis, log, oauthHandler, chatHandler, modelsHandler, adminHandler, oauthMiddleware, adminMiddleware, metricsMiddleware, promhttp.Handler())
+	router := api.NewRouter(cfg, db, redis, log, oauthHandler, chatHandler, modelsHandler, adminHandler, filterHandler, oauthMiddleware, adminMiddleware, metricsMiddleware, promhttp.Handler())
 
 	// Create HTTP server
 	server := &http.Server{

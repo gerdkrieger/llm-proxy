@@ -1,6 +1,6 @@
 <script>
   import { apiKey } from '../lib/stores.js';
-  let keyInput = '';
+  let keyInput = 'admin_dev_key_12345678901234567890123456789012';
   
   function handleLogin() {
     if (keyInput.trim()) {

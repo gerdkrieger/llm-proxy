@@ -1,0 +1,13 @@
+pattern,replacement,filter_type,priority,description,case_sensitive,enabled
+badword,[FILTERED],word,100,Filtert offensive Sprache,false,true
+damn,[*],word,100,Milde Kraftausdrücke,false,true
+shit,[CENSORED],word,100,Starke Kraftausdrücke,false,true
+confidential information,[REDACTED],phrase,95,Vertrauliche Informationen,false,true
+Project Phoenix,[INTERNAL_PROJECT],phrase,95,Interner Projektname,false,true
+top secret,[CLASSIFIED],phrase,95,Geheime Informationen,false,true
+\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b,[EMAIL],regex,90,Email-Adressen filtern,false,true
+\b0[0-9]{2,4}[-\s]?[0-9]{3,8}\b,[PHONE],regex,90,Deutsche Telefonnummern,false,true
+\b[0-9]{4}[\s-]?[0-9]{4}[\s-]?[0-9]{4}[\s-]?[0-9]{4}\b,[CREDIT_CARD],regex,95,Kreditkartennummern,false,true
+CompetitorX,[COMPETITOR],word,80,Konkurrenz-Erwähnung,false,true
+password,[***],word,100,Passwort-Erwähnung,false,true
+secret key,[KEY_REDACTED],phrase,95,API Keys,false,true

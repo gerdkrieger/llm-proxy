@@ -2,7 +2,6 @@ package repositories
 
 import (
 	"context"
-	"time"
 
 	"github.com/llm-proxy/llm-proxy/internal/domain/models"
 	"github.com/llm-proxy/llm-proxy/internal/infrastructure/database"

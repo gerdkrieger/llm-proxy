@@ -34,6 +34,7 @@ func NewRouter(
 	chatHandler *ChatHandler,
 	modelsHandler *ModelsHandler,
 	adminHandler *AdminHandler,
+	filterHandler *ContentFilterHandler,
 	oauthMiddleware *customMiddleware.OAuthMiddleware,
 	adminMiddleware *customMiddleware.AdminMiddleware,
 	metricsMiddleware func(http.Handler) http.Handler,
@@ -119,6 +120,23 @@ func NewRouter(
 
 		// Provider Status
 		r.Get("/providers/status", adminHandler.GetProviderStatus)
+
+		// Content Filter Management
+		r.Route("/filters", func(r chi.Router) {
+			r.Get("/", filterHandler.ListFilters)                   // GET /admin/filters
+			r.Post("/", filterHandler.CreateFilter)                 // POST /admin/filters
+			r.Get("/stats", filterHandler.GetFilterStats)           // GET /admin/filters/stats
+			r.Post("/test", filterHandler.TestFilter)               // POST /admin/filters/test
+			r.Post("/refresh", filterHandler.RefreshFilters)        // POST /admin/filters/refresh
+			r.Post("/bulk-import", filterHandler.BulkImportFilters) // POST /admin/filters/bulk-import
+
+			r.Route("/{id}", func(r chi.Router) {
+				r.Get("/", filterHandler.GetFilter)       // GET /admin/filters/{id}
+				r.Put("/", filterHandler.UpdateFilter)    // PUT /admin/filters/{id}
+				r.Delete("/", filterHandler.DeleteFilter) // DELETE /admin/filters/{id}
+				r.Post("/test", filterHandler.TestFilter) // POST /admin/filters/{id}/test
+			})
+		})
 	})
 
 	return &Router{

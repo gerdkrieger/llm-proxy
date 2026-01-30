@@ -5,6 +5,7 @@
   import Clients from './components/Clients.svelte';
   import Cache from './components/Cache.svelte';
   import Stats from './components/Stats.svelte';
+  import Filters from './components/Filters.svelte';
 
   let isAuthenticated = false;
   
@@ -35,6 +36,10 @@
                     class="w-full text-left px-4 py-2 rounded hover:bg-gray-800">
               👥 Clients
             </button>
+            <button on:click={() => currentPage.set('filters')} 
+                    class="w-full text-left px-4 py-2 rounded hover:bg-gray-800">
+              🔒 Filters
+            </button>
             <button on:click={() => currentPage.set('cache')} 
                     class="w-full text-left px-4 py-2 rounded hover:bg-gray-800">
               💾 Cache
@@ -59,6 +64,8 @@
           <Dashboard />
         {:else if $currentPage === 'clients'}
           <Clients />
+        {:else if $currentPage === 'filters'}
+          <Filters />
         {:else if $currentPage === 'cache'}
           <Cache />
         {:else if $currentPage === 'stats'}

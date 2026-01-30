@@ -1,0 +1,112 @@
+{
+  "filters": [
+    {
+      "pattern": "badword",
+      "replacement": "[FILTERED]",
+      "filter_type": "word",
+      "priority": 100,
+      "description": "Filtert offensive Sprache",
+      "case_sensitive": false,
+      "enabled": true
+    },
+    {
+      "pattern": "damn",
+      "replacement": "[*]",
+      "filter_type": "word",
+      "priority": 100,
+      "description": "Milde Kraftausdrücke",
+      "case_sensitive": false,
+      "enabled": true
+    },
+    {
+      "pattern": "shit",
+      "replacement": "[CENSORED]",
+      "filter_type": "word",
+      "priority": 100,
+      "description": "Starke Kraftausdrücke",
+      "case_sensitive": false,
+      "enabled": true
+    },
+    {
+      "pattern": "confidential information",
+      "replacement": "[REDACTED]",
+      "filter_type": "phrase",
+      "priority": 95,
+      "description": "Vertrauliche Informationen",
+      "case_sensitive": false,
+      "enabled": true
+    },
+    {
+      "pattern": "Project Phoenix",
+      "replacement": "[INTERNAL_PROJECT]",
+      "filter_type": "phrase",
+      "priority": 95,
+      "description": "Interner Projektname",
+      "case_sensitive": false,
+      "enabled": true
+    },
+    {
+      "pattern": "top secret",
+      "replacement": "[CLASSIFIED]",
+      "filter_type": "phrase",
+      "priority": 95,
+      "description": "Geheime Informationen",
+      "case_sensitive": false,
+      "enabled": true
+    },
+    {
+      "pattern": "\\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Z|a-z]{2,}\\b",
+      "replacement": "[EMAIL]",
+      "filter_type": "regex",
+      "priority": 90,
+      "description": "Email-Adressen filtern",
+      "case_sensitive": false,
+      "enabled": true
+    },
+    {
+      "pattern": "\\b0[0-9]{2,4}[-\\s]?[0-9]{3,8}\\b",
+      "replacement": "[PHONE]",
+      "filter_type": "regex",
+      "priority": 90,
+      "description": "Deutsche Telefonnummern",
+      "case_sensitive": false,
+      "enabled": true
+    },
+    {
+      "pattern": "\\b[0-9]{4}[\\s-]?[0-9]{4}[\\s-]?[0-9]{4}[\\s-]?[0-9]{4}\\b",
+      "replacement": "[CREDIT_CARD]",
+      "filter_type": "regex",
+      "priority": 95,
+      "description": "Kreditkartennummern",
+      "case_sensitive": false,
+      "enabled": true
+    },
+    {
+      "pattern": "CompetitorX",
+      "replacement": "[COMPETITOR]",
+      "filter_type": "word",
+      "priority": 80,
+      "description": "Konkurrenz-Erwähnung",
+      "case_sensitive": false,
+      "enabled": true
+    },
+    {
+      "pattern": "password",
+      "replacement": "[***]",
+      "filter_type": "word",
+      "priority": 100,
+      "description": "Passwort-Erwähnung",
+      "case_sensitive": false,
+      "enabled": true
+    },
+    {
+      "pattern": "secret key",
+      "replacement": "[KEY_REDACTED]",
+      "filter_type": "phrase",
+      "priority": 95,
+      "description": "API Keys",
+      "case_sensitive": false,
+      "enabled": true
+    }
+  ]
+}

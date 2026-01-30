@@ -92,6 +92,59 @@ class AdminAPI {
   async getProviderStatus() {
     return this.request('/admin/providers/status');
   }
+
+  // Content Filters
+  async listFilters() {
+    return this.request('/admin/filters');
+  }
+
+  async getFilter(id) {
+    return this.request(`/admin/filters/${id}`);
+  }
+
+  async createFilter(filter) {
+    return this.request('/admin/filters', {
+      method: 'POST',
+      body: JSON.stringify(filter),
+    });
+  }
+
+  async updateFilter(id, updates) {
+    return this.request(`/admin/filters/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    });
+  }
+
+  async deleteFilter(id) {
+    return this.request(`/admin/filters/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async bulkImportFilters(filters) {
+    return this.request('/admin/filters/bulk-import', {
+      method: 'POST',
+      body: JSON.stringify({ filters }),
+    });
+  }
+
+  async testFilter(id, text) {
+    return this.request(`/admin/filters/${id}/test`, {
+      method: 'POST',
+      body: JSON.stringify({ text }),
+    });
+  }
+
+  async getFilterStats() {
+    return this.request('/admin/filters/stats');
+  }
+
+  async refreshFilters() {
+    return this.request('/admin/filters/refresh', {
+      method: 'POST',
+    });
+  }
 }
 
 export default AdminAPI;

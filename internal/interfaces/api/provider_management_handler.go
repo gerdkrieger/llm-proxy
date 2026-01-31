@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"github.com/llm-proxy/llm-proxy/internal/config"
 	"github.com/llm-proxy/llm-proxy/internal/infrastructure/database/repositories"
 	"github.com/llm-proxy/llm-proxy/internal/infrastructure/providers"
@@ -15,6 +16,7 @@ import (
 // ProviderManagementHandler handles provider management requests
 type ProviderManagementHandler struct {
 	providerSettingsRepo *repositories.ProviderSettingsRepository
+	providerModelRepo    *repositories.ProviderModelRepository
 	providerMgr          *providers.ProviderManager
 	config               *config.Config
 	logger               *logger.Logger
@@ -23,12 +25,14 @@ type ProviderManagementHandler struct {
 // NewProviderManagementHandler creates a new provider management handler
 func NewProviderManagementHandler(
 	providerSettingsRepo *repositories.ProviderSettingsRepository,
+	providerModelRepo *repositories.ProviderModelRepository,
 	providerMgr *providers.ProviderManager,
 	cfg *config.Config,
 	log *logger.Logger,
 ) *ProviderManagementHandler {
 	return &ProviderManagementHandler{
 		providerSettingsRepo: providerSettingsRepo,
+		providerModelRepo:    providerModelRepo,
 		providerMgr:          providerMgr,
 		config:               cfg,
 		logger:               log,
@@ -197,4 +201,160 @@ func getProviderName(providerID string) string {
 	default:
 		return providerID
 	}
+}
+
+// ============================================================================
+// MODEL MANAGEMENT
+// ============================================================================
+
+// Available models for each provider (hardcoded for MVP)
+var providerModels = map[string][]ModelInfo{
+	"claude": {
+		{ID: "claude-3-5-sonnet-20241022", Name: "Claude 3.5 Sonnet (Latest)", Capabilities: []string{"vision", "function_calling"}},
+		{ID: "claude-3-5-haiku-20241022", Name: "Claude 3.5 Haiku (Latest)", Capabilities: []string{"vision"}},
+		{ID: "claude-3-opus-20240229", Name: "Claude 3 Opus", Capabilities: []string{"vision", "function_calling"}},
+		{ID: "claude-3-sonnet-20240229", Name: "Claude 3 Sonnet", Capabilities: []string{"vision", "function_calling"}},
+		{ID: "claude-3-haiku-20240307", Name: "Claude 3 Haiku", Capabilities: []string{"vision"}},
+		{ID: "claude-2.1", Name: "Claude 2.1", Capabilities: []string{}},
+		{ID: "claude-2.0", Name: "Claude 2.0", Capabilities: []string{}},
+		{ID: "claude-instant-1.2", Name: "Claude Instant 1.2", Capabilities: []string{}},
+	},
+	"openai": {
+		{ID: "gpt-4-turbo", Name: "GPT-4 Turbo", Capabilities: []string{"vision", "function_calling", "json_mode"}},
+		{ID: "gpt-4-turbo-preview", Name: "GPT-4 Turbo Preview", Capabilities: []string{"vision", "function_calling"}},
+		{ID: "gpt-4-1106-preview", Name: "GPT-4 Turbo 1106", Capabilities: []string{"vision", "function_calling"}},
+		{ID: "gpt-4-vision-preview", Name: "GPT-4 Vision Preview", Capabilities: []string{"vision"}},
+		{ID: "gpt-4", Name: "GPT-4", Capabilities: []string{"function_calling"}},
+		{ID: "gpt-4-0613", Name: "GPT-4 (0613)", Capabilities: []string{"function_calling"}},
+		{ID: "gpt-4-32k", Name: "GPT-4 32K", Capabilities: []string{"function_calling"}},
+		{ID: "gpt-4-32k-0613", Name: "GPT-4 32K (0613)", Capabilities: []string{"function_calling"}},
+		{ID: "gpt-3.5-turbo", Name: "GPT-3.5 Turbo", Capabilities: []string{"function_calling"}},
+		{ID: "gpt-3.5-turbo-16k", Name: "GPT-3.5 Turbo 16K", Capabilities: []string{"function_calling"}},
+		{ID: "gpt-3.5-turbo-1106", Name: "GPT-3.5 Turbo 1106", Capabilities: []string{"function_calling", "json_mode"}},
+		{ID: "gpt-3.5-turbo-0613", Name: "GPT-3.5 Turbo (0613)", Capabilities: []string{"function_calling"}},
+	},
+}
+
+// ModelInfo represents information about a model
+type ModelInfo struct {
+	ID           string   `json:"id"`
+	Name         string   `json:"name"`
+	Capabilities []string `json:"capabilities"`
+}
+
+// ModelWithStatus represents a model with its enable/disable status
+type ModelWithStatus struct {
+	ModelInfo
+	Enabled bool `json:"enabled"`
+}
+
+// GetProviderModels returns all available models for a provider with their status
+// GET /admin/providers/{id}/models
+func (h *ProviderManagementHandler) GetProviderModels(w http.ResponseWriter, r *http.Request) {
+	providerID := chi.URLParam(r, "id")
+	h.logger.Infof("Admin: Getting models for provider: %s", providerID)
+
+	// Get available models for this provider
+	availableModels, ok := providerModels[providerID]
+	if !ok {
+		h.respondError(w, http.StatusNotFound, "Provider not found")
+		return
+	}
+
+	// Get enabled models from database
+	dbModels, err := h.providerModelRepo.GetByProvider(r.Context(), providerID)
+	if err != nil {
+		h.logger.Warnf("Failed to get models from DB: %v, using defaults", err)
+	}
+
+	// Create a map of model ID -> enabled status
+	enabledMap := make(map[string]bool)
+	for _, dbModel := range dbModels {
+		enabledMap[dbModel.ModelID] = dbModel.Enabled
+	}
+
+	// Combine available models with status
+	modelsWithStatus := make([]ModelWithStatus, len(availableModels))
+	for i, model := range availableModels {
+		enabled, exists := enabledMap[model.ID]
+		if !exists {
+			enabled = true // Default to enabled if not in DB
+		}
+		modelsWithStatus[i] = ModelWithStatus{
+			ModelInfo: model,
+			Enabled:   enabled,
+		}
+	}
+
+	h.respondJSON(w, http.StatusOK, map[string]interface{}{
+		"provider_id": providerID,
+		"models":      modelsWithStatus,
+		"total":       len(modelsWithStatus),
+	})
+}
+
+// ConfigureProviderModelsRequest represents the request to configure models
+type ConfigureProviderModelsRequest struct {
+	EnabledModels []string `json:"enabled_models"`
+}
+
+// ConfigureProviderModels updates which models are enabled for a provider
+// POST /admin/providers/{id}/models/configure
+func (h *ProviderManagementHandler) ConfigureProviderModels(w http.ResponseWriter, r *http.Request) {
+	providerID := chi.URLParam(r, "id")
+	h.logger.Infof("Admin: Configuring models for provider: %s", providerID)
+
+	var req ConfigureProviderModelsRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.respondError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	// Get available models for this provider
+	availableModels, ok := providerModels[providerID]
+	if !ok {
+		h.respondError(w, http.StatusNotFound, "Provider not found")
+		return
+	}
+
+	// Create a map of enabled model IDs
+	enabledSet := make(map[string]bool)
+	for _, modelID := range req.EnabledModels {
+		enabledSet[modelID] = true
+	}
+
+	// Update all models in the database
+	ctx := r.Context()
+	updatedCount := 0
+	for _, model := range availableModels {
+		enabled := enabledSet[model.ID]
+
+		// Create or update model in DB
+		dbModel := &repositories.ProviderModel{
+			ID:         uuid.New(),
+			ProviderID: providerID,
+			ModelID:    model.ID,
+			ModelName:  model.Name,
+			Enabled:    enabled,
+			Capabilities: map[string]interface{}{
+				"features": model.Capabilities,
+			},
+			Pricing: map[string]interface{}{},
+		}
+
+		if err := h.providerModelRepo.Create(ctx, dbModel); err != nil {
+			h.logger.Warnf("Failed to update model %s: %v", model.ID, err)
+			continue
+		}
+		updatedCount++
+	}
+
+	h.logger.Infof("Updated %d models for provider %s", updatedCount, providerID)
+
+	h.respondJSON(w, http.StatusOK, map[string]interface{}{
+		"success":       true,
+		"provider_id":   providerID,
+		"updated_count": updatedCount,
+		"enabled_count": len(req.EnabledModels),
+	})
 }

@@ -172,6 +172,20 @@ class AdminAPI {
       body: JSON.stringify({ enabled }),
     });
   }
+
+  // Model Management
+  async getProviderModels(providerId) {
+    return this.request(`/admin/providers/${providerId}/models`, {
+      method: 'GET',
+    });
+  }
+
+  async configureProviderModels(providerId, enabledModels) {
+    return this.request(`/admin/providers/${providerId}/models/configure`, {
+      method: 'POST',
+      body: JSON.stringify({ enabled_models: enabledModels }),
+    });
+  }
 }
 
 export default AdminAPI;

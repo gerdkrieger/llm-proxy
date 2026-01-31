@@ -138,17 +138,26 @@ func (s *RedactionService) performOCR(filename string, fileType string) ([]OCRWo
 		return nil, fmt.Errorf("tesseract not found in PATH")
 	}
 
-	// Convert PDF to images first if needed
+	var imageFile string
+	var cleanup func()
+
+	// Convert PDF to image first if needed
 	if fileType == "pdf" {
-		// Use pdftoppm or imagemagick to convert PDF to images
-		// For now, we'll use a simple approach
-		return nil, fmt.Errorf("PDF OCR not yet fully implemented")
+		pngFile, err := s.convertPDFToImage(filename)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert PDF to image: %w", err)
+		}
+		imageFile = pngFile
+		cleanup = func() { os.Remove(pngFile) }
+		defer cleanup()
+	} else {
+		imageFile = filename
 	}
 
 	// For images, run tesseract with hOCR output (contains coordinates)
 	outputBase := filepath.Join(s.tempDir, "ocr_output")
 
-	cmd := exec.Command("tesseract", filename, outputBase, "-l", "eng+deu", "hocr")
+	cmd := exec.Command("tesseract", imageFile, outputBase, "-l", "eng+deu", "hocr")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return nil, fmt.Errorf("tesseract failed: %w (output: %s)", err, string(output))
@@ -167,6 +176,35 @@ func (s *RedactionService) performOCR(filename string, fileType string) ([]OCRWo
 	words := s.parseHOCR(string(hocrData))
 
 	return words, nil
+}
+
+// convertPDFToImage converts the first page of a PDF to PNG for OCR
+func (s *RedactionService) convertPDFToImage(pdfFile string) (string, error) {
+	// Output file
+	pngFile := filepath.Join(s.tempDir, "pdf_page.png")
+
+	// Try pdftoppm first (faster and better quality)
+	if _, err := exec.LookPath("pdftoppm"); err == nil {
+		// pdftoppm -png -f 1 -l 1 -singlefile -r 300 input.pdf output
+		cmd := exec.Command("pdftoppm", "-png", "-f", "1", "-l", "1", "-singlefile", "-r", "300", pdfFile, filepath.Join(s.tempDir, "pdf_page"))
+		if output, err := cmd.CombinedOutput(); err != nil {
+			s.logger.Warnf("pdftoppm failed: %v (output: %s), trying ImageMagick", err, string(output))
+		} else {
+			return pngFile, nil
+		}
+	}
+
+	// Fallback to ImageMagick convert
+	if _, err := exec.LookPath("convert"); err == nil {
+		// convert -density 300 input.pdf[0] output.png
+		cmd := exec.Command("convert", "-density", "300", pdfFile+"[0]", pngFile)
+		if output, err := cmd.CombinedOutput(); err != nil {
+			return "", fmt.Errorf("imagemagick convert failed: %w (output: %s)", err, string(output))
+		}
+		return pngFile, nil
+	}
+
+	return "", fmt.Errorf("no PDF conversion tool available (need pdftoppm or convert)")
 }
 
 // parseHOCR parses hOCR XML format and extracts words with bounding boxes

@@ -83,6 +83,7 @@ func main() {
 	contentFilterRepo := repositories.NewContentFilterRepository(db)
 	filterMatchRepo := repositories.NewFilterMatchRepository(db)
 	providerSettingsRepo := repositories.NewProviderSettingsRepository(db)
+	providerModelRepo := repositories.NewProviderModelRepository(db)
 
 	// Initialize caching service
 	log.Info("Initializing caching service...")
@@ -123,7 +124,7 @@ func main() {
 	modelsHandler := api.NewModelsHandler(providerManager, log)
 	adminHandler := api.NewAdminHandler(clientRepo, tokenRepo, requestLogRepo, filterMatchRepo, cacheService, providerManager, log)
 	filterHandler := api.NewContentFilterHandler(contentFilterRepo, filterService, log)
-	providerMgmtHandler := api.NewProviderManagementHandler(providerSettingsRepo, providerManager, cfg, log)
+	providerMgmtHandler := api.NewProviderManagementHandler(providerSettingsRepo, providerModelRepo, providerManager, cfg, log)
 
 	// Initialize middleware
 	log.Info("Initializing middleware...")

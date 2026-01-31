@@ -128,9 +128,11 @@ func NewRouter(
 		r.Get("/providers", adminHandler.GetProviderDetails)
 
 		r.Route("/providers/{id}", func(r chi.Router) {
-			r.Get("/config", providerMgmtHandler.GetProviderConfig) // GET /admin/providers/{id}/config
-			r.Post("/test", providerMgmtHandler.TestProvider)       // POST /admin/providers/{id}/test
-			r.Put("/toggle", providerMgmtHandler.ToggleProvider)    // PUT /admin/providers/{id}/toggle
+			r.Get("/config", providerMgmtHandler.GetProviderConfig)                  // GET /admin/providers/{id}/config
+			r.Post("/test", providerMgmtHandler.TestProvider)                        // POST /admin/providers/{id}/test
+			r.Put("/toggle", providerMgmtHandler.ToggleProvider)                     // PUT /admin/providers/{id}/toggle
+			r.Get("/models", providerMgmtHandler.GetProviderModels)                  // GET /admin/providers/{id}/models
+			r.Post("/models/configure", providerMgmtHandler.ConfigureProviderModels) // POST /admin/providers/{id}/models/configure
 		})
 
 		// Content Filter Management

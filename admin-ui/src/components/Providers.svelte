@@ -11,10 +11,14 @@
   // Modal states
   let showConfigModal = false;
   let showTestModal = false;
+  let showModelsModal = false;
   let selectedProvider = null;
   let configData = null;
   let testResult = null;
   let testLoading = false;
+  let modelsData = null;
+  let modelsLoading = false;
+  let modelsSaving = false;
   
   async function loadProviderStatus() {
     loading = true;
@@ -100,6 +104,65 @@
       alert(`${provider.name} ${newState ? 'enabled' : 'disabled'} successfully`);
     } catch (err) {
       alert('Failed to toggle provider: ' + err.message);
+    }
+  }
+
+  // Model Management
+  async function openModelsModal(provider) {
+    selectedProvider = provider;
+    modelsLoading = true;
+    showModelsModal = true;
+    modelsData = null;
+    
+    const api = new AdminAPI($apiKey);
+    try {
+      const response = await api.getProviderModels(provider.id);
+      modelsData = response;
+    } catch (err) {
+      alert('Failed to load models: ' + err.message);
+      showModelsModal = false;
+    } finally {
+      modelsLoading = false;
+    }
+  }
+
+  async function saveModelConfiguration() {
+    if (!modelsData || !modelsData.models) return;
+    
+    modelsSaving = true;
+    const enabledModels = modelsData.models
+      .filter(m => m.enabled)
+      .map(m => m.id);
+    
+    const api = new AdminAPI($apiKey);
+    try {
+      await api.configureProviderModels(selectedProvider.id, enabledModels);
+      alert(`Model configuration saved! ${enabledModels.length} models enabled.`);
+      showModelsModal = false;
+      await refreshStatus();
+    } catch (err) {
+      alert('Failed to save configuration: ' + err.message);
+    } finally {
+      modelsSaving = false;
+    }
+  }
+
+  function toggleModel(model) {
+    model.enabled = !model.enabled;
+    modelsData = modelsData; // Trigger reactivity
+  }
+
+  function selectAllModels() {
+    if (modelsData && modelsData.models) {
+      modelsData.models.forEach(m => m.enabled = true);
+      modelsData = modelsData;
+    }
+  }
+
+  function deselectAllModels() {
+    if (modelsData && modelsData.models) {
+      modelsData.models.forEach(m => m.enabled = false);
+      modelsData = modelsData;
     }
   }
   
@@ -315,6 +378,12 @@
                     Test Connection
                   </button>
                   <button 
+                    on:click={() => openModelsModal(provider)}
+                    class="px-3 py-1.5 text-sm bg-purple-600 text-white rounded hover:bg-purple-700"
+                  >
+                    Manage Models
+                  </button>
+                  <button 
                     on:click={() => toggleProvider(provider)}
                     class="px-3 py-1.5 text-sm {provider.enabled ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'} text-white rounded"
                   >
@@ -491,3 +560,82 @@
     border-radius: 4px;
   }
 </style>
+
+<!-- Model Management Modal -->
+{#if showModelsModal}
+  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-6 max-w-3xl w-full max-h-[80vh] overflow-y-auto m-4">
+      <h3 class="text-xl font-semibold mb-4">
+        Manage Models - {selectedProvider?.name}
+      </h3>
+      
+      {#if modelsLoading}
+        <div class="flex justify-center py-8">
+          <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        </div>
+      {:else if modelsData}
+        <div class="mb-4 flex justify-between items-center">
+          <div class="text-sm text-gray-600">
+            {modelsData.models.filter(m => m.enabled).length} of {modelsData.total} models enabled
+          </div>
+          <div class="space-x-2">
+            <button
+              on:click={selectAllModels}
+              class="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+            >
+              Select All
+            </button>
+            <button
+              on:click={deselectAllModels}
+              class="px-3 py-1 text-sm bg-gray-600 text-white rounded hover:bg-gray-700"
+            >
+              Deselect All
+            </button>
+          </div>
+        </div>
+
+        <div class="space-y-2 max-h-96 overflow-y-auto border rounded p-3">
+          {#each modelsData.models as model}
+            <label class="flex items-start space-x-3 p-2 hover:bg-gray-50 rounded cursor-pointer">
+              <input
+                type="checkbox"
+                bind:checked={model.enabled}
+                class="mt-1 h-4 w-4 text-blue-600"
+              />
+              <div class="flex-1">
+                <div class="font-medium text-sm">{model.name}</div>
+                <div class="text-xs text-gray-500 font-mono">{model.id}</div>
+                {#if model.capabilities && model.capabilities.length > 0}
+                  <div class="flex gap-1 mt-1">
+                    {#each model.capabilities as cap}
+                      <span class="px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded">
+                        {cap}
+                      </span>
+                    {/each}
+                  </div>
+                {/if}
+              </div>
+            </label>
+          {/each}
+        </div>
+
+        <div class="mt-6 flex justify-end space-x-3">
+          <button
+            on:click={() => showModelsModal = false}
+            class="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+            disabled={modelsSaving}
+          >
+            Cancel
+          </button>
+          <button
+            on:click={saveModelConfiguration}
+            class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+            disabled={modelsSaving}
+          >
+            {modelsSaving ? 'Saving...' : 'Save Configuration'}
+          </button>
+        </div>
+      {/if}
+    </div>
+  </div>
+{/if}

@@ -11,6 +11,7 @@ import (
 	"github.com/llm-proxy/llm-proxy/internal/config"
 	"github.com/llm-proxy/llm-proxy/internal/domain/models"
 	"github.com/llm-proxy/llm-proxy/internal/infrastructure/providers/claude"
+	"github.com/llm-proxy/llm-proxy/internal/infrastructure/providers/openai"
 	"github.com/llm-proxy/llm-proxy/pkg/logger"
 )
 
@@ -23,19 +24,23 @@ type Provider interface {
 
 // ProviderManager manages multiple provider instances with load balancing
 type ProviderManager struct {
-	providers    []Provider
-	currentIndex int
-	mu           sync.RWMutex
-	logger       *logger.Logger
-	retryConfig  config.RetryConfig
+	providers     []Provider
+	openaiClients []*openai.Client
+	currentIndex  int
+	mu            sync.RWMutex
+	logger        *logger.Logger
+	retryConfig   config.RetryConfig
+	config        config.ProvidersConfig
 }
 
 // NewProviderManager creates a new provider manager
 func NewProviderManager(cfg config.ProvidersConfig, log *logger.Logger) *ProviderManager {
 	pm := &ProviderManager{
-		providers:   make([]Provider, 0),
-		logger:      log,
-		retryConfig: cfg.Claude.Retry,
+		providers:     make([]Provider, 0),
+		openaiClients: make([]*openai.Client, 0),
+		logger:        log,
+		retryConfig:   cfg.Claude.Retry,
+		config:        cfg,
 	}
 
 	// Initialize Claude providers
@@ -47,10 +52,21 @@ func NewProviderManager(cfg config.ProvidersConfig, log *logger.Logger) *Provide
 		}
 	}
 
-	if len(pm.providers) == 0 {
+	// Initialize OpenAI providers
+	if cfg.OpenAI.Enabled {
+		for i, apiKeyConfig := range cfg.OpenAI.APIKeys {
+			client := openai.NewClient(apiKeyConfig.Key, log)
+			pm.openaiClients = append(pm.openaiClients, client)
+			log.Infof("Initialized OpenAI provider %d with key: %s", i+1, client.GetAPIKey())
+		}
+	}
+
+	totalProviders := len(pm.providers) + len(pm.openaiClients)
+	if totalProviders == 0 {
 		log.Warn("No providers initialized!")
 	} else {
-		log.Infof("Provider manager initialized with %d provider(s)", len(pm.providers))
+		log.Infof("Provider manager initialized with %d provider(s) (Claude: %d, OpenAI: %d)",
+			totalProviders, len(pm.providers), len(pm.openaiClients))
 	}
 
 	return pm
@@ -148,14 +164,26 @@ func (pm *ProviderManager) Health(ctx context.Context) error {
 	pm.mu.RLock()
 	defer pm.mu.RUnlock()
 
-	if len(pm.providers) == 0 {
+	totalProviders := len(pm.providers) + len(pm.openaiClients)
+	if totalProviders == 0 {
 		return fmt.Errorf("no providers configured")
 	}
 
 	var healthyCount int
+
+	// Check Claude providers
 	for i, provider := range pm.providers {
 		if err := provider.Health(ctx); err != nil {
-			pm.logger.Warnf("Provider %d unhealthy: %v", i+1, err)
+			pm.logger.Warnf("Claude provider %d unhealthy: %v", i+1, err)
+		} else {
+			healthyCount++
+		}
+	}
+
+	// Check OpenAI providers
+	for i, client := range pm.openaiClients {
+		if err := client.Health(ctx); err != nil {
+			pm.logger.Warnf("OpenAI provider %d unhealthy: %v", i+1, err)
 		} else {
 			healthyCount++
 		}
@@ -165,7 +193,7 @@ func (pm *ProviderManager) Health(ctx context.Context) error {
 		return fmt.Errorf("all providers unhealthy")
 	}
 
-	pm.logger.Debugf("Provider health: %d/%d healthy", healthyCount, len(pm.providers))
+	pm.logger.Debugf("Provider health: %d/%d healthy", healthyCount, totalProviders)
 	return nil
 }
 
@@ -173,18 +201,32 @@ func (pm *ProviderManager) Health(ctx context.Context) error {
 func (pm *ProviderManager) GetProviderCount() int {
 	pm.mu.RLock()
 	defer pm.mu.RUnlock()
-	return len(pm.providers)
+	return len(pm.providers) + len(pm.openaiClients)
 }
 
-// GetAvailableModels returns list of available models
+// GetAvailableModels returns list of available models from all providers
 func (pm *ProviderManager) GetAvailableModels() []string {
-	// For now, return Claude models
-	// This could be extended to query providers dynamically
-	return []string{
-		"claude-3-opus-20240229",
-		"claude-3-sonnet-20240229",
-		"claude-3-haiku-20240307",
+	pm.mu.RLock()
+	defer pm.mu.RUnlock()
+
+	models := make([]string, 0)
+
+	// Add Claude models
+	if pm.config.Claude.Enabled && len(pm.config.Claude.Models) > 0 {
+		models = append(models, pm.config.Claude.Models...)
 	}
+
+	// Add OpenAI models
+	if pm.config.OpenAI.Enabled && len(pm.config.OpenAI.Models) > 0 {
+		models = append(models, pm.config.OpenAI.Models...)
+	}
+
+	// If no models configured, return defaults
+	if len(models) == 0 {
+		models = []string{"claude-3-haiku-20240307"}
+	}
+
+	return models
 }
 
 // GetClaudeClient returns the first Claude client for streaming

@@ -12,16 +12,17 @@ import (
 
 // Config holds all application configuration
 type Config struct {
-	Server       ServerConfig       `mapstructure:"server"`
-	Database     DatabaseConfig     `mapstructure:"database"`
-	Redis        RedisConfig        `mapstructure:"redis"`
-	OAuth        OAuthConfig        `mapstructure:"oauth"`
-	Admin        AdminConfig        `mapstructure:"admin"`
-	Providers    ProvidersConfig    `mapstructure:"providers"`
-	Cache        CacheConfig        `mapstructure:"cache"`
-	RateLimiting RateLimitingConfig `mapstructure:"rate_limiting"`
-	Logging      LoggingConfig      `mapstructure:"logging"`
-	Metrics      MetricsConfig      `mapstructure:"metrics"`
+	Server        ServerConfig         `mapstructure:"server"`
+	Database      DatabaseConfig       `mapstructure:"database"`
+	Redis         RedisConfig          `mapstructure:"redis"`
+	OAuth         OAuthConfig          `mapstructure:"oauth"`
+	Admin         AdminConfig          `mapstructure:"admin"`
+	ClientAPIKeys []ClientAPIKeyConfig `mapstructure:"client_api_keys"`
+	Providers     ProvidersConfig      `mapstructure:"providers"`
+	Cache         CacheConfig          `mapstructure:"cache"`
+	RateLimiting  RateLimitingConfig   `mapstructure:"rate_limiting"`
+	Logging       LoggingConfig        `mapstructure:"logging"`
+	Metrics       MetricsConfig        `mapstructure:"metrics"`
 }
 
 // ServerConfig holds HTTP server configuration
@@ -89,9 +90,18 @@ type AdminConfig struct {
 	APIKeys []string `mapstructure:"api_keys"`
 }
 
+// ClientAPIKeyConfig holds a single client API key configuration for OpenAI-compatible clients
+type ClientAPIKeyConfig struct {
+	Key     string   `mapstructure:"key"`
+	Name    string   `mapstructure:"name"`
+	Scopes  []string `mapstructure:"scopes"`
+	Enabled bool     `mapstructure:"enabled"`
+}
+
 // ProvidersConfig holds LLM provider configuration
 type ProvidersConfig struct {
 	Claude ClaudeConfig `mapstructure:"claude"`
+	OpenAI OpenAIConfig `mapstructure:"openai"`
 }
 
 // ClaudeConfig holds Anthropic Claude configuration
@@ -105,6 +115,21 @@ type ClaudeConfig struct {
 
 // ClaudeAPIKey holds a single Claude API key configuration
 type ClaudeAPIKey struct {
+	Key    string `mapstructure:"key"`
+	Weight int    `mapstructure:"weight"`
+	MaxRPM int    `mapstructure:"max_rpm"`
+}
+
+// OpenAIConfig holds OpenAI configuration
+type OpenAIConfig struct {
+	Enabled bool           `mapstructure:"enabled"`
+	APIKeys []OpenAIAPIKey `mapstructure:"api_keys"`
+	Models  []string       `mapstructure:"models"`
+	Timeout time.Duration  `mapstructure:"timeout"`
+}
+
+// OpenAIAPIKey holds a single OpenAI API key configuration
+type OpenAIAPIKey struct {
 	Key    string `mapstructure:"key"`
 	Weight int    `mapstructure:"weight"`
 	MaxRPM int    `mapstructure:"max_rpm"`
@@ -229,8 +254,16 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("providers.claude.retry.backoff_multiplier", 2.0)
 	v.SetDefault("providers.claude.models", []string{
 		"claude-3-opus-20240229",
-		"claude-3-sonnet-20240229",
 		"claude-3-haiku-20240307",
+	})
+
+	// Providers - OpenAI
+	v.SetDefault("providers.openai.enabled", false)
+	v.SetDefault("providers.openai.timeout", "120s")
+	v.SetDefault("providers.openai.models", []string{
+		"gpt-4-turbo-preview",
+		"gpt-4",
+		"gpt-3.5-turbo",
 	})
 
 	// Cache
@@ -296,6 +329,17 @@ func validate(cfg *Config) error {
 		if len(cfg.Providers.Claude.APIKeys) == 0 {
 			return fmt.Errorf("at least one Claude API key is required when Claude is enabled")
 		}
+	}
+
+	if cfg.Providers.OpenAI.Enabled {
+		if len(cfg.Providers.OpenAI.APIKeys) == 0 {
+			return fmt.Errorf("at least one OpenAI API key is required when OpenAI is enabled")
+		}
+	}
+
+	// At least one provider must be enabled
+	if !cfg.Providers.Claude.Enabled && !cfg.Providers.OpenAI.Enabled {
+		return fmt.Errorf("at least one provider must be enabled")
 	}
 
 	// Logging

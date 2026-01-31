@@ -93,6 +93,11 @@ class AdminAPI {
     return this.request('/admin/providers/status');
   }
 
+  // Provider Details
+  async getProviderDetails() {
+    return this.request('/admin/providers');
+  }
+
   // Content Filters
   async listFilters() {
     return this.request('/admin/filters');
@@ -140,9 +145,31 @@ class AdminAPI {
     return this.request('/admin/filters/stats');
   }
 
+  async getFilterMatches(limit = 100) {
+    return this.request(`/admin/filters/matches?limit=${limit}`);
+  }
+
   async refreshFilters() {
     return this.request('/admin/filters/refresh', {
       method: 'POST',
+    });
+  }
+
+  // Provider Management
+  async getProviderConfig(providerId) {
+    return this.request(`/admin/providers/${providerId}/config`);
+  }
+
+  async testProvider(providerId) {
+    return this.request(`/admin/providers/${providerId}/test`, {
+      method: 'POST',
+    });
+  }
+
+  async toggleProvider(providerId, enabled) {
+    return this.request(`/admin/providers/${providerId}/toggle`, {
+      method: 'PUT',
+      body: JSON.stringify({ enabled }),
     });
   }
 }

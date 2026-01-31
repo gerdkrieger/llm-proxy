@@ -6,6 +6,7 @@
   import Cache from './components/Cache.svelte';
   import Stats from './components/Stats.svelte';
   import Filters from './components/Filters.svelte';
+  import Providers from './components/Providers.svelte';
 
   let isAuthenticated = false;
   
@@ -31,6 +32,10 @@
             <button on:click={() => currentPage.set('dashboard')} 
                     class="w-full text-left px-4 py-2 rounded hover:bg-gray-800">
               📊 Dashboard
+            </button>
+            <button on:click={() => currentPage.set('providers')} 
+                    class="w-full text-left px-4 py-2 rounded hover:bg-gray-800">
+              🤖 Providers
             </button>
             <button on:click={() => currentPage.set('clients')} 
                     class="w-full text-left px-4 py-2 rounded hover:bg-gray-800">
@@ -62,6 +67,8 @@
       <div class="flex-1 overflow-auto">
         {#if $currentPage === 'dashboard'}
           <Dashboard />
+        {:else if $currentPage === 'providers'}
+          <Providers />
         {:else if $currentPage === 'clients'}
           <Clients />
         {:else if $currentPage === 'filters'}

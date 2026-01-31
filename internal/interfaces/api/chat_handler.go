@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
+	"github.com/llm-proxy/llm-proxy/internal/application/attachment"
 	"github.com/llm-proxy/llm-proxy/internal/application/caching"
 	"github.com/llm-proxy/llm-proxy/internal/application/filtering"
 	"github.com/llm-proxy/llm-proxy/internal/domain/models"
@@ -22,30 +23,36 @@ import (
 
 // ChatHandler handles chat completion requests
 type ChatHandler struct {
-	providerManager *providers.ProviderManager
-	requestLogRepo  *repositories.RequestLogRepository
-	clientRepo      *repositories.OAuthClientRepository
-	cacheService    *caching.Service
-	filterService   *filtering.Service
-	logger          *logger.Logger
+	providerManager   *providers.ProviderManager
+	requestLogRepo    *repositories.RequestLogRepository
+	filterMatchRepo   *repositories.FilterMatchRepository
+	clientRepo        *repositories.OAuthClientRepository
+	cacheService      *caching.Service
+	filterService     *filtering.Service
+	attachmentService *attachment.Service
+	logger            *logger.Logger
 }
 
 // NewChatHandler creates a new chat handler
 func NewChatHandler(
 	providerManager *providers.ProviderManager,
 	requestLogRepo *repositories.RequestLogRepository,
+	filterMatchRepo *repositories.FilterMatchRepository,
 	clientRepo *repositories.OAuthClientRepository,
 	cacheService *caching.Service,
 	filterService *filtering.Service,
+	attachmentService *attachment.Service,
 	log *logger.Logger,
 ) *ChatHandler {
 	return &ChatHandler{
-		providerManager: providerManager,
-		requestLogRepo:  requestLogRepo,
-		clientRepo:      clientRepo,
-		cacheService:    cacheService,
-		filterService:   filterService,
-		logger:          log,
+		providerManager:   providerManager,
+		requestLogRepo:    requestLogRepo,
+		filterMatchRepo:   filterMatchRepo,
+		clientRepo:        clientRepo,
+		cacheService:      cacheService,
+		filterService:     filterService,
+		attachmentService: attachmentService,
+		logger:            log,
 	}
 }
 
@@ -64,22 +71,50 @@ func (h *ChatHandler) CreateCompletion(w http.ResponseWriter, r *http.Request) {
 	// Parse OpenAI request
 	var openAIReq models.OpenAIRequest
 	if err := json.NewDecoder(r.Body).Decode(&openAIReq); err != nil {
-		h.logRequest(ctx, clientID, requestID, "", http.StatusBadRequest, 0, 0, 0, startTime, err)
+		h.logRequest(ctx, r, clientID, requestID, "", http.StatusBadRequest, 0, 0, 0, startTime, err)
 		h.respondError(w, http.StatusBadRequest, "invalid_request_error", "Invalid request body: "+err.Error())
 		return
 	}
 
 	// Validate request
 	if openAIReq.Model == "" {
-		h.logRequest(ctx, clientID, requestID, "", http.StatusBadRequest, 0, 0, 0, startTime, nil)
+		h.logRequest(ctx, r, clientID, requestID, "", http.StatusBadRequest, 0, 0, 0, startTime, nil)
 		h.respondError(w, http.StatusBadRequest, "invalid_request_error", "model is required")
 		return
 	}
 
 	if len(openAIReq.Messages) == 0 {
-		h.logRequest(ctx, clientID, requestID, openAIReq.Model, http.StatusBadRequest, 0, 0, 0, startTime, nil)
+		h.logRequest(ctx, r, clientID, requestID, openAIReq.Model, http.StatusBadRequest, 0, 0, 0, startTime, nil)
 		h.respondError(w, http.StatusBadRequest, "invalid_request_error", "messages are required")
 		return
+	}
+
+	// Analyze attachments for sensitive content
+	if h.attachmentService != nil {
+		attachmentResult, err := h.attachmentService.AnalyzeAttachments(ctx, openAIReq.Messages)
+		if err != nil {
+			h.logger.Warnf("Failed to analyze attachments: %v", err)
+		} else if attachmentResult != nil {
+			if attachmentResult.HasAttachments {
+				h.logger.Infof("Request %s contains %d attachments (%d blocked)",
+					requestID, attachmentResult.TotalAttachments, attachmentResult.BlockedAttachments)
+			}
+
+			// If attachments were blocked or redacted, log them
+			if len(attachmentResult.FilterMatches) > 0 {
+				if attachmentResult.BlockedAttachments > 0 {
+					h.logger.Warnf("Blocked %d attachments due to sensitive content in request %s",
+						attachmentResult.BlockedAttachments, requestID)
+				} else {
+					h.logger.Infof("Redacted PII in %d attachments for request %s",
+						attachmentResult.TotalAttachments, requestID)
+				}
+				go h.logFilterMatches(r, clientID, requestID, openAIReq.Model, attachmentResult.FilterMatches)
+			}
+
+			// Use cleaned messages (with blocked attachments removed)
+			openAIReq.Messages = attachmentResult.CleanedMessages
+		}
 	}
 
 	// Apply content filters to user messages
@@ -92,6 +127,8 @@ func (h *ChatHandler) CreateCompletion(w http.ResponseWriter, r *http.Request) {
 			openAIReq.Messages = filteredMessages
 			if len(matches) > 0 {
 				h.logger.Infof("Applied %d content filters to request %s (client: %s)", len(matches), requestID, clientID)
+				// Log filter matches to database (async, fire-and-forget)
+				go h.logFilterMatches(r, clientID, requestID, openAIReq.Model, matches)
 			}
 		}
 	}
@@ -111,6 +148,7 @@ func (h *ChatHandler) CreateCompletion(w http.ResponseWriter, r *http.Request) {
 			duration := time.Since(startTime)
 			h.logRequest(
 				ctx,
+				r,
 				clientID,
 				requestID,
 				openAIReq.Model,
@@ -134,7 +172,7 @@ func (h *ChatHandler) CreateCompletion(w http.ResponseWriter, r *http.Request) {
 	// Convert OpenAI request to Claude format
 	claudeReq, err := claude.MapOpenAIToClaude(&openAIReq)
 	if err != nil {
-		h.logRequest(ctx, clientID, requestID, openAIReq.Model, http.StatusBadRequest, 0, 0, 0, startTime, err)
+		h.logRequest(ctx, r, clientID, requestID, openAIReq.Model, http.StatusBadRequest, 0, 0, 0, startTime, err)
 		h.respondError(w, http.StatusBadRequest, "invalid_request_error", "Failed to convert request: "+err.Error())
 		return
 	}
@@ -159,7 +197,7 @@ func (h *ChatHandler) CreateCompletion(w http.ResponseWriter, r *http.Request) {
 			errorType = apiErr.Type
 		}
 
-		h.logRequest(ctx, clientID, requestID, openAIReq.Model, statusCode, 0, 0, 0, startTime, err)
+		h.logRequest(ctx, r, clientID, requestID, openAIReq.Model, statusCode, 0, 0, 0, startTime, err)
 		h.respondError(w, statusCode, errorType, "Provider error: "+err.Error())
 		return
 	}
@@ -184,6 +222,7 @@ func (h *ChatHandler) CreateCompletion(w http.ResponseWriter, r *http.Request) {
 	duration := time.Since(startTime)
 	h.logRequest(
 		ctx,
+		r,
 		clientID,
 		requestID,
 		openAIReq.Model,
@@ -208,6 +247,7 @@ func (h *ChatHandler) CreateCompletion(w http.ResponseWriter, r *http.Request) {
 // logRequest logs the request to database (async, fire-and-forget)
 func (h *ChatHandler) logRequest(
 	ctx context.Context,
+	r *http.Request,
 	clientID string,
 	requestID string,
 	model string,
@@ -218,12 +258,20 @@ func (h *ChatHandler) logRequest(
 	startTime time.Time,
 	err error,
 ) {
+	// Extract IP address and user agent from request
+	ipAddr := h.extractIPAddress(r)
+	userAgent := r.UserAgent()
+	var userAgentPtr *string
+	if userAgent != "" {
+		userAgentPtr = &userAgent
+	}
+
 	// Create log entry
 	log := &repositories.RequestLog{
 		ID:               uuid.New(),
 		RequestID:        requestID,
-		Method:           "POST",
-		Path:             "/v1/chat/completions",
+		Method:           r.Method,
+		Path:             r.URL.Path,
 		Model:            model,
 		Provider:         "claude",
 		PromptTokens:     promptTokens,
@@ -233,8 +281,8 @@ func (h *ChatHandler) logRequest(
 		DurationMS:       int(durationMS),
 		StatusCode:       statusCode,
 		Cached:           false,
-		IPAddress:        "", // TODO: Extract from request
-		UserAgent:        "", // TODO: Extract from request
+		IPAddress:        ipAddr,
+		UserAgent:        userAgentPtr,
 	}
 
 	// Get client UUID from client_id string
@@ -257,6 +305,109 @@ func (h *ChatHandler) logRequest(
 			h.logger.Error(err, "Failed to log request")
 		}
 	}()
+}
+
+// extractIPAddress extracts the client IP address from the request
+// Checks X-Forwarded-For, X-Real-IP headers first, then falls back to RemoteAddr
+func (h *ChatHandler) extractIPAddress(r *http.Request) *string {
+	// Check X-Forwarded-For header (for proxies)
+	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+		// X-Forwarded-For can contain multiple IPs, take the first one
+		for i := 0; i < len(xff); i++ {
+			if xff[i] == ',' || xff[i] == ' ' {
+				ip := xff[:i]
+				return &ip
+			}
+		}
+		return &xff
+	}
+
+	// Check X-Real-IP header
+	if xri := r.Header.Get("X-Real-IP"); xri != "" {
+		return &xri
+	}
+
+	// Fall back to RemoteAddr
+	if r.RemoteAddr != "" {
+		// RemoteAddr is in format "IP:port", extract just the IP
+		addr := r.RemoteAddr
+		for i := len(addr) - 1; i >= 0; i-- {
+			if addr[i] == ':' {
+				ip := addr[:i]
+				return &ip
+			}
+		}
+		return &addr
+	}
+
+	// No IP available
+	return nil
+}
+
+// logFilterMatches logs filter matches to database (async, fire-and-forget)
+func (h *ChatHandler) logFilterMatches(
+	r *http.Request,
+	clientID string,
+	requestID string,
+	model string,
+	matches []filtering.FilterMatch,
+) {
+	if h.filterMatchRepo == nil || len(matches) == 0 {
+		return
+	}
+
+	ctx := context.Background()
+	ipAddr := h.extractIPAddress(r)
+	userAgent := r.UserAgent()
+	var userAgentPtr *string
+	if userAgent != "" {
+		userAgentPtr = &userAgent
+	}
+
+	// Get client UUID from client_id string
+	var clientUUID *uuid.UUID
+	if clientID != "" {
+		if client, err := h.clientRepo.GetByClientID(ctx, clientID); err == nil {
+			clientUUID = &client.ID
+		}
+	}
+
+	// Determine provider (simple heuristic based on model name)
+	provider := "claude"
+	if len(model) > 0 {
+		if model[0] == 'g' && (len(model) < 3 || model[:3] == "gpt") {
+			provider = "openai"
+		}
+	}
+
+	// Log each match
+	for _, match := range matches {
+		// For attachment redactions (FilterID=0), use NULL filter_id
+		var filterIDPtr *int
+		if match.FilterID > 0 {
+			filterIDPtr = &match.FilterID
+		}
+
+		filterMatch := &repositories.FilterMatch{
+			ID:          uuid.New(),
+			RequestID:   requestID,
+			ClientID:    clientUUID,
+			FilterID:    filterIDPtr,
+			Model:       model,
+			Provider:    provider,
+			Pattern:     match.Pattern,
+			Replacement: match.Replacement,
+			FilterType:  "", // Will be set if available
+			MatchCount:  match.MatchCount,
+			MatchedText: nil, // Don't store actual matched text for privacy
+			IPAddress:   ipAddr,
+			UserAgent:   userAgentPtr,
+		}
+
+		if err := h.filterMatchRepo.Create(ctx, filterMatch); err != nil {
+			h.logger.Error(err, "Failed to log filter match")
+		}
+	}
 }
 
 // mapClaudeStatusCode maps Claude API status codes to HTTP status codes
@@ -285,12 +436,14 @@ func (h *ChatHandler) handleStreamingCompletion(
 	w.Header().Set("Connection", "keep-alive")
 	w.Header().Set("X-Accel-Buffering", "no") // Disable buffering in nginx
 
-	// Get flusher
-	flusher, ok := w.(http.Flusher)
-	if !ok {
-		h.respondError(w, http.StatusInternalServerError, "internal_error", "Streaming not supported")
-		return
-	}
+	// Write status header immediately to start streaming
+	w.WriteHeader(http.StatusOK)
+
+	// Create a safe flusher that works with Chi's middleware
+	// We'll try to flush and ignore if it doesn't work
+	flusher := &safeFlusher{w: w}
+
+	h.logger.Infof("Starting streaming with flusher support: %v (type: %T)", flusher.canFlush(), w)
 
 	// Get Claude client for streaming
 	claudeClient := h.providerManager.GetClaudeClient()
@@ -351,6 +504,7 @@ func (h *ChatHandler) handleStreamingCompletion(
 	duration := time.Since(startTime)
 	h.logRequest(
 		ctx,
+		r,
 		clientID,
 		requestID,
 		model,
@@ -395,4 +549,22 @@ func (h *ChatHandler) respondError(w http.ResponseWriter, statusCode int, errorT
 			Type:    errorType,
 		},
 	})
+}
+
+// safeFlusher wraps a ResponseWriter and provides safe flushing
+type safeFlusher struct {
+	w http.ResponseWriter
+}
+
+// Flush flushes the response writer if it supports flushing
+func (sf *safeFlusher) Flush() {
+	if f, ok := sf.w.(http.Flusher); ok {
+		f.Flush()
+	}
+}
+
+// canFlush checks if the underlying writer supports flushing
+func (sf *safeFlusher) canFlush() bool {
+	_, ok := sf.w.(http.Flusher)
+	return ok
 }

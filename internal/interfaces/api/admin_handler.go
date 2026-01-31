@@ -4,6 +4,8 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -16,12 +18,13 @@ import (
 
 // AdminHandler handles admin API requests
 type AdminHandler struct {
-	clientRepo     *repositories.OAuthClientRepository
-	tokenRepo      *repositories.OAuthTokenRepository
-	requestLogRepo *repositories.RequestLogRepository
-	cacheService   *caching.Service
-	providerMgr    *providers.ProviderManager
-	logger         *logger.Logger
+	clientRepo      *repositories.OAuthClientRepository
+	tokenRepo       *repositories.OAuthTokenRepository
+	requestLogRepo  *repositories.RequestLogRepository
+	filterMatchRepo *repositories.FilterMatchRepository
+	cacheService    *caching.Service
+	providerMgr     *providers.ProviderManager
+	logger          *logger.Logger
 }
 
 // NewAdminHandler creates a new admin handler
@@ -29,17 +32,19 @@ func NewAdminHandler(
 	clientRepo *repositories.OAuthClientRepository,
 	tokenRepo *repositories.OAuthTokenRepository,
 	requestLogRepo *repositories.RequestLogRepository,
+	filterMatchRepo *repositories.FilterMatchRepository,
 	cacheService *caching.Service,
 	providerMgr *providers.ProviderManager,
 	log *logger.Logger,
 ) *AdminHandler {
 	return &AdminHandler{
-		clientRepo:     clientRepo,
-		tokenRepo:      tokenRepo,
-		requestLogRepo: requestLogRepo,
-		cacheService:   cacheService,
-		providerMgr:    providerMgr,
-		logger:         log,
+		clientRepo:      clientRepo,
+		tokenRepo:       tokenRepo,
+		requestLogRepo:  requestLogRepo,
+		filterMatchRepo: filterMatchRepo,
+		cacheService:    cacheService,
+		providerMgr:     providerMgr,
+		logger:          log,
 	}
 }
 
@@ -88,15 +93,39 @@ type ClientResponse struct {
 // ListClients lists all OAuth clients
 // GET /admin/clients
 func (h *AdminHandler) ListClients(w http.ResponseWriter, r *http.Request) {
-	// TODO: Add pagination
-	// For now, we'll implement a simple list all
-	// In production, you'd want to add LIMIT/OFFSET
+	ctx := r.Context()
+
+	// TODO: Add proper pagination with query params (limit/offset)
+	// For now, use a safe limit of 1000 clients
+	const maxClients = 1000
 
 	h.logger.Info("Admin: Listing all OAuth clients")
 
-	// Note: We need to add a ListAll method to the repository
-	// For now, return empty array as placeholder
-	clients := []ClientResponse{}
+	// Get clients from database
+	dbClients, err := h.clientRepo.List(ctx, maxClients, 0)
+	if err != nil {
+		h.logger.Errorf(err, "Failed to list clients")
+		h.respondError(w, http.StatusInternalServerError, "failed to list clients")
+		return
+	}
+
+	// Convert to response format
+	clients := make([]ClientResponse, 0, len(dbClients))
+	for _, client := range dbClients {
+		clients = append(clients, ClientResponse{
+			ID:           client.ID.String(),
+			ClientID:     client.ClientID,
+			Name:         client.Name,
+			RedirectURIs: client.RedirectURIs,
+			GrantTypes:   client.GrantTypes,
+			DefaultScope: client.DefaultScope,
+			RateLimitRPM: client.RateLimitRPM,
+			RateLimitRPD: client.RateLimitRPD,
+			Enabled:      client.Enabled,
+			CreatedAt:    client.CreatedAt,
+			UpdatedAt:    client.UpdatedAt,
+		})
+	}
 
 	h.respondJSON(w, http.StatusOK, map[string]interface{}{
 		"clients": clients,
@@ -397,6 +426,169 @@ func (h *AdminHandler) GetProviderStatus(w http.ResponseWriter, r *http.Request)
 	}
 
 	h.respondJSON(w, http.StatusOK, status)
+}
+
+// GetProviderDetails returns detailed information about all configured providers
+// GET /admin/providers
+func (h *AdminHandler) GetProviderDetails(w http.ResponseWriter, r *http.Request) {
+	h.logger.Info("Admin: Getting detailed provider information")
+
+	providers := make([]map[string]interface{}, 0)
+
+	// Claude Provider Info
+	if h.providerMgr != nil {
+		ctx := r.Context()
+
+		// Try to get config (we'll need to add a method to provider manager)
+		claudeInfo := map[string]interface{}{
+			"id":       "claude",
+			"name":     "Anthropic Claude",
+			"type":     "claude",
+			"enabled":  true,
+			"status":   "unknown",
+			"models":   []string{},
+			"api_keys": 0,
+		}
+
+		// Get Claude models
+		allModels := h.providerMgr.GetAvailableModels()
+		claudeModels := make([]string, 0)
+		openaiModels := make([]string, 0)
+
+		for _, model := range allModels {
+			if strings.Contains(model, "claude") {
+				claudeModels = append(claudeModels, model)
+			} else if strings.Contains(model, "gpt") {
+				openaiModels = append(openaiModels, model)
+			}
+		}
+
+		claudeInfo["models"] = claudeModels
+
+		// Test Claude health
+		if err := h.providerMgr.Health(ctx); err == nil {
+			claudeInfo["status"] = "healthy"
+		} else {
+			claudeInfo["status"] = "unhealthy"
+			claudeInfo["error"] = err.Error()
+		}
+
+		// Get provider count
+		if len(claudeModels) > 0 {
+			claudeInfo["api_keys"] = 1 // At least one Claude key
+			providers = append(providers, claudeInfo)
+		}
+
+		// OpenAI Provider Info
+		if len(openaiModels) > 0 {
+			openaiInfo := map[string]interface{}{
+				"id":       "openai",
+				"name":     "OpenAI",
+				"type":     "openai",
+				"enabled":  true,
+				"status":   "healthy", // We assume healthy if models are configured
+				"models":   openaiModels,
+				"api_keys": 1,
+			}
+			providers = append(providers, openaiInfo)
+		}
+	}
+
+	h.respondJSON(w, http.StatusOK, map[string]interface{}{
+		"providers": providers,
+		"total":     len(providers),
+	})
+}
+
+// ============================================================================
+// FILTER MATCHES
+// ============================================================================
+
+// FilterMatchResponse represents a filter match in API responses
+type FilterMatchResponse struct {
+	ID          string    `json:"id"`
+	RequestID   string    `json:"request_id"`
+	ClientID    *string   `json:"client_id,omitempty"`
+	ClientName  *string   `json:"client_name,omitempty"`
+	FilterID    *int      `json:"filter_id,omitempty"` // NULL for attachment redactions
+	Model       string    `json:"model"`
+	Provider    string    `json:"provider"`
+	Pattern     string    `json:"pattern"`
+	Replacement string    `json:"replacement"`
+	FilterType  string    `json:"filter_type"`
+	MatchCount  int       `json:"match_count"`
+	MatchedText *string   `json:"matched_text,omitempty"`
+	IPAddress   *string   `json:"ip_address,omitempty"`
+	UserAgent   *string   `json:"user_agent,omitempty"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
+// GetFilterMatches returns recent filter matches (blocked content)
+// GET /admin/filters/matches
+func (h *AdminHandler) GetFilterMatches(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	h.logger.Info("Admin: Getting filter matches")
+
+	// Get limit from query params (default 100, max 1000)
+	limit := 100
+	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
+		if parsedLimit, err := strconv.Atoi(limitStr); err == nil {
+			limit = parsedLimit
+			if limit > 1000 {
+				limit = 1000
+			}
+			if limit < 1 {
+				limit = 100
+			}
+		}
+	}
+
+	// Get matches from repository
+	matches, err := h.filterMatchRepo.GetRecentMatches(ctx, limit)
+	if err != nil {
+		h.logger.Errorf(err, "Failed to get filter matches")
+		h.respondError(w, http.StatusInternalServerError, "failed to get filter matches")
+		return
+	}
+
+	// Convert to response format and enrich with client names
+	responses := make([]FilterMatchResponse, 0, len(matches))
+	for _, match := range matches {
+		resp := FilterMatchResponse{
+			ID:          match.ID.String(),
+			RequestID:   match.RequestID,
+			FilterID:    match.FilterID,
+			Model:       match.Model,
+			Provider:    match.Provider,
+			Pattern:     match.Pattern,
+			Replacement: match.Replacement,
+			FilterType:  match.FilterType,
+			MatchCount:  match.MatchCount,
+			MatchedText: match.MatchedText,
+			IPAddress:   match.IPAddress,
+			UserAgent:   match.UserAgent,
+			CreatedAt:   match.CreatedAt,
+		}
+
+		// Get client name if client_id is present
+		if match.ClientID != nil {
+			resp.ClientID = new(string)
+			*resp.ClientID = match.ClientID.String()
+
+			// Try to fetch client name
+			if client, err := h.clientRepo.GetByID(ctx, *match.ClientID); err == nil {
+				resp.ClientName = &client.Name
+			}
+		}
+
+		responses = append(responses, resp)
+	}
+
+	h.respondJSON(w, http.StatusOK, map[string]interface{}{
+		"matches": responses,
+		"total":   len(responses),
+	})
 }
 
 // ============================================================================

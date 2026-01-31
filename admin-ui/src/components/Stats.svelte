@@ -16,6 +16,11 @@
   }
   
   onMount(loadStats);
+  
+  // Auto-reload stats when filters change
+  $: if (clientFilter !== undefined && modelFilter !== undefined) {
+    loadStats();
+  }
 </script>
 
 <div class="p-8">
@@ -23,13 +28,44 @@
   
   <div class="bg-white p-6 rounded-lg shadow mb-8">
     <h2 class="text-xl font-bold mb-4">Filters</h2>
-    <div class="grid grid-cols-3 gap-4">
-      <input type="text" bind:value={clientFilter} placeholder="Client ID" class="p-2 border rounded" />
-      <input type="text" bind:value={modelFilter} placeholder="Model" class="p-2 border rounded" />
-      <button on:click={loadStats} class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
-        Apply Filters
-      </button>
+    <p class="text-sm text-gray-600 mb-3">Statistics will update automatically as you type</p>
+    <div class="grid grid-cols-2 gap-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Client ID</label>
+        <input 
+          type="text" 
+          bind:value={clientFilter} 
+          placeholder="Filter by client ID..." 
+          class="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500" 
+        />
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Model</label>
+        <input 
+          type="text" 
+          bind:value={modelFilter} 
+          placeholder="Filter by model..." 
+          class="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500" 
+        />
+      </div>
     </div>
+    {#if clientFilter || modelFilter}
+      <div class="mt-3 text-sm text-gray-600">
+        <span class="font-medium">Active filters:</span>
+        {#if clientFilter}
+          <span class="ml-2 px-2 py-1 bg-blue-100 text-blue-800 rounded">Client: {clientFilter}</span>
+        {/if}
+        {#if modelFilter}
+          <span class="ml-2 px-2 py-1 bg-green-100 text-green-800 rounded">Model: {modelFilter}</span>
+        {/if}
+        <button 
+          on:click={() => { clientFilter = ''; modelFilter = ''; }} 
+          class="ml-3 text-blue-600 hover:text-blue-800 underline"
+        >
+          Clear all
+        </button>
+      </div>
+    {/if}
   </div>
   
   {#if stats}

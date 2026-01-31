@@ -322,6 +322,9 @@ func CalculateCost(model string, inputTokens, outputTokens int) float64 {
 	case "claude-3-opus-20240229":
 		inputCost = 15.00 / 1_000_000  // $15 per 1M input tokens
 		outputCost = 75.00 / 1_000_000 // $75 per 1M output tokens
+	case "claude-3-5-sonnet-20240620":
+		inputCost = 3.00 / 1_000_000   // $3 per 1M input tokens
+		outputCost = 15.00 / 1_000_000 // $15 per 1M output tokens
 	case "claude-3-sonnet-20240229":
 		inputCost = 3.00 / 1_000_000   // $3 per 1M input tokens
 		outputCost = 15.00 / 1_000_000 // $15 per 1M output tokens
@@ -329,7 +332,7 @@ func CalculateCost(model string, inputTokens, outputTokens int) float64 {
 		inputCost = 0.25 / 1_000_000  // $0.25 per 1M input tokens
 		outputCost = 1.25 / 1_000_000 // $1.25 per 1M output tokens
 	default:
-		// Default to Sonnet pricing if model is unknown
+		// Default to Sonnet 3.5 pricing if model is unknown
 		inputCost = 3.00 / 1_000_000
 		outputCost = 15.00 / 1_000_000
 	}

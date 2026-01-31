@@ -44,15 +44,25 @@ RUN chmod +x llm-proxy && ./llm-proxy --version || true
 # -----------------------------------------------------------------------------
 FROM alpine:latest
 
-# Install runtime dependencies
+# Install runtime dependencies including OCR tools for document redaction
 RUN apk --no-cache add \
     ca-certificates \
     tzdata \
-    wget
+    wget \
+    tesseract-ocr \
+    tesseract-ocr-data-eng \
+    tesseract-ocr-data-deu \
+    imagemagick \
+    ghostscript \
+    poppler-utils
 
 # Create non-root user
 RUN addgroup -g 1001 -S llmproxy && \
     adduser -u 1001 -S llmproxy -G llmproxy
+
+# Create temp directory for document redaction
+RUN mkdir -p /tmp/llm-proxy-redaction && \
+    chmod 1777 /tmp/llm-proxy-redaction
 
 # Set working directory
 WORKDIR /app
@@ -96,9 +106,23 @@ ENTRYPOINT ["/app/llm-proxy"]
 #     --env-file .env \
 #     llm-proxy:latest
 #
+# Build with Docker Compose:
+#   cd deployments/docker
+#   docker-compose build
+#   docker-compose up -d
+#
 # Multi-platform build:
 #   docker buildx build \
 #     --platform linux/amd64,linux/arm64 \
 #     -t llm-proxy:latest \
 #     -f deployments/docker/Dockerfile .
+#
+# =============================================================================
+# INSTALLED TOOLS
+# =============================================================================
+# OCR & Document Redaction:
+#   - Tesseract OCR (with English + German language packs)
+#   - ImageMagick (image manipulation)
+#   - Ghostscript (PDF processing)
+#   - Poppler Utils (PDF to image conversion)
 # =============================================================================

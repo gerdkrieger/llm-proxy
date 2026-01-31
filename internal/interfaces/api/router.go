@@ -35,6 +35,8 @@ func NewRouter(
 	modelsHandler *ModelsHandler,
 	adminHandler *AdminHandler,
 	filterHandler *ContentFilterHandler,
+	providerMgmtHandler *ProviderManagementHandler,
+	apiKeyMiddleware *customMiddleware.APIKeyMiddleware,
 	oauthMiddleware *customMiddleware.OAuthMiddleware,
 	adminMiddleware *customMiddleware.AdminMiddleware,
 	metricsMiddleware func(http.Handler) http.Handler,
@@ -81,8 +83,11 @@ func NewRouter(
 	r.Post("/oauth/token", oauthHandler.Token)
 	r.Post("/oauth/revoke", oauthHandler.Revoke)
 
-	// OpenAI-compatible API endpoints (OAuth protected)
+	// OpenAI-compatible API endpoints (Static API Key OR OAuth protected)
 	r.Route("/v1", func(r chi.Router) {
+		// Try static API key first (pass through if not static key)
+		r.Use(apiKeyMiddleware.Authenticate)
+		// Then OAuth (handles non-static-key tokens)
 		r.Use(oauthMiddleware.Authenticate)
 
 		// Chat completions endpoint (requires 'write' scope)
@@ -118,14 +123,24 @@ func NewRouter(
 		// Usage Statistics
 		r.Get("/stats/usage", adminHandler.GetUsageStats)
 
-		// Provider Status
+		// Provider Management
 		r.Get("/providers/status", adminHandler.GetProviderStatus)
+		r.Get("/providers", adminHandler.GetProviderDetails)
+
+		r.Route("/providers/{id}", func(r chi.Router) {
+			r.Get("/config", providerMgmtHandler.GetProviderConfig)                  // GET /admin/providers/{id}/config
+			r.Post("/test", providerMgmtHandler.TestProvider)                        // POST /admin/providers/{id}/test
+			r.Put("/toggle", providerMgmtHandler.ToggleProvider)                     // PUT /admin/providers/{id}/toggle
+			r.Get("/models", providerMgmtHandler.GetProviderModels)                  // GET /admin/providers/{id}/models
+			r.Post("/models/configure", providerMgmtHandler.ConfigureProviderModels) // POST /admin/providers/{id}/models/configure
+		})
 
 		// Content Filter Management
 		r.Route("/filters", func(r chi.Router) {
 			r.Get("/", filterHandler.ListFilters)                   // GET /admin/filters
 			r.Post("/", filterHandler.CreateFilter)                 // POST /admin/filters
 			r.Get("/stats", filterHandler.GetFilterStats)           // GET /admin/filters/stats
+			r.Get("/matches", adminHandler.GetFilterMatches)        // GET /admin/filters/matches
 			r.Post("/test", filterHandler.TestFilter)               // POST /admin/filters/test
 			r.Post("/refresh", filterHandler.RefreshFilters)        // POST /admin/filters/refresh
 			r.Post("/bulk-import", filterHandler.BulkImportFilters) // POST /admin/filters/bulk-import

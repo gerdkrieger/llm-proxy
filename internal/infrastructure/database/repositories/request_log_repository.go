@@ -26,8 +26,8 @@ type RequestLog struct {
 	DurationMS       int
 	StatusCode       int
 	Cached           bool
-	IPAddress        string
-	UserAgent        string
+	IPAddress        *string
+	UserAgent        *string
 	ErrorMessage     *string
 	CreatedAt        time.Time
 }

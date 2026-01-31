@@ -40,6 +40,15 @@ func NewOAuthMiddleware(service *oauth.Service, log *logger.Logger) *OAuthMiddle
 // Authenticate validates the access token and adds claims to context
 func (m *OAuthMiddleware) Authenticate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Check if already authenticated by API key middleware
+		clientID := GetClientID(r.Context())
+		m.logger.Infof("OAuth middleware: checking context, clientID='%s'", clientID)
+		if clientID != "" {
+			m.logger.Infof("Request already authenticated by API key middleware: %s", clientID)
+			next.ServeHTTP(w, r)
+			return
+		}
+
 		// Extract token from Authorization header
 		authHeader := r.Header.Get("Authorization")
 		if authHeader == "" {
@@ -79,16 +88,39 @@ func (m *OAuthMiddleware) Authenticate(next http.Handler) http.Handler {
 func (m *OAuthMiddleware) RequireScope(requiredScope string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Get claims from context
-			claims, ok := r.Context().Value(ClaimsKey).(*oauth.Claims)
-			if !ok {
+			// First check for OAuth claims (JWT token)
+			claims, hasOAuthClaims := r.Context().Value(ClaimsKey).(*oauth.Claims)
+			if hasOAuthClaims {
+				// OAuth flow - check scope in claims
+				if !claims.HasScope(requiredScope) {
+					m.logger.Warnf("Client %s missing required scope: %s", claims.ClientID, requiredScope)
+					m.respondError(w, http.StatusForbidden, "insufficient scope")
+					return
+				}
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			// API key flow - check scope string in context
+			scopeStr := GetScope(r.Context())
+			clientID := GetClientID(r.Context())
+			if clientID == "" {
 				m.respondError(w, http.StatusUnauthorized, "no authentication context")
 				return
 			}
 
-			// Check scope
-			if !claims.HasScope(requiredScope) {
-				m.logger.Warnf("Client %s missing required scope: %s", claims.ClientID, requiredScope)
+			// Parse scope string and check if it contains required scope
+			scopes := strings.Fields(scopeStr)
+			hasScope := false
+			for _, scope := range scopes {
+				if scope == requiredScope {
+					hasScope = true
+					break
+				}
+			}
+
+			if !hasScope {
+				m.logger.Warnf("Client %s missing required scope: %s", clientID, requiredScope)
 				m.respondError(w, http.StatusForbidden, "insufficient scope")
 				return
 			}

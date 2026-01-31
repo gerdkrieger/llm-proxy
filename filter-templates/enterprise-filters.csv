@@ -1,0 +1,243 @@
+# ==============================================================================
+# ENTERPRISE CONTENT FILTER TEMPLATES
+# ==============================================================================
+# Comprehensive filter set for enterprise/corporate use
+# Categories: PII, Financial, Security, Credentials, Technical, Compliance
+# ==============================================================================
+
+# ==============================================================================
+# CATEGORY 1: PII - PERSONAL IDENTIFIABLE INFORMATION (Priority: 95-100)
+# ==============================================================================
+
+# Email Addresses
+\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b,[EMAIL],regex,100,Email addresses,false,true
+
+# Phone Numbers - International
+\+?[1-9]\d{1,14},[PHONE],regex,95,International phone (E.164),false,true
+\b\d{3}[-.]?\d{3}[-.]?\d{4}\b,[PHONE],regex,95,US/CA phone numbers,false,true
+\b0[1-9]\d{1,4}[-\s]?\d{3,8}\b,[PHONE],regex,95,German phone numbers,false,true
+\b(\+44|0)[1-9]\d{9,10}\b,[PHONE],regex,95,UK phone numbers,false,true
+
+# Social Security Numbers (US)
+\b\d{3}-\d{2}-\d{4}\b,[SSN],regex,100,US Social Security Number,false,true
+\b\d{3}\s\d{2}\s\d{4}\b,[SSN],regex,100,US SSN (spaces),false,true
+
+# Tax ID Numbers
+\b\d{2}-\d{7}\b,[TAX_ID],regex,98,US EIN/Tax ID,false,true
+\b\d{3}/\d{4}/\d{5}\b,[TAX_ID],regex,98,German Tax ID,false,true
+
+# Driver's License (varies by country)
+\b[A-Z]{1,2}\d{5,7}\b,[DRIVER_LICENSE],regex,95,Driver license number,false,true
+
+# Passport Numbers
+\b[A-Z]{1,2}\d{6,9}\b,[PASSPORT],regex,98,Passport number,false,true
+
+# National ID Numbers
+\bDE\d{10}\b,[NATIONAL_ID],regex,98,German Personalausweis,false,true
+
+# ==============================================================================
+# CATEGORY 2: FINANCIAL DATA (Priority: 95-100)
+# ==============================================================================
+
+# Credit Card Numbers (Major card types)
+\b4\d{3}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b,[CREDIT_CARD],regex,100,Visa card number,false,true
+\b5[1-5]\d{2}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b,[CREDIT_CARD],regex,100,Mastercard number,false,true
+\b3[47]\d{2}[-\s]?\d{6}[-\s]?\d{5}\b,[CREDIT_CARD],regex,100,Amex card number,false,true
+\b6(?:011|5\d{2})[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b,[CREDIT_CARD],regex,100,Discover card,false,true
+\b\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b,[CREDIT_CARD],regex,98,Generic credit card,false,true
+
+# CVV/CVC Security Codes
+\bCVV:?\s*\d{3,4}\b,[CVV],regex,100,Credit card CVV,true,true
+\bCVC:?\s*\d{3,4}\b,[CVV],regex,100,Credit card CVC,true,true
+
+# IBAN (International Bank Account Number)
+\b[A-Z]{2}\d{2}[A-Z0-9]{10,30}\b,[IBAN],regex,100,IBAN bank account,false,true
+
+# BIC/SWIFT Codes
+\b[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?\b,[BIC],regex,98,BIC/SWIFT code,false,true
+
+# Bank Account Numbers (Generic)
+\baccount[:\s]+\d{8,18}\b,[BANK_ACCOUNT],regex,98,Bank account number,true,true
+\bkonto[:\s]+\d{8,18}\b,[BANK_ACCOUNT],regex,98,Bank account (German),true,true
+
+# Routing Numbers (US)
+\brouting[:\s]+\d{9}\b,[ROUTING_NUMBER],regex,98,Bank routing number,true,true
+
+# Cryptocurrency Addresses
+\b(bc1|[13])[a-zA-HJ-NP-Z0-9]{25,62}\b,[CRYPTO_ADDRESS],regex,95,Bitcoin address,false,true
+\b0x[a-fA-F0-9]{40}\b,[CRYPTO_ADDRESS],regex,95,Ethereum address,false,true
+
+# ==============================================================================
+# CATEGORY 3: SECURITY & CREDENTIALS (Priority: 98-100)
+# ==============================================================================
+
+# Passwords (Keywords)
+password,[***PASSWORD***],word,100,Password keyword,false,true
+passwort,[***PASSWORD***],word,100,Password (German),false,true
+\bpwd:\s*\S+,[***PASSWORD***],regex,100,Password with prefix,true,true
+\bpassword[:\s=]+[^\s,;]+,[***PASSWORD***],regex,100,Password assignment,true,true
+
+# API Keys (Various formats)
+\bapi[_-]?key[:\s=]+[a-zA-Z0-9_-]{20,}\b,[***API_KEY***],regex,100,API key,true,true
+\bapi[_-]?secret[:\s=]+[a-zA-Z0-9_-]{20,}\b,[***API_SECRET***],regex,100,API secret,true,true
+\bAPIKEY=[a-zA-Z0-9_-]{20,},[***API_KEY***],regex,100,API key assignment,false,true
+
+# AWS Credentials
+\bAKIA[0-9A-Z]{16}\b,[***AWS_KEY***],regex,100,AWS Access Key ID,false,true
+\baws[_-]?secret[_-]?access[_-]?key[:\s=]+[A-Za-z0-9/+=]{40},[***AWS_SECRET***],regex,100,AWS Secret Key,true,true
+
+# Google API Keys
+\bAIza[0-9A-Za-z_-]{35}\b,[***GOOGLE_API_KEY***],regex,100,Google API Key,false,true
+
+# GitHub Tokens
+\bghp_[a-zA-Z0-9]{36}\b,[***GITHUB_TOKEN***],regex,100,GitHub Personal Token,false,true
+\bgho_[a-zA-Z0-9]{36}\b,[***GITHUB_TOKEN***],regex,100,GitHub OAuth Token,false,true
+\bghs_[a-zA-Z0-9]{36}\b,[***GITHUB_TOKEN***],regex,100,GitHub Server Token,false,true
+
+# GitLab Tokens
+\bglpat-[a-zA-Z0-9_-]{20}\b,[***GITLAB_TOKEN***],regex,100,GitLab Access Token,false,true
+
+# JWT Tokens
+\beyJ[a-zA-Z0-9_-]+\.eyJ[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+,[***JWT_TOKEN***],regex,100,JWT Token,false,true
+
+# SSH Private Keys
+-----BEGIN (?:RSA|DSA|EC|OPENSSH) PRIVATE KEY-----,[***SSH_PRIVATE_KEY***],regex,100,SSH private key,false,true
+
+# OAuth/Bearer Tokens
+\bBearer\s+[a-zA-Z0-9_-]{20,},[***BEARER_TOKEN***],regex,100,Bearer token,false,true
+\baccess_token[:\s=]+[a-zA-Z0-9_-]{20,},[***ACCESS_TOKEN***],regex,100,Access token,true,true
+
+# Slack Tokens
+\bxoxb-[0-9]{10,13}-[0-9]{10,13}-[a-zA-Z0-9]{24}\b,[***SLACK_TOKEN***],regex,100,Slack Bot Token,false,true
+\bxoxp-[0-9]{10,13}-[0-9]{10,13}-[a-zA-Z0-9]{24}\b,[***SLACK_TOKEN***],regex,100,Slack User Token,false,true
+
+# Stripe Keys
+\bsk_live_[a-zA-Z0-9]{24,}\b,[***STRIPE_KEY***],regex,100,Stripe Live Key,false,true
+\brk_live_[a-zA-Z0-9]{24,}\b,[***STRIPE_KEY***],regex,100,Stripe Restricted Key,false,true
+
+# Twilio Credentials
+\bAC[a-z0-9]{32}\b,[***TWILIO_SID***],regex,100,Twilio Account SID,false,true
+\bSK[a-z0-9]{32}\b,[***TWILIO_KEY***],regex,100,Twilio API Key,false,true
+
+# SendGrid API Keys
+\bSG\.[a-zA-Z0-9_-]{22}\.[a-zA-Z0-9_-]{43}\b,[***SENDGRID_KEY***],regex,100,SendGrid API Key,false,true
+
+# ==============================================================================
+# CATEGORY 4: DATABASE & TECHNICAL SECRETS (Priority: 95-98)
+# ==============================================================================
+
+# Database Connection Strings
+\bmongodb(\+srv)?://[^\s'"]+,[***DB_CONNECTION***],regex,98,MongoDB connection string,true,true
+\bpostgres(ql)?://[^\s'"]+,[***DB_CONNECTION***],regex,98,PostgreSQL connection,true,true
+\bmysql://[^\s'"]+,[***DB_CONNECTION***],regex,98,MySQL connection,true,true
+\bredis://[^\s'"]+,[***DB_CONNECTION***],regex,98,Redis connection,true,true
+
+# Database Credentials in URLs
+://[^:]+:[^@]+@[^/]+,[***DB_CREDENTIALS***],regex,98,Credentials in URL,false,true
+
+# Private IP Addresses (Internal Networks)
+\b10\.\d{1,3}\.\d{1,3}\.\d{1,3}\b,[INTERNAL_IP],regex,95,Private IP (Class A),false,true
+\b172\.(1[6-9]|2[0-9]|3[01])\.\d{1,3}\.\d{1,3}\b,[INTERNAL_IP],regex,95,Private IP (Class B),false,true
+\b192\.168\.\d{1,3}\.\d{1,3}\b,[INTERNAL_IP],regex,95,Private IP (Class C),false,true
+
+# Internal Hostnames/Servers
+\b[a-z0-9-]+\.(internal|local|lan|corp|intranet)\b,[INTERNAL_HOST],regex,95,Internal hostname,true,true
+\blocalhost:[0-9]{2,5},[LOCALHOST],regex,90,Localhost with port,false,true
+
+# Docker Registry Credentials
+\bdocker login[^\n]*,[***DOCKER_LOGIN***],regex,98,Docker login command,true,true
+
+# Environment Variables with Secrets
+\bDB_PASSWORD=[^\s;]+,[***DB_PASSWORD***],regex,100,Database password env var,false,true
+\bSECRET_KEY=[^\s;]+,[***SECRET_KEY***],regex,100,Secret key env var,false,true
+\bENCRYPTION_KEY=[^\s;]+,[***ENCRYPTION_KEY***],regex,100,Encryption key env var,false,true
+
+# ==============================================================================
+# CATEGORY 5: CONFIDENTIAL & INTERNAL (Priority: 85-95)
+# ==============================================================================
+
+# Confidentiality Keywords
+confidential,[CONFIDENTIAL],word,95,Confidential keyword,false,true
+vertraulich,[VERTRAULICH],word,95,Confidential (German),false,true
+geheim,[GEHEIM],word,95,Secret (German),false,true
+secret,[REDACTED],word,95,Secret keyword,false,true
+top secret,[CLASSIFIED],phrase,98,Top secret classification,false,true
+streng geheim,[STRENG_GEHEIM],phrase,98,Top secret (German),false,true
+
+# Internal Project Names (Examples - customize per company)
+Project Phoenix,[INTERNAL_PROJECT],phrase,90,Internal project codename,false,true
+Project Titan,[INTERNAL_PROJECT],phrase,90,Internal project codename,false,true
+Operation Nightfall,[INTERNAL_PROJECT],phrase,90,Internal operation name,false,true
+
+# Internal Company Keywords
+proprietary information,[PROPRIETARY],phrase,95,Proprietary information,false,true
+trade secret,[TRADE_SECRET],phrase,98,Trade secret,false,true
+NDA,[REDACTED],word,90,Non-disclosure agreement,false,true
+not for distribution,[INTERNAL_ONLY],phrase,90,Internal distribution only,false,true
+
+# Legal/Compliance
+attorney-client privilege,[LEGAL_PRIVILEGE],phrase,98,Attorney-client privilege,false,true
+under investigation,[REDACTED],phrase,95,Legal investigation,false,true
+pending litigation,[REDACTED],phrase,95,Legal case pending,false,true
+
+# HR/Personnel Data
+salary,[SALARY_INFO],word,95,Salary information,false,true
+gehalt,[GEHALT_INFO],word,95,Salary (German),false,true
+performance review,[HR_DOCUMENT],phrase,95,HR performance review,false,true
+disciplinary action,[HR_ACTION],phrase,95,HR disciplinary action,false,true
+
+# ==============================================================================
+# CATEGORY 6: COMPETITOR & BUSINESS INTELLIGENCE (Priority: 80-90)
+# ==============================================================================
+
+# Competitor Names (Examples - customize per company)
+CompetitorX,[COMPETITOR_A],word,85,Competitor company name,false,true
+CompanyY,[COMPETITOR_B],word,85,Competitor company name,false,true
+RivalCorp,[COMPETITOR_C],word,85,Competitor company name,false,true
+
+# Business Strategy Keywords
+acquisition target,[BUSINESS_STRATEGY],phrase,88,Acquisition planning,false,true
+merger talks,[BUSINESS_STRATEGY],phrase,88,Merger discussions,false,true
+cost cutting,[BUSINESS_STRATEGY],phrase,85,Cost reduction plans,false,true
+layoff,[BUSINESS_STRATEGY],word,85,Workforce reduction,false,true
+earnings report,[FINANCIAL_REPORT],phrase,90,Earnings information,false,true
+quarterly results,[FINANCIAL_REPORT],phrase,90,Quarterly financials,false,true
+
+# ==============================================================================
+# CATEGORY 7: MEDICAL & HEALTH DATA (HIPAA Compliance) (Priority: 98-100)
+# ==============================================================================
+
+# Medical Record Numbers
+\bMRN:?\s*\d{6,10}\b,[MRN],regex,100,Medical record number,true,true
+
+# Health Conditions (Examples)
+diagnosed with,[HEALTH_CONDITION],phrase,98,Medical diagnosis,false,true
+medical condition,[HEALTH_INFO],phrase,98,Health information,false,true
+prescription for,[PRESCRIPTION],phrase,98,Medication prescription,false,true
+
+# Health Insurance
+\binsurance member id:?\s*[A-Z0-9]{9,}\b,[INSURANCE_ID],regex,100,Health insurance ID,true,true
+
+# ==============================================================================
+# CATEGORY 8: ADDITIONAL SECURITY PATTERNS (Priority: 90-95)
+# ==============================================================================
+
+# Encryption Keys
+\b[A-Fa-f0-9]{32,}\b,[ENCRYPTION_KEY],regex,95,Hex encryption key (128-bit+),false,true
+
+# Certificate/License Keys
+\b[A-Z0-9]{5}-[A-Z0-9]{5}-[A-Z0-9]{5}-[A-Z0-9]{5}-[A-Z0-9]{5}\b,[LICENSE_KEY],regex,95,Software license key,false,true
+
+# UUID/GUID (might contain sensitive IDs)
+\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b,[UUID],regex,85,UUID identifier,false,true
+
+# Session Tokens
+\bsessionid=[a-zA-Z0-9]{32,},[***SESSION_TOKEN***],regex,95,Session ID,true,true
+\bcsrf[_-]?token=[a-zA-Z0-9]{32,},[***CSRF_TOKEN***],regex,95,CSRF token,true,true
+
+# ==============================================================================
+# END OF ENTERPRISE FILTER TEMPLATES
+# ==============================================================================
+# Total: ~100+ filters covering major enterprise security concerns
+# Adjust priorities and patterns based on your organization's needs
+# ==============================================================================

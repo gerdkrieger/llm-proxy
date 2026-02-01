@@ -126,6 +126,9 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       ENVIRONMENT: ${ENVIRONMENT:-production}
+      # OAuth TTL with time units (override .env if missing units)
+      OAUTH_ACCESS_TOKEN_TTL: 1h
+      OAUTH_REFRESH_TOKEN_TTL: 720h
     
     ports:
       - "${SERVER_PORT:-8080}:8080"

@@ -496,10 +496,12 @@ deploy:localhost:
     # Verify deployment
     - docker compose -f docker-compose.openwebui.yml ps
     - curl -f http://localhost:8080/health || exit 1
-    - curl -f http://localhost:3010/health || exit 1
     
     - echo "Deployment complete!"
     - docker compose -f docker-compose.openwebui.yml ps
+    - echo "✅ LLM-Proxy Backend running on http://localhost:8080"
+    - echo "✅ Admin UI running on http://localhost:3005"
+    - echo "ℹ️  Configure your existing OpenWebUI with OPENAI_API_BASE_URLS=http://localhost:8080/v1"
   environment:
     name: localhost
     url: http://localhost:8080

@@ -210,58 +210,12 @@ services:
         max-file: "3"
 
   # ---------------------------------------------------------------------------
-  # OpenWebUI - Chat Interface
+  # NOTE: OpenWebUI runs as a separate standalone container on the host
+  # It connects to LLM-Proxy backend via HTTP API on http://localhost:8080/v1
+  # Configure your existing OpenWebUI with:
+  #   OPENAI_API_BASE_URLS=http://localhost:8080/v1
+  #   OPENAI_API_KEYS=<your-llm-proxy-api-key>
   # ---------------------------------------------------------------------------
-  openwebui:
-    image: ghcr.io/open-webui/open-webui:ollama
-    container_name: openwebui
-    restart: unless-stopped
-    
-    environment:
-      - ENV=prod
-      - OLLAMA_BASE_URL=/ollama
-      - USE_OLLAMA_DOCKER=false
-      - ENABLE_OLLAMA_API=false
-      - ENABLE_OPENAI_API=true
-      # LLM-Proxy als OpenAI-kompatible API
-      - OPENAI_API_BASE_URLS=http://backend:8080/v1
-      - OPENAI_API_KEYS=${OAUTH_CLIENT_SECRET:-sk-llm-proxy-openwebui-2026-01-30-secure-key-abc123xyz789}
-    
-    ports:
-      - "${OPENWEBUI_PORT:-3010}:8080"
-    
-    volumes:
-      - open-webui:/app/backend/data
-      - ollama:/root/.ollama
-    
-    depends_on:
-      backend:
-        condition: service_healthy
-    
-    healthcheck:
-      test: ["CMD", "wget", "-q", "--tries=1", "--spider", "http://localhost:8080/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 20s
-    
-    networks:
-      - llm-proxy-network
-    
-    # deploy:
-    #   resources:
-    #     limits:
-    #       cpus: '1.0'
-    #       memory: 1G
-    #     reservations:
-    #       cpus: '0.25'
-    #       memory: 256M
-    
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
 
   # ---------------------------------------------------------------------------
   # Prometheus - Metrics Collection
@@ -359,15 +313,6 @@ volumes:
   llm-proxy-grafana-data:
     name: llm-proxy-grafana-data
     driver: local
-  
-  # External volumes (von bestehendem OpenWebUI)
-  open-webui:
-    external: true
-    name: open-webui
-  
-  ollama:
-    external: true
-    name: ollama
 
 # =============================================================================
 # USAGE
@@ -387,7 +332,10 @@ volumes:
 # Access services:
 #   Backend API:    http://localhost:8080
 #   Admin UI:       http://localhost:3005
-#   OpenWebUI:      http://localhost:3010
 #   Prometheus:     http://localhost:9090
 #   Grafana:        http://localhost:3001
+#
+# Configure your existing OpenWebUI to use LLM-Proxy:
+#   OPENAI_API_BASE_URLS=http://localhost:8080/v1
+#   OPENAI_API_KEYS=<your-api-key-from-env-file>
 # =============================================================================

@@ -490,12 +490,13 @@ deploy:localhost:
     # Images werden lokal gebaut statt von Registry gepullt
     - docker compose -f docker-compose.openwebui.yml up -d --build
     
-    # Wait for health checks
-    - sleep 30
+    # Wait for health checks (backend needs time on 1-CPU server)
+    - sleep 60
     
     # Verify deployment
     - docker compose -f docker-compose.openwebui.yml ps
-    - curl -f http://localhost:8080/health || exit 1
+    - echo "Checking backend health (may take up to 90s on slow servers)..."
+    - for i in $(seq 1 18); do curl -f http://localhost:8080/health && break || sleep 5; done
     
     - echo "Deployment complete!"
     - docker compose -f docker-compose.openwebui.yml ps

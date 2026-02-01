@@ -469,12 +469,13 @@ deploy:production:
 deploy:localhost:
   stage: deploy
   image: docker:27.1.1
-  services:
-    - docker:dind
+  # services:
+  #   - docker:dind  # Not needed - using host Docker via socket mount
   before_script:
     - set -euo pipefail
-    - apk add --no-cache curl
+    - apk add --no-cache curl docker-compose
     - echo "Deploying to localhost..."
+    - docker info  # Verify connection to host Docker
   script:
     # Stop existing containers (preserve data)
     - docker compose -f docker-compose.openwebui.yml down --remove-orphans || true

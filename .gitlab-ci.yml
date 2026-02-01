@@ -477,6 +477,12 @@ deploy:localhost:
     - echo "Deploying to localhost..."
     - docker info  # Verify connection to host Docker
   script:
+    # Create .env from GitLab CI/CD File Variable
+    - echo "Creating .env from GitLab CI/CD variable..."
+    - cp "$ENV_FILE" .env
+    - chmod 600 .env
+    - echo "✅ .env file created ($(wc -l < .env) lines)"
+    
     # Stop existing containers (preserve data)
     - docker compose -f docker-compose.openwebui.yml down --remove-orphans || true
     

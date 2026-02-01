@@ -18,7 +18,7 @@ stages:
 
 variables:
   # Go configuration
-  GO_VERSION: "1.21"
+  GO_VERSION: "1.25"
   CGO_ENABLED: "0"
   GOOS: "linux"
   GOARCH: "amd64"
@@ -461,16 +461,12 @@ deploy:localhost:
     - apk add --no-cache curl
     - echo "Deploying to localhost..."
   script:
-    # Pull latest images from registry
-    - echo "${CI_REGISTRY_PASSWORD}" | docker login -u "${CI_REGISTRY_USER}" --password-stdin "${CI_REGISTRY}"
-    - export BACKEND_IMAGE="${CI_REGISTRY_IMAGE}/backend:${CI_COMMIT_SHORT_SHA}"
-    - export ADMIN_UI_IMAGE="${CI_REGISTRY_IMAGE}/admin-ui:${CI_COMMIT_SHORT_SHA}"
-    
     # Stop existing containers (preserve data)
     - docker compose -f docker-compose.openwebui.yml down --remove-orphans || true
     
-    # Start complete stack with new images
-    - docker compose -f docker-compose.openwebui.yml up -d --no-build
+    # Build and start complete stack with new images
+    # Images werden lokal gebaut statt von Registry gepullt
+    - docker compose -f docker-compose.openwebui.yml up -d --build
     
     # Wait for health checks
     - sleep 30

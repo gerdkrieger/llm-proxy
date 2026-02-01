@@ -210,7 +210,7 @@ REDIS_PORT=6380
 
 # OAuth
 OAUTH_JWT_SECRET=your-32-char-secret-key
-OAUTH_ACCESS_TOKEN_TTL=3600
+OAUTH_ACCESS_TOKEN_TTL=1h
 
 # Claude API
 CLAUDE_API_KEY=sk-ant-api03-your-key-here

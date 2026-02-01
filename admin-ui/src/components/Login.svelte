@@ -1,6 +1,6 @@
 <script>
   import { apiKey } from '../lib/stores.js';
-  let keyInput = 'admin_dev_key_12345678901234567890123456789012';
+  let keyInput = '';
   
   function handleLogin() {
     if (keyInput.trim()) {
@@ -22,7 +22,7 @@
       </button>
     </form>
     <p class="mt-4 text-xs text-gray-500 text-center">
-      Default: admin_dev_key_12345678901234567890123456789012
+      Get your API key from the .env file or contact your administrator
     </p>
   </div>
 </div>

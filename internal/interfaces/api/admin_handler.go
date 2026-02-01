@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -18,13 +17,14 @@ import (
 
 // AdminHandler handles admin API requests
 type AdminHandler struct {
-	clientRepo      *repositories.OAuthClientRepository
-	tokenRepo       *repositories.OAuthTokenRepository
-	requestLogRepo  *repositories.RequestLogRepository
-	filterMatchRepo *repositories.FilterMatchRepository
-	cacheService    *caching.Service
-	providerMgr     *providers.ProviderManager
-	logger          *logger.Logger
+	clientRepo        *repositories.OAuthClientRepository
+	tokenRepo         *repositories.OAuthTokenRepository
+	requestLogRepo    *repositories.RequestLogRepository
+	filterMatchRepo   *repositories.FilterMatchRepository
+	providerModelRepo *repositories.ProviderModelRepository
+	cacheService      *caching.Service
+	providerMgr       *providers.ProviderManager
+	logger            *logger.Logger
 }
 
 // NewAdminHandler creates a new admin handler
@@ -33,18 +33,20 @@ func NewAdminHandler(
 	tokenRepo *repositories.OAuthTokenRepository,
 	requestLogRepo *repositories.RequestLogRepository,
 	filterMatchRepo *repositories.FilterMatchRepository,
+	providerModelRepo *repositories.ProviderModelRepository,
 	cacheService *caching.Service,
 	providerMgr *providers.ProviderManager,
 	log *logger.Logger,
 ) *AdminHandler {
 	return &AdminHandler{
-		clientRepo:      clientRepo,
-		tokenRepo:       tokenRepo,
-		requestLogRepo:  requestLogRepo,
-		filterMatchRepo: filterMatchRepo,
-		cacheService:    cacheService,
-		providerMgr:     providerMgr,
-		logger:          log,
+		clientRepo:        clientRepo,
+		tokenRepo:         tokenRepo,
+		requestLogRepo:    requestLogRepo,
+		filterMatchRepo:   filterMatchRepo,
+		providerModelRepo: providerModelRepo,
+		cacheService:      cacheService,
+		providerMgr:       providerMgr,
+		logger:            log,
 	}
 }
 
@@ -415,10 +417,23 @@ func (h *AdminHandler) GetProviderStatus(w http.ResponseWriter, r *http.Request)
 	err := h.providerMgr.Health(ctx)
 	healthy := err == nil
 
+	// Get enabled models from database (not config!)
+	enabledModels := make([]string, 0)
+	for _, providerID := range []string{"claude", "openai"} {
+		models, err := h.providerModelRepo.GetEnabledByProvider(ctx, providerID)
+		if err != nil {
+			h.logger.Warnf("Failed to get enabled models for %s: %v", providerID, err)
+			continue
+		}
+		for _, model := range models {
+			enabledModels = append(enabledModels, model.ModelID)
+		}
+	}
+
 	status := map[string]interface{}{
 		"healthy":        healthy,
 		"provider_count": h.providerMgr.GetProviderCount(),
-		"models":         h.providerMgr.GetAvailableModels(),
+		"models":         enabledModels,
 	}
 
 	if err != nil {
@@ -433,13 +448,18 @@ func (h *AdminHandler) GetProviderStatus(w http.ResponseWriter, r *http.Request)
 func (h *AdminHandler) GetProviderDetails(w http.ResponseWriter, r *http.Request) {
 	h.logger.Info("Admin: Getting detailed provider information")
 
+	ctx := r.Context()
 	providers := make([]map[string]interface{}, 0)
 
-	// Claude Provider Info
-	if h.providerMgr != nil {
-		ctx := r.Context()
+	// Get active provider IDs
+	activeProviders := h.providerMgr.GetActiveProviderIDs()
+	activeProviderMap := make(map[string]bool)
+	for _, pid := range activeProviders {
+		activeProviderMap[pid] = true
+	}
 
-		// Try to get config (we'll need to add a method to provider manager)
+	// Claude Provider Info
+	if activeProviderMap["claude"] {
 		claudeInfo := map[string]interface{}{
 			"id":       "claude",
 			"name":     "Anthropic Claude",
@@ -447,23 +467,20 @@ func (h *AdminHandler) GetProviderDetails(w http.ResponseWriter, r *http.Request
 			"enabled":  true,
 			"status":   "unknown",
 			"models":   []string{},
-			"api_keys": 0,
+			"api_keys": 1,
 		}
 
-		// Get Claude models
-		allModels := h.providerMgr.GetAvailableModels()
-		claudeModels := make([]string, 0)
-		openaiModels := make([]string, 0)
-
-		for _, model := range allModels {
-			if strings.Contains(model, "claude") {
-				claudeModels = append(claudeModels, model)
-			} else if strings.Contains(model, "gpt") {
-				openaiModels = append(openaiModels, model)
+		// Get ENABLED models from database
+		enabledModels, err := h.providerModelRepo.GetEnabledByProvider(ctx, "claude")
+		if err != nil {
+			h.logger.Warnf("Failed to get enabled Claude models: %v", err)
+		} else {
+			modelIDs := make([]string, len(enabledModels))
+			for i, model := range enabledModels {
+				modelIDs[i] = model.ModelID
 			}
+			claudeInfo["models"] = modelIDs
 		}
-
-		claudeInfo["models"] = claudeModels
 
 		// Test Claude health
 		if err := h.providerMgr.Health(ctx); err == nil {
@@ -473,25 +490,34 @@ func (h *AdminHandler) GetProviderDetails(w http.ResponseWriter, r *http.Request
 			claudeInfo["error"] = err.Error()
 		}
 
-		// Get provider count
-		if len(claudeModels) > 0 {
-			claudeInfo["api_keys"] = 1 // At least one Claude key
-			providers = append(providers, claudeInfo)
+		providers = append(providers, claudeInfo)
+	}
+
+	// OpenAI Provider Info
+	if activeProviderMap["openai"] {
+		openaiInfo := map[string]interface{}{
+			"id":       "openai",
+			"name":     "OpenAI",
+			"type":     "openai",
+			"enabled":  true,
+			"status":   "healthy",
+			"models":   []string{},
+			"api_keys": 1,
 		}
 
-		// OpenAI Provider Info
-		if len(openaiModels) > 0 {
-			openaiInfo := map[string]interface{}{
-				"id":       "openai",
-				"name":     "OpenAI",
-				"type":     "openai",
-				"enabled":  true,
-				"status":   "healthy", // We assume healthy if models are configured
-				"models":   openaiModels,
-				"api_keys": 1,
+		// Get ENABLED models from database
+		enabledModels, err := h.providerModelRepo.GetEnabledByProvider(ctx, "openai")
+		if err != nil {
+			h.logger.Warnf("Failed to get enabled OpenAI models: %v", err)
+		} else {
+			modelIDs := make([]string, len(enabledModels))
+			for i, model := range enabledModels {
+				modelIDs[i] = model.ModelID
 			}
-			providers = append(providers, openaiInfo)
+			openaiInfo["models"] = modelIDs
 		}
+
+		providers = append(providers, openaiInfo)
 	}
 
 	h.respondJSON(w, http.StatusOK, map[string]interface{}{

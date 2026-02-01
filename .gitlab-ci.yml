@@ -328,7 +328,7 @@ docker:backend:
     - docker push "${BACKEND_IMAGE}:${CI_COMMIT_SHORT_SHA}"
     - docker push "${BACKEND_IMAGE}:${CI_COMMIT_REF_SLUG}"
     - |
-      if [ "${CI_COMMIT_REF_NAME}" = "main" ]; then
+      if [ "${CI_COMMIT_REF_NAME}" = "master" ]; then
         docker tag "${BACKEND_IMAGE}:${CI_COMMIT_SHORT_SHA}" "${BACKEND_IMAGE}:latest"
         docker push "${BACKEND_IMAGE}:latest"
       fi
@@ -338,7 +338,7 @@ docker:backend:
         docker push "${BACKEND_IMAGE}:${CI_COMMIT_TAG}"
       fi
   only:
-    - main
+    - master
     - develop
     - tags
 
@@ -359,7 +359,7 @@ docker:admin-ui:
     - docker push "${ADMIN_UI_IMAGE}:${CI_COMMIT_SHORT_SHA}"
     - docker push "${ADMIN_UI_IMAGE}:${CI_COMMIT_REF_SLUG}"
     - |
-      if [ "${CI_COMMIT_REF_NAME}" = "main" ]; then
+      if [ "${CI_COMMIT_REF_NAME}" = "master" ]; then
         docker tag "${ADMIN_UI_IMAGE}:${CI_COMMIT_SHORT_SHA}" "${ADMIN_UI_IMAGE}:latest"
         docker push "${ADMIN_UI_IMAGE}:latest"
       fi
@@ -369,7 +369,7 @@ docker:admin-ui:
         docker push "${ADMIN_UI_IMAGE}:${CI_COMMIT_TAG}"
       fi
   only:
-    - main
+    - master
     - develop
     - tags
 
@@ -434,7 +434,7 @@ deploy:staging:
     DEPLOY_PATH: "${STAGING_PATH}"
     DEPLOY_URL: "${STAGING_URL}"
   only:
-    - main
+    - master
   when: manual
 
 deploy:production:
@@ -451,6 +451,46 @@ deploy:production:
   environment:
     name: production
     url: ${PROD_URL}
+
+deploy:localhost:
+  stage: deploy
+  image: docker:latest
+  services:
+    - docker:dind
+  before_script:
+    - apk add --no-cache curl
+    - echo "Deploying to localhost..."
+  script:
+    # Pull latest images from registry
+    - echo "${CI_REGISTRY_PASSWORD}" | docker login -u "${CI_REGISTRY_USER}" --password-stdin "${CI_REGISTRY}"
+    - export BACKEND_IMAGE="${CI_REGISTRY_IMAGE}/backend:${CI_COMMIT_SHORT_SHA}"
+    - export ADMIN_UI_IMAGE="${CI_REGISTRY_IMAGE}/admin-ui:${CI_COMMIT_SHORT_SHA}"
+    
+    # Stop existing containers (preserve data)
+    - docker compose -f docker-compose.openwebui.yml down --remove-orphans || true
+    
+    # Start complete stack with new images
+    - docker compose -f docker-compose.openwebui.yml up -d --no-build
+    
+    # Wait for health checks
+    - sleep 30
+    
+    # Verify deployment
+    - docker compose -f docker-compose.openwebui.yml ps
+    - curl -f http://localhost:8080/health || exit 1
+    - curl -f http://localhost:3010/health || exit 1
+    
+    - echo "Deployment complete!"
+    - docker compose -f docker-compose.openwebui.yml ps
+  environment:
+    name: localhost
+    url: http://localhost:8080
+  only:
+    - master
+  when: manual
+  tags:
+    - docker
+    - localhost
 
 # =============================================================================
 # UTILITY JOBS

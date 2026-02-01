@@ -229,6 +229,26 @@ func (pm *ProviderManager) GetAvailableModels() []string {
 	return models
 }
 
+// GetActiveProviderIDs returns list of provider IDs that are enabled
+func (pm *ProviderManager) GetActiveProviderIDs() []string {
+	pm.mu.RLock()
+	defer pm.mu.RUnlock()
+
+	activeProviders := make([]string, 0)
+
+	// Check if Claude is enabled and has providers
+	if pm.config.Claude.Enabled && len(pm.providers) > 0 {
+		activeProviders = append(activeProviders, "claude")
+	}
+
+	// Check if OpenAI is enabled and has clients
+	if pm.config.OpenAI.Enabled && len(pm.openaiClients) > 0 {
+		activeProviders = append(activeProviders, "openai")
+	}
+
+	return activeProviders
+}
+
 // GetClaudeClient returns the first Claude client for streaming
 // TODO: Improve this to support streaming with load balancing
 func (pm *ProviderManager) GetClaudeClient() *claude.Client {
@@ -245,4 +265,48 @@ func (pm *ProviderManager) GetClaudeClient() *claude.Client {
 	}
 
 	return nil
+}
+
+// GetOpenAIClient returns the first OpenAI client
+// TODO: Improve this to support load balancing
+func (pm *ProviderManager) GetOpenAIClient() *openai.Client {
+	pm.mu.RLock()
+	defer pm.mu.RUnlock()
+
+	if len(pm.openaiClients) == 0 {
+		return nil
+	}
+
+	// Return first OpenAI client
+	return pm.openaiClients[0]
+}
+
+// DetermineProvider determines which provider to use based on model name
+func (pm *ProviderManager) DetermineProvider(model string) string {
+	// Simple heuristic based on model name
+	if len(model) > 0 {
+		// OpenAI models start with "gpt", "o3", "o4", "text-", "dall-e", etc.
+		if model[0] == 'g' && len(model) >= 3 && model[:3] == "gpt" {
+			return "openai"
+		}
+		if model[0] == 'o' && len(model) >= 2 {
+			// o3, o3-mini, o3-pro, o4, o4-mini, etc.
+			if model[1] == '3' || model[1] == '4' {
+				return "openai"
+			}
+		}
+		if len(model) >= 5 && model[:5] == "text-" {
+			return "openai"
+		}
+		if len(model) >= 7 && model[:7] == "dall-e-" {
+			return "openai"
+		}
+		// Claude models start with "claude"
+		if len(model) >= 6 && model[:6] == "claude" {
+			return "claude"
+		}
+	}
+
+	// Default to Claude if uncertain
+	return "claude"
 }

@@ -14,6 +14,7 @@ import (
 	"github.com/llm-proxy/llm-proxy/internal/application/caching"
 	"github.com/llm-proxy/llm-proxy/internal/application/filtering"
 	"github.com/llm-proxy/llm-proxy/internal/application/oauth"
+	modelsync "github.com/llm-proxy/llm-proxy/internal/application/providers"
 	"github.com/llm-proxy/llm-proxy/internal/config"
 	"github.com/llm-proxy/llm-proxy/internal/infrastructure/cache"
 	"github.com/llm-proxy/llm-proxy/internal/infrastructure/database"
@@ -117,12 +118,19 @@ func main() {
 		log.Infof("Provider health check: %d provider(s) available", providerManager.GetProviderCount())
 	}
 
+	// Auto-sync models to database (so all models are available by default)
+	log.Info("Synchronizing models to database...")
+	modelSyncService := modelsync.NewModelSyncService(providerModelRepo, log)
+	if err := modelSyncService.SyncModelsToDatabase(ctx); err != nil {
+		log.Warnf("Model sync warning: %v", err)
+	}
+
 	// Initialize handlers
 	log.Info("Initializing API handlers...")
 	oauthHandler := api.NewOAuthHandler(oauthService, log)
 	chatHandler := api.NewChatHandler(providerManager, requestLogRepo, filterMatchRepo, clientRepo, cacheService, filterService, attachmentService, log)
-	modelsHandler := api.NewModelsHandler(providerManager, log)
-	adminHandler := api.NewAdminHandler(clientRepo, tokenRepo, requestLogRepo, filterMatchRepo, cacheService, providerManager, log)
+	modelsHandler := api.NewModelsHandler(providerManager, providerModelRepo, log)
+	adminHandler := api.NewAdminHandler(clientRepo, tokenRepo, requestLogRepo, filterMatchRepo, providerModelRepo, cacheService, providerManager, log)
 	filterHandler := api.NewContentFilterHandler(contentFilterRepo, filterService, log)
 	providerMgmtHandler := api.NewProviderManagementHandler(providerSettingsRepo, providerModelRepo, providerManager, cfg, log)
 

@@ -43,6 +43,7 @@ func (r *ProviderModelRepository) Create(ctx context.Context, model *ProviderMod
 		ON CONFLICT (provider_id, model_id) 
 		DO UPDATE SET
 			model_name = EXCLUDED.model_name,
+			enabled = EXCLUDED.enabled,
 			description = EXCLUDED.description,
 			capabilities = EXCLUDED.capabilities,
 			pricing = EXCLUDED.pricing,

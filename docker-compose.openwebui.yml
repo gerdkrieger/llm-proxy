@@ -1,0 +1,395 @@
+version: '3.8'
+
+# =============================================================================
+# LLM-PROXY + OPENWEBUI INTEGRATION - DOCKER COMPOSE
+# =============================================================================
+# Full stack: Backend, Admin UI, PostgreSQL, Redis, OpenWebUI, Monitoring
+# Shared Docker Network for container-to-container communication
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # PostgreSQL 14 - Primary Database
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:14-alpine
+    container_name: llm-proxy-postgres
+    restart: unless-stopped
+    
+    environment:
+      POSTGRES_DB: ${DB_NAME:-llm_proxy}
+      POSTGRES_USER: ${DB_USER:-proxy_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-dev_password_2024}
+      POSTGRES_INITDB_ARGS: "-E UTF8 --locale=en_US.UTF-8"
+      PGDATA: /var/lib/postgresql/data/pgdata
+    
+    ports:
+      - "${DB_PORT:-5433}:5432"
+    
+    volumes:
+      - llm-proxy-postgres-data:/var/lib/postgresql/data
+      - ./deployments/docker/init-scripts:/docker-entrypoint-initdb.d:ro
+    
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-proxy_user} -d ${DB_NAME:-llm_proxy}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    
+    networks:
+      - llm-proxy-network
+    
+    user: postgres
+    
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ---------------------------------------------------------------------------
+  # Redis 7 - Caching & Rate Limiting
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: llm-proxy-redis
+    restart: unless-stopped
+    
+    command: >
+      redis-server
+      --appendonly yes
+      --appendfsync everysec
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --save 900 1
+      --save 300 10
+      --save 60 10000
+    
+    ports:
+      - "${REDIS_PORT:-6380}:6379"
+    
+    volumes:
+      - llm-proxy-redis-data:/data
+    
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    
+    networks:
+      - llm-proxy-network
+    
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ---------------------------------------------------------------------------
+  # LLM-Proxy Backend Application
+  # ---------------------------------------------------------------------------
+  backend:
+    image: ${BACKEND_IMAGE:-llm-proxy-backend:latest}
+    container_name: llm-proxy-backend
+    restart: unless-stopped
+    
+    build:
+      context: .
+      dockerfile: deployments/docker/Dockerfile
+    
+    env_file:
+      - .env
+    
+    environment:
+      # Override for Docker network
+      DB_HOST: postgres
+      DB_PORT: 5432
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+    
+    ports:
+      - "${SERVER_PORT:-8080}:8080"
+      - "${METRICS_PORT:-9091}:9090"
+    
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    networks:
+      - llm-proxy-network
+    
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+    
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ---------------------------------------------------------------------------
+  # Admin UI (Svelte + Nginx)
+  # ---------------------------------------------------------------------------
+  admin-ui:
+    image: ${ADMIN_UI_IMAGE:-llm-proxy-admin-ui:latest}
+    container_name: llm-proxy-admin-ui
+    restart: unless-stopped
+    
+    build:
+      context: ./admin-ui
+      dockerfile: Dockerfile
+    
+    environment:
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8080}
+    
+    ports:
+      - "${ADMIN_UI_PORT:-3005}:80"
+    
+    depends_on:
+      backend:
+        condition: service_healthy
+    
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--tries=1", "--spider", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    
+    networks:
+      - llm-proxy-network
+    
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+    
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ---------------------------------------------------------------------------
+  # OpenWebUI - Chat Interface
+  # ---------------------------------------------------------------------------
+  openwebui:
+    image: ghcr.io/open-webui/open-webui:ollama
+    container_name: openwebui
+    restart: unless-stopped
+    
+    environment:
+      - ENV=prod
+      - OLLAMA_BASE_URL=/ollama
+      - USE_OLLAMA_DOCKER=false
+      - ENABLE_OLLAMA_API=false
+      - ENABLE_OPENAI_API=true
+      # LLM-Proxy als OpenAI-kompatible API
+      - OPENAI_API_BASE_URLS=http://backend:8080/v1
+      - OPENAI_API_KEYS=${OAUTH_CLIENT_SECRET:-sk-llm-proxy-openwebui-2026-01-30-secure-key-abc123xyz789}
+    
+    ports:
+      - "${OPENWEBUI_PORT:-3010}:8080"
+    
+    volumes:
+      - open-webui:/app/backend/data
+      - ollama:/root/.ollama
+    
+    depends_on:
+      backend:
+        condition: service_healthy
+    
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    
+    networks:
+      - llm-proxy-network
+    
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ---------------------------------------------------------------------------
+  # Prometheus - Metrics Collection
+  # ---------------------------------------------------------------------------
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: llm-proxy-prometheus
+    restart: unless-stopped
+    
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    
+    volumes:
+      - ./deployments/docker/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - llm-proxy-prometheus-data:/prometheus
+    
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    
+    networks:
+      - llm-proxy-network
+    
+    depends_on:
+      - backend
+
+  # ---------------------------------------------------------------------------
+  # Grafana - Monitoring Dashboards
+  # ---------------------------------------------------------------------------
+  grafana:
+    image: grafana/grafana:latest
+    container_name: llm-proxy-grafana
+    restart: unless-stopped
+    
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+      - GF_SERVER_ROOT_URL=http://localhost:3001
+      - GF_INSTALL_PLUGINS=redis-datasource
+    
+    ports:
+      - "${GRAFANA_PORT:-3001}:3000"
+    
+    volumes:
+      - llm-proxy-grafana-data:/var/lib/grafana
+      - ./deployments/docker/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./deployments/docker/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    
+    networks:
+      - llm-proxy-network
+    
+    depends_on:
+      - prometheus
+
+# =============================================================================
+# NETWORKS
+# =============================================================================
+networks:
+  llm-proxy-network:
+    driver: bridge
+    name: llm-proxy-network
+
+# =============================================================================
+# VOLUMES
+# =============================================================================
+volumes:
+  llm-proxy-postgres-data:
+    name: llm-proxy-postgres-data
+    driver: local
+  
+  llm-proxy-redis-data:
+    name: llm-proxy-redis-data
+    driver: local
+  
+  llm-proxy-prometheus-data:
+    name: llm-proxy-prometheus-data
+    driver: local
+  
+  llm-proxy-grafana-data:
+    name: llm-proxy-grafana-data
+    driver: local
+  
+  # External volumes (von bestehendem OpenWebUI)
+  open-webui:
+    external: true
+    name: open-webui
+  
+  ollama:
+    external: true
+    name: ollama
+
+# =============================================================================
+# USAGE
+# =============================================================================
+# Start all services:
+#   docker compose -f docker-compose.openwebui.yml up -d
+#
+# Build and start:
+#   docker compose -f docker-compose.openwebui.yml up -d --build
+#
+# View logs:
+#   docker compose -f docker-compose.openwebui.yml logs -f [service-name]
+#
+# Stop all services:
+#   docker compose -f docker-compose.openwebui.yml down
+#
+# Access services:
+#   Backend API:    http://localhost:8080
+#   Admin UI:       http://localhost:3005
+#   OpenWebUI:      http://localhost:3010
+#   Prometheus:     http://localhost:9090
+#   Grafana:        http://localhost:3001
+# =============================================================================

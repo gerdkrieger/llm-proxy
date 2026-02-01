@@ -6,7 +6,6 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 	"github.com/llm-proxy/llm-proxy/internal/config"
 	"github.com/llm-proxy/llm-proxy/internal/infrastructure/database/repositories"
 	"github.com/llm-proxy/llm-proxy/internal/infrastructure/providers"
@@ -207,31 +206,82 @@ func getProviderName(providerID string) string {
 // MODEL MANAGEMENT
 // ============================================================================
 
-// Available models for each provider (hardcoded for MVP)
+// Available models for each provider (synced with model_sync_service.go)
 var providerModels = map[string][]ModelInfo{
 	"claude": {
-		{ID: "claude-3-5-sonnet-20241022", Name: "Claude 3.5 Sonnet (Latest)", Capabilities: []string{"vision", "function_calling"}},
-		{ID: "claude-3-5-haiku-20241022", Name: "Claude 3.5 Haiku (Latest)", Capabilities: []string{"vision"}},
-		{ID: "claude-3-opus-20240229", Name: "Claude 3 Opus", Capabilities: []string{"vision", "function_calling"}},
-		{ID: "claude-3-sonnet-20240229", Name: "Claude 3 Sonnet", Capabilities: []string{"vision", "function_calling"}},
+		// Claude 4.5 Series (LATEST - Jan 2026)
+		{ID: "claude-sonnet-4-5", Name: "Claude Sonnet 4.5 (Alias)", Capabilities: []string{"vision", "function_calling", "extended_thinking", "200k_context", "1m_context_beta"}},
+		{ID: "claude-sonnet-4-5-20250929", Name: "Claude Sonnet 4.5 (Sep 2025)", Capabilities: []string{"vision", "function_calling", "extended_thinking"}},
+		{ID: "claude-haiku-4-5", Name: "Claude Haiku 4.5 (Alias)", Capabilities: []string{"vision", "function_calling", "extended_thinking"}},
+		{ID: "claude-haiku-4-5-20251001", Name: "Claude Haiku 4.5 (Oct 2025)", Capabilities: []string{"vision", "function_calling", "extended_thinking"}},
+		{ID: "claude-opus-4-5", Name: "Claude Opus 4.5 (Alias)", Capabilities: []string{"vision", "function_calling", "extended_thinking"}},
+		{ID: "claude-opus-4-5-20251101", Name: "Claude Opus 4.5 (Nov 2025)", Capabilities: []string{"vision", "function_calling", "extended_thinking"}},
+		// Claude 4.1 and 4 Series (Legacy but available)
+		{ID: "claude-opus-4-1", Name: "Claude Opus 4.1 (Alias)", Capabilities: []string{"vision", "function_calling", "extended_thinking"}},
+		{ID: "claude-opus-4-1-20250805", Name: "Claude Opus 4.1 (Aug 2025)", Capabilities: []string{"vision", "function_calling"}},
+		{ID: "claude-sonnet-4-0", Name: "Claude Sonnet 4 (Alias)", Capabilities: []string{"vision", "function_calling", "extended_thinking"}},
+		{ID: "claude-sonnet-4-20250514", Name: "Claude Sonnet 4 (May 2025)", Capabilities: []string{"vision", "function_calling"}},
+		{ID: "claude-3-7-sonnet-latest", Name: "Claude 3.7 Sonnet (Alias)", Capabilities: []string{"vision", "function_calling"}},
+		{ID: "claude-3-7-sonnet-20250219", Name: "Claude 3.7 Sonnet (Feb 2025)", Capabilities: []string{"vision", "function_calling"}},
+		{ID: "claude-opus-4-0", Name: "Claude Opus 4 (Alias)", Capabilities: []string{"vision", "function_calling"}},
+		{ID: "claude-opus-4-20250514", Name: "Claude Opus 4 (May 2025)", Capabilities: []string{"vision", "function_calling"}},
+		// Claude 3 Series (Legacy)
 		{ID: "claude-3-haiku-20240307", Name: "Claude 3 Haiku", Capabilities: []string{"vision"}},
-		{ID: "claude-2.1", Name: "Claude 2.1", Capabilities: []string{}},
-		{ID: "claude-2.0", Name: "Claude 2.0", Capabilities: []string{}},
-		{ID: "claude-instant-1.2", Name: "Claude Instant 1.2", Capabilities: []string{}},
 	},
 	"openai": {
+		// GPT-5 Series (LATEST - Jan 2026)
+		{ID: "gpt-5.2", Name: "GPT-5.2", Capabilities: []string{"vision", "function_calling", "json_mode", "reasoning", "coding"}},
+		{ID: "gpt-5.2-pro", Name: "GPT-5.2 Pro", Capabilities: []string{"vision", "function_calling", "json_mode", "reasoning"}},
+		{ID: "gpt-5.2-codex", Name: "GPT-5.2 Codex", Capabilities: []string{"coding", "reasoning", "agentic"}},
+		{ID: "gpt-5.1", Name: "GPT-5.1", Capabilities: []string{"vision", "function_calling", "json_mode", "reasoning"}},
+		{ID: "gpt-5.1-codex", Name: "GPT-5.1 Codex", Capabilities: []string{"coding", "reasoning", "agentic"}},
+		{ID: "gpt-5", Name: "GPT-5", Capabilities: []string{"vision", "function_calling", "json_mode", "reasoning"}},
+		{ID: "gpt-5-pro", Name: "GPT-5 Pro", Capabilities: []string{"vision", "function_calling", "reasoning"}},
+		{ID: "gpt-5-mini", Name: "GPT-5 Mini", Capabilities: []string{"vision", "function_calling", "json_mode"}},
+		{ID: "gpt-5-nano", Name: "GPT-5 Nano", Capabilities: []string{"function_calling", "json_mode"}},
+		// GPT-4.1 Series (Latest Non-Reasoning)
+		{ID: "gpt-4.1", Name: "GPT-4.1", Capabilities: []string{"vision", "function_calling", "json_mode"}},
+		{ID: "gpt-4.1-mini", Name: "GPT-4.1 Mini", Capabilities: []string{"vision", "function_calling", "json_mode"}},
+		{ID: "gpt-4.1-nano", Name: "GPT-4.1 Nano", Capabilities: []string{"function_calling", "json_mode"}},
+		// o-Series Reasoning Models
+		{ID: "o3", Name: "o3", Capabilities: []string{"reasoning"}},
+		{ID: "o3-pro", Name: "o3 Pro", Capabilities: []string{"reasoning"}},
+		{ID: "o3-mini", Name: "o3 Mini", Capabilities: []string{"reasoning"}},
+		{ID: "o4-mini", Name: "o4 Mini", Capabilities: []string{"reasoning"}},
+		{ID: "o1", Name: "o1", Capabilities: []string{"reasoning"}},
+		{ID: "o1-pro", Name: "o1 Pro", Capabilities: []string{"reasoning"}},
+		{ID: "o1-mini", Name: "o1 Mini", Capabilities: []string{"reasoning"}},
+		{ID: "o1-preview", Name: "o1 Preview", Capabilities: []string{"reasoning"}},
+		// Deep Research
+		{ID: "o3-deep-research", Name: "o3 Deep Research", Capabilities: []string{"reasoning", "research"}},
+		{ID: "o4-mini-deep-research", Name: "o4 Mini Deep Research", Capabilities: []string{"reasoning", "research"}},
+		// GPT-4o Series
+		{ID: "gpt-4o", Name: "GPT-4o", Capabilities: []string{"vision", "function_calling", "json_mode", "audio"}},
+		{ID: "gpt-4o-2024-11-20", Name: "GPT-4o (Nov 2024)", Capabilities: []string{"vision", "function_calling", "json_mode"}},
+		{ID: "gpt-4o-2024-08-06", Name: "GPT-4o (Aug 2024)", Capabilities: []string{"vision", "function_calling", "json_mode"}},
+		{ID: "gpt-4o-2024-05-13", Name: "GPT-4o (May 2024)", Capabilities: []string{"vision", "function_calling", "json_mode"}},
+		{ID: "gpt-4o-mini", Name: "GPT-4o Mini", Capabilities: []string{"vision", "function_calling", "json_mode"}},
+		{ID: "gpt-4o-mini-2024-07-18", Name: "GPT-4o Mini (Jul 2024)", Capabilities: []string{"vision", "function_calling"}},
+		// Realtime/Audio
+		{ID: "gpt-realtime", Name: "GPT Realtime", Capabilities: []string{"realtime", "audio", "text"}},
+		{ID: "gpt-realtime-mini", Name: "GPT Realtime Mini", Capabilities: []string{"realtime", "audio"}},
+		{ID: "gpt-audio", Name: "GPT Audio", Capabilities: []string{"audio"}},
+		{ID: "gpt-audio-mini", Name: "GPT Audio Mini", Capabilities: []string{"audio"}},
+		// GPT-4 Turbo (Legacy)
 		{ID: "gpt-4-turbo", Name: "GPT-4 Turbo", Capabilities: []string{"vision", "function_calling", "json_mode"}},
-		{ID: "gpt-4-turbo-preview", Name: "GPT-4 Turbo Preview", Capabilities: []string{"vision", "function_calling"}},
-		{ID: "gpt-4-1106-preview", Name: "GPT-4 Turbo 1106", Capabilities: []string{"vision", "function_calling"}},
+		{ID: "gpt-4-turbo-2024-04-09", Name: "GPT-4 Turbo (Apr 2024)", Capabilities: []string{"vision", "function_calling"}},
+		{ID: "gpt-4-turbo-preview", Name: "GPT-4 Turbo Preview", Capabilities: []string{"function_calling", "json_mode"}},
 		{ID: "gpt-4-vision-preview", Name: "GPT-4 Vision Preview", Capabilities: []string{"vision"}},
+		// GPT-4 (Legacy)
 		{ID: "gpt-4", Name: "GPT-4", Capabilities: []string{"function_calling"}},
-		{ID: "gpt-4-0613", Name: "GPT-4 (0613)", Capabilities: []string{"function_calling"}},
+		{ID: "gpt-4-0613", Name: "GPT-4 (Jun 2023)", Capabilities: []string{"function_calling"}},
 		{ID: "gpt-4-32k", Name: "GPT-4 32K", Capabilities: []string{"function_calling"}},
-		{ID: "gpt-4-32k-0613", Name: "GPT-4 32K (0613)", Capabilities: []string{"function_calling"}},
-		{ID: "gpt-3.5-turbo", Name: "GPT-3.5 Turbo", Capabilities: []string{"function_calling"}},
-		{ID: "gpt-3.5-turbo-16k", Name: "GPT-3.5 Turbo 16K", Capabilities: []string{"function_calling"}},
-		{ID: "gpt-3.5-turbo-1106", Name: "GPT-3.5 Turbo 1106", Capabilities: []string{"function_calling", "json_mode"}},
-		{ID: "gpt-3.5-turbo-0613", Name: "GPT-3.5 Turbo (0613)", Capabilities: []string{"function_calling"}},
+		{ID: "gpt-4-32k-0613", Name: "GPT-4 32K (Jun 2023)", Capabilities: []string{"function_calling"}},
+		// GPT-3.5 Turbo (Legacy)
+		{ID: "gpt-3.5-turbo", Name: "GPT-3.5 Turbo", Capabilities: []string{"function_calling", "json_mode"}},
+		{ID: "gpt-3.5-turbo-0125", Name: "GPT-3.5 Turbo (Jan 2024)", Capabilities: []string{"function_calling"}},
+		{ID: "gpt-3.5-turbo-1106", Name: "GPT-3.5 Turbo (Nov 2023)", Capabilities: []string{"function_calling"}},
+		{ID: "gpt-3.5-turbo-0613", Name: "GPT-3.5 Turbo (Jun 2023)", Capabilities: []string{"function_calling"}},
 	},
 }
 
@@ -310,51 +360,77 @@ func (h *ProviderManagementHandler) ConfigureProviderModels(w http.ResponseWrite
 		return
 	}
 
-	// Get available models for this provider
-	availableModels, ok := providerModels[providerID]
-	if !ok {
-		h.respondError(w, http.StatusNotFound, "Provider not found")
+	ctx := r.Context()
+
+	h.logger.Infof("Admin: Received configuration for %d enabled models for provider: %s", len(req.EnabledModels), providerID)
+
+	// Get ALL models for this provider from database (single source of truth)
+	allModels, err := h.providerModelRepo.GetByProvider(ctx, providerID)
+	if err != nil {
+		h.logger.Errorf(err, "Failed to get models from database")
+		h.respondError(w, http.StatusInternalServerError, "Failed to retrieve models")
 		return
 	}
 
-	// Create a map of enabled model IDs
+	if len(allModels) == 0 {
+		h.respondError(w, http.StatusNotFound, "No models found for provider")
+		return
+	}
+
+	// Create a map of enabled model IDs for fast lookup
 	enabledSet := make(map[string]bool)
 	for _, modelID := range req.EnabledModels {
 		enabledSet[modelID] = true
 	}
 
-	// Update all models in the database
-	ctx := r.Context()
-	updatedCount := 0
-	for _, model := range availableModels {
-		enabled := enabledSet[model.ID]
+	// Collect all model IDs that should be enabled and disabled
+	var enabledModelIDs []string
+	var disabledModelIDs []string
 
-		// Create or update model in DB
-		dbModel := &repositories.ProviderModel{
-			ID:         uuid.New(),
-			ProviderID: providerID,
-			ModelID:    model.ID,
-			ModelName:  model.Name,
-			Enabled:    enabled,
-			Capabilities: map[string]interface{}{
-				"features": model.Capabilities,
-			},
-			Pricing: map[string]interface{}{},
+	for _, model := range allModels {
+		if enabledSet[model.ModelID] {
+			enabledModelIDs = append(enabledModelIDs, model.ModelID)
+		} else {
+			disabledModelIDs = append(disabledModelIDs, model.ModelID)
 		}
-
-		if err := h.providerModelRepo.Create(ctx, dbModel); err != nil {
-			h.logger.Warnf("Failed to update model %s: %v", model.ID, err)
-			continue
-		}
-		updatedCount++
 	}
 
-	h.logger.Infof("Updated %d models for provider %s", updatedCount, providerID)
+	h.logger.Debugf("Enabling %d models, disabling %d models for provider %s",
+		len(enabledModelIDs), len(disabledModelIDs), providerID)
+
+	// Use batch updates for better performance
+	var updateErrors []error
+
+	// Batch enable selected models
+	if len(enabledModelIDs) > 0 {
+		if err := h.providerModelRepo.BulkUpdateEnabled(ctx, providerID, enabledModelIDs, true); err != nil {
+			h.logger.Errorf(err, "Failed to enable models")
+			updateErrors = append(updateErrors, err)
+		}
+	}
+
+	// Batch disable unselected models
+	if len(disabledModelIDs) > 0 {
+		if err := h.providerModelRepo.BulkUpdateEnabled(ctx, providerID, disabledModelIDs, false); err != nil {
+			h.logger.Errorf(err, "Failed to disable models")
+			updateErrors = append(updateErrors, err)
+		}
+	}
+
+	if len(updateErrors) > 0 {
+		h.logger.Warnf("Model configuration completed with %d errors", len(updateErrors))
+		h.respondError(w, http.StatusInternalServerError, "Failed to update some models")
+		return
+	}
+
+	h.logger.Infof("Successfully configured models for provider %s: %d enabled, %d disabled",
+		providerID, len(enabledModelIDs), len(disabledModelIDs))
 
 	h.respondJSON(w, http.StatusOK, map[string]interface{}{
-		"success":       true,
-		"provider_id":   providerID,
-		"updated_count": updatedCount,
-		"enabled_count": len(req.EnabledModels),
+		"success":        true,
+		"provider_id":    providerID,
+		"enabled_count":  len(enabledModelIDs),
+		"disabled_count": len(disabledModelIDs),
+		"total_count":    len(allModels),
 	})
 }

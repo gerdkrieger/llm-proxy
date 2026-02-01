@@ -310,10 +310,14 @@ build:admin-ui:
 
 docker:backend:
   stage: docker
-  image: docker:latest
+  image: docker:27.1.1
   services:
     - docker:dind
   extends: .docker-login
+  before_script:
+    - set -euo pipefail
+    - echo "Logging into GitLab Container Registry..."
+    - echo "${CI_REGISTRY_PASSWORD}" | docker login -u "${CI_REGISTRY_USER}" --password-stdin "${CI_REGISTRY}"
   script:
     - echo "Building backend Docker image..."
     - |
@@ -338,6 +342,8 @@ docker:backend:
         docker push "${BACKEND_IMAGE}:${CI_COMMIT_TAG}" || true
       fi
   allow_failure: true
+  tags:
+    - llm-proxy-runner
   only:
     - master
     - develop
@@ -345,10 +351,14 @@ docker:backend:
 
 docker:admin-ui:
   stage: docker
-  image: docker:latest
+  image: docker:27.1.1
   services:
     - docker:dind
   extends: .docker-login
+  before_script:
+    - set -euo pipefail
+    - echo "Logging into GitLab Container Registry..."
+    - echo "${CI_REGISTRY_PASSWORD}" | docker login -u "${CI_REGISTRY_USER}" --password-stdin "${CI_REGISTRY}"
   script:
     - echo "Building Admin UI Docker image..."
     - |
@@ -370,6 +380,8 @@ docker:admin-ui:
         docker push "${ADMIN_UI_IMAGE}:${CI_COMMIT_TAG}" || true
       fi
   allow_failure: true
+  tags:
+    - llm-proxy-runner
   only:
     - master
     - develop
@@ -456,10 +468,11 @@ deploy:production:
 
 deploy:localhost:
   stage: deploy
-  image: docker:latest
+  image: docker:27.1.1
   services:
     - docker:dind
   before_script:
+    - set -euo pipefail
     - apk add --no-cache curl
     - echo "Deploying to localhost..."
   script:
@@ -487,8 +500,7 @@ deploy:localhost:
     - master
   when: manual
   tags:
-    - docker
-    - localhost
+    - llm-proxy-runner
 
 # =============================================================================
 # UTILITY JOBS

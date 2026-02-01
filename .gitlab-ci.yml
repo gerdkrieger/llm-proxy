@@ -311,8 +311,8 @@ build:admin-ui:
 docker:backend:
   stage: docker
   image: docker:27.1.1
-  services:
-    - docker:dind
+  # services:
+  #   - docker:dind  # Not needed - using host Docker via socket mount
   extends: .docker-login
   before_script:
     - set -euo pipefail
@@ -352,8 +352,8 @@ docker:backend:
 docker:admin-ui:
   stage: docker
   image: docker:27.1.1
-  services:
-    - docker:dind
+  # services:
+  #   - docker:dind  # Not needed - using host Docker via socket mount
   extends: .docker-login
   before_script:
     - set -euo pipefail

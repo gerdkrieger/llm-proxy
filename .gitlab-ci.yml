@@ -328,7 +328,7 @@ docker:backend:
     - docker push "${BACKEND_IMAGE}:${CI_COMMIT_SHORT_SHA}"
     - docker push "${BACKEND_IMAGE}:${CI_COMMIT_REF_SLUG}"
     - |
-      if [ "${CI_COMMIT_REF_NAME}" = "main" ]; then
+      if [ "${CI_COMMIT_REF_NAME}" = "master" ]; then
         docker tag "${BACKEND_IMAGE}:${CI_COMMIT_SHORT_SHA}" "${BACKEND_IMAGE}:latest"
         docker push "${BACKEND_IMAGE}:latest"
       fi
@@ -338,7 +338,7 @@ docker:backend:
         docker push "${BACKEND_IMAGE}:${CI_COMMIT_TAG}"
       fi
   only:
-    - main
+    - master
     - develop
     - tags
 
@@ -359,7 +359,7 @@ docker:admin-ui:
     - docker push "${ADMIN_UI_IMAGE}:${CI_COMMIT_SHORT_SHA}"
     - docker push "${ADMIN_UI_IMAGE}:${CI_COMMIT_REF_SLUG}"
     - |
-      if [ "${CI_COMMIT_REF_NAME}" = "main" ]; then
+      if [ "${CI_COMMIT_REF_NAME}" = "master" ]; then
         docker tag "${ADMIN_UI_IMAGE}:${CI_COMMIT_SHORT_SHA}" "${ADMIN_UI_IMAGE}:latest"
         docker push "${ADMIN_UI_IMAGE}:latest"
       fi
@@ -369,7 +369,7 @@ docker:admin-ui:
         docker push "${ADMIN_UI_IMAGE}:${CI_COMMIT_TAG}"
       fi
   only:
-    - main
+    - master
     - develop
     - tags
 
@@ -434,7 +434,7 @@ deploy:staging:
     DEPLOY_PATH: "${STAGING_PATH}"
     DEPLOY_URL: "${STAGING_URL}"
   only:
-    - main
+    - master
   when: manual
 
 deploy:production:
@@ -486,7 +486,7 @@ deploy:localhost:
     name: localhost
     url: http://localhost:8080
   only:
-    - main
+    - master
   when: manual
   tags:
     - docker

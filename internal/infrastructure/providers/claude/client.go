@@ -114,21 +114,8 @@ func (c *Client) validateRequest(req *models.ClaudeRequest) error {
 	if req.MaxTokens <= 0 {
 		return fmt.Errorf("max_tokens must be greater than 0")
 	}
-	// Validate model is in allowed list
-	if !c.isModelAllowed(req.Model) {
-		return fmt.Errorf("model %s is not allowed", req.Model)
-	}
+	// Model validation removed - database handles this via /v1/models endpoint
 	return nil
-}
-
-// isModelAllowed checks if the model is in the allowed list
-func (c *Client) isModelAllowed(model string) bool {
-	for _, allowedModel := range c.config.Models {
-		if model == allowedModel {
-			return true
-		}
-	}
-	return false
 }
 
 // handleErrorResponse handles error responses from Claude API

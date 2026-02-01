@@ -133,6 +133,10 @@ func (h *ChatHandler) CreateCompletion(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Determine provider based on model name
+	provider := h.providerManager.DetermineProvider(openAIReq.Model)
+	h.logger.Infof("Routing request to provider: %s (model: %s)", provider, openAIReq.Model)
+
 	// Check cache first (only for non-streaming requests)
 	var cacheKey string
 
@@ -169,79 +173,12 @@ func (h *ChatHandler) CreateCompletion(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Convert OpenAI request to Claude format
-	claudeReq, err := claude.MapOpenAIToClaude(&openAIReq)
-	if err != nil {
-		h.logRequest(ctx, r, clientID, requestID, openAIReq.Model, http.StatusBadRequest, 0, 0, 0, startTime, err)
-		h.respondError(w, http.StatusBadRequest, "invalid_request_error", "Failed to convert request: "+err.Error())
-		return
+	// Route to appropriate provider
+	if provider == "openai" {
+		h.handleOpenAICompletion(w, r, ctx, clientID, requestID, &openAIReq, cacheKey, startTime)
+	} else {
+		h.handleClaudeCompletion(w, r, ctx, clientID, requestID, &openAIReq, cacheKey, startTime)
 	}
-
-	// Handle streaming requests differently (no caching for streams)
-	if openAIReq.Stream {
-		h.handleStreamingCompletion(w, r, clientID, requestID, openAIReq.Model, claudeReq, startTime)
-		return
-	}
-
-	h.logger.Debugf("Sending request to Claude API: model=%s, max_tokens=%d", claudeReq.Model, claudeReq.MaxTokens)
-
-	// Send request to Claude via provider manager (with retry logic)
-	claudeResp, err := h.providerManager.CreateMessage(ctx, claudeReq)
-	if err != nil {
-		// Check if it's a Claude API error
-		statusCode := http.StatusInternalServerError
-		errorType := "api_error"
-
-		if apiErr, ok := err.(*claude.APIError); ok {
-			statusCode = h.mapClaudeStatusCode(apiErr.StatusCode)
-			errorType = apiErr.Type
-		}
-
-		h.logRequest(ctx, r, clientID, requestID, openAIReq.Model, statusCode, 0, 0, 0, startTime, err)
-		h.respondError(w, statusCode, errorType, "Provider error: "+err.Error())
-		return
-	}
-
-	// Convert Claude response to OpenAI format
-	openAIResp := claude.MapClaudeToOpenAI(claudeResp, openAIReq.Model)
-	openAIResp.ID = requestID
-
-	// Cache the response (fire and forget)
-	if cacheKey != "" {
-		go func() {
-			if err := h.cacheService.Set(context.Background(), cacheKey, openAIResp); err != nil {
-				h.logger.Warnf("Failed to cache response: %v", err)
-			}
-		}()
-	}
-
-	// Calculate cost
-	cost := claude.CalculateCost(openAIReq.Model, claudeResp.Usage.InputTokens, claudeResp.Usage.OutputTokens)
-
-	// Log successful request
-	duration := time.Since(startTime)
-	h.logRequest(
-		ctx,
-		r,
-		clientID,
-		requestID,
-		openAIReq.Model,
-		http.StatusOK,
-		claudeResp.Usage.InputTokens,
-		claudeResp.Usage.OutputTokens,
-		duration.Milliseconds(),
-		startTime,
-		nil,
-	)
-
-	h.logger.Infof("Chat completion successful: tokens=%d, cost=$%.6f, duration=%v",
-		claudeResp.Usage.InputTokens+claudeResp.Usage.OutputTokens, cost, duration)
-
-	// Send response
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("X-Cache", "MISS")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(openAIResp)
 }
 
 // logRequest logs the request to database (async, fire-and-forget)
@@ -266,6 +203,9 @@ func (h *ChatHandler) logRequest(
 		userAgentPtr = &userAgent
 	}
 
+	// Determine provider based on model
+	provider := h.providerManager.DetermineProvider(model)
+
 	// Create log entry
 	log := &repositories.RequestLog{
 		ID:               uuid.New(),
@@ -273,7 +213,7 @@ func (h *ChatHandler) logRequest(
 		Method:           r.Method,
 		Path:             r.URL.Path,
 		Model:            model,
-		Provider:         "claude",
+		Provider:         provider,
 		PromptTokens:     promptTokens,
 		CompletionTokens: completionTokens,
 		TotalTokens:      promptTokens + completionTokens,
@@ -549,6 +489,169 @@ func (h *ChatHandler) respondError(w http.ResponseWriter, statusCode int, errorT
 			Type:    errorType,
 		},
 	})
+}
+
+// handleClaudeCompletion handles completion requests routed to Claude
+func (h *ChatHandler) handleClaudeCompletion(
+	w http.ResponseWriter,
+	r *http.Request,
+	ctx context.Context,
+	clientID string,
+	requestID string,
+	openAIReq *models.OpenAIRequest,
+	cacheKey string,
+	startTime time.Time,
+) {
+	// Convert OpenAI request to Claude format
+	claudeReq, err := claude.MapOpenAIToClaude(openAIReq)
+	if err != nil {
+		h.logRequest(ctx, r, clientID, requestID, openAIReq.Model, http.StatusBadRequest, 0, 0, 0, startTime, err)
+		h.respondError(w, http.StatusBadRequest, "invalid_request_error", "Failed to convert request: "+err.Error())
+		return
+	}
+
+	// Handle streaming requests differently (no caching for streams)
+	if openAIReq.Stream {
+		h.handleStreamingCompletion(w, r, clientID, requestID, openAIReq.Model, claudeReq, startTime)
+		return
+	}
+
+	h.logger.Debugf("Sending request to Claude API: model=%s, max_tokens=%d", claudeReq.Model, claudeReq.MaxTokens)
+
+	// Send request to Claude via provider manager (with retry logic)
+	claudeResp, err := h.providerManager.CreateMessage(ctx, claudeReq)
+	if err != nil {
+		// Check if it's a Claude API error
+		statusCode := http.StatusInternalServerError
+		errorType := "api_error"
+
+		if apiErr, ok := err.(*claude.APIError); ok {
+			statusCode = h.mapClaudeStatusCode(apiErr.StatusCode)
+			errorType = apiErr.Type
+		}
+
+		h.logRequest(ctx, r, clientID, requestID, openAIReq.Model, statusCode, 0, 0, 0, startTime, err)
+		h.respondError(w, statusCode, errorType, "Provider error: "+err.Error())
+		return
+	}
+
+	// Convert Claude response to OpenAI format
+	openAIResp := claude.MapClaudeToOpenAI(claudeResp, openAIReq.Model)
+	openAIResp.ID = requestID
+
+	// Cache the response (fire and forget)
+	if cacheKey != "" {
+		go func() {
+			if err := h.cacheService.Set(context.Background(), cacheKey, openAIResp); err != nil {
+				h.logger.Warnf("Failed to cache response: %v", err)
+			}
+		}()
+	}
+
+	// Calculate cost
+	cost := claude.CalculateCost(openAIReq.Model, claudeResp.Usage.InputTokens, claudeResp.Usage.OutputTokens)
+
+	// Log successful request
+	duration := time.Since(startTime)
+	h.logRequest(
+		ctx,
+		r,
+		clientID,
+		requestID,
+		openAIReq.Model,
+		http.StatusOK,
+		claudeResp.Usage.InputTokens,
+		claudeResp.Usage.OutputTokens,
+		duration.Milliseconds(),
+		startTime,
+		nil,
+	)
+
+	h.logger.Infof("Chat completion successful: tokens=%d, cost=$%.6f, duration=%v",
+		claudeResp.Usage.InputTokens+claudeResp.Usage.OutputTokens, cost, duration)
+
+	// Send response
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("X-Cache", "MISS")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(openAIResp)
+}
+
+// handleOpenAICompletion handles completion requests routed to OpenAI
+func (h *ChatHandler) handleOpenAICompletion(
+	w http.ResponseWriter,
+	r *http.Request,
+	ctx context.Context,
+	clientID string,
+	requestID string,
+	openAIReq *models.OpenAIRequest,
+	cacheKey string,
+	startTime time.Time,
+) {
+	// Get OpenAI client
+	openaiClient := h.providerManager.GetOpenAIClient()
+	if openaiClient == nil {
+		h.logRequest(ctx, r, clientID, requestID, openAIReq.Model, http.StatusServiceUnavailable, 0, 0, 0, startTime, nil)
+		h.respondError(w, http.StatusServiceUnavailable, "provider_unavailable", "OpenAI provider not available")
+		return
+	}
+
+	// Handle streaming requests (not implemented yet for OpenAI)
+	if openAIReq.Stream {
+		h.logRequest(ctx, r, clientID, requestID, openAIReq.Model, http.StatusNotImplemented, 0, 0, 0, startTime, nil)
+		h.respondError(w, http.StatusNotImplemented, "not_implemented", "Streaming not yet implemented for OpenAI")
+		return
+	}
+
+	h.logger.Debugf("Sending request to OpenAI API: model=%s", openAIReq.Model)
+
+	// Send request to OpenAI (native format, no conversion needed)
+	openAIResp, err := openaiClient.CreateMessage(ctx, openAIReq)
+	if err != nil {
+		statusCode := http.StatusInternalServerError
+		errorType := "api_error"
+
+		h.logRequest(ctx, r, clientID, requestID, openAIReq.Model, statusCode, 0, 0, 0, startTime, err)
+		h.respondError(w, statusCode, errorType, "Provider error: "+err.Error())
+		return
+	}
+
+	// Update request ID
+	openAIResp.ID = requestID
+
+	// Cache the response (fire and forget)
+	if cacheKey != "" {
+		go func() {
+			if err := h.cacheService.Set(context.Background(), cacheKey, openAIResp); err != nil {
+				h.logger.Warnf("Failed to cache response: %v", err)
+			}
+		}()
+	}
+
+	// Log successful request
+	duration := time.Since(startTime)
+	h.logRequest(
+		ctx,
+		r,
+		clientID,
+		requestID,
+		openAIReq.Model,
+		http.StatusOK,
+		openAIResp.Usage.PromptTokens,
+		openAIResp.Usage.CompletionTokens,
+		duration.Milliseconds(),
+		startTime,
+		nil,
+	)
+
+	h.logger.Infof("Chat completion successful: tokens=%d, duration=%v",
+		openAIResp.Usage.TotalTokens, duration)
+
+	// Send response
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("X-Cache", "MISS")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(openAIResp)
 }
 
 // safeFlusher wraps a ResponseWriter and provides safe flushing

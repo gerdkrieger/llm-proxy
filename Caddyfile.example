@@ -1,0 +1,96 @@
+# =============================================================================
+# CADDY REVERSE PROXY CONFIGURATION FOR LLM-PROXY
+# =============================================================================
+# Place this in your Caddy config on the LIVE server
+# Location: /etc/caddy/Caddyfile (for native Caddy installation)
+# =============================================================================
+# NOTE: Caddy runs NATIVELY on the host, not in Docker!
+#       Therefore, use localhost:PORT instead of container names
+# =============================================================================
+
+llmproxy.aitrail.ch {
+    # Enable HTTPS (Caddy handles Let's Encrypt automatically)
+    
+    # Admin API - Route to backend
+    handle /admin/* {
+        reverse_proxy localhost:8080 {
+            # Preserve original headers
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+        }
+    }
+    
+    # LLM API v1 - Route to backend
+    handle /v1/* {
+        reverse_proxy localhost:8080 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+        }
+    }
+    
+    # Health check - Route to backend
+    handle /health {
+        reverse_proxy localhost:8080
+    }
+    
+    # Metrics endpoint - Route to backend
+    handle /metrics {
+        reverse_proxy localhost:9091
+    }
+    
+    # Everything else - Route to Admin UI
+    handle /* {
+        reverse_proxy localhost:3005 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+        }
+    }
+    
+    # Logging
+    log {
+        output file /var/log/caddy/llmproxy.log {
+            roll_size 100mb
+            roll_keep 5
+            roll_keep_for 720h
+        }
+        format json
+        level INFO
+    }
+    
+    # Security headers
+    header {
+        # Enable HSTS
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        
+        # Prevent clickjacking
+        X-Frame-Options "SAMEORIGIN"
+        
+        # Prevent MIME sniffing
+        X-Content-Type-Options "nosniff"
+        
+        # XSS Protection
+        X-XSS-Protection "1; mode=block"
+        
+        # Referrer Policy
+        Referrer-Policy "no-referrer-when-downgrade"
+        
+        # Remove Server header
+        -Server
+    }
+}
+
+# =============================================================================
+# USAGE INSTRUCTIONS
+# =============================================================================
+# 1. Copy this configuration to /etc/caddy/Caddyfile on LIVE server
+# 2. Test configuration: sudo caddy validate --config /etc/caddy/Caddyfile
+# 3. Reload Caddy: sudo systemctl reload caddy
+# 4. Check status: sudo systemctl status caddy
+# 5. View logs: sudo journalctl -u caddy -f
+# =============================================================================

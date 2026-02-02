@@ -70,3 +70,8 @@ Thumbs.db
 # Application specific
 config.local.yaml
 config.*.local.yaml
+# Temporary fix scripts and configs
+Caddyfile.correct
+update-caddy-config.sh
+quick-diagnose.md
+live-diagnosis.log

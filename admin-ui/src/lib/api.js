@@ -1,5 +1,8 @@
 // Admin API Client
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+// Use relative URLs when VITE_API_BASE_URL is empty (production with Caddy)
+// Falls back to localhost for local development
+const envUrl = import.meta.env.VITE_API_BASE_URL;
+const API_BASE_URL = envUrl === '' ? '' : (envUrl || 'http://localhost:8080');
 
 class AdminAPI {
   constructor(apiKey) {

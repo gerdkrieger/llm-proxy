@@ -1,0 +1,60 @@
+# .dockerignore - Exclude files from Docker build context
+# =============================================================================
+
+# Environment files (should be provided at runtime, not baked into image)
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Documentation
+*.md
+!README.md
+docs/
+.github/
+
+# Development files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Test files
+*_test.go
+test/
+tests/
+coverage.*
+
+# Build artifacts
+bin/
+dist/
+build/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Dependency directories
+vendor/
+node_modules/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+tmp/
+temp/
+*.log
+*.tmp
+
+# Docker files (when building)
+docker-compose*.yml
+Dockerfile*
+deployments/docker/docker-compose*.yml

@@ -120,9 +120,13 @@ services:
       - .env
     
     environment:
-      # Override for Docker network
-      DB_HOST: postgres
-      DB_PORT: 5432
+      # Override for Docker network (Viper expects DATABASE_* not DB_*)
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_DATABASE: llm_proxy
+      DATABASE_USER: proxy_user
+      DATABASE_PASSWORD: ${DB_PASSWORD:-dev_password_2024}
+      DATABASE_SSL_MODE: disable
       REDIS_HOST: redis
       REDIS_PORT: 6379
       ENVIRONMENT: ${ENVIRONMENT:-production}

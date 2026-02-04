@@ -1,8 +1,7 @@
 // Admin API Client
-// Use relative URLs when VITE_API_BASE_URL is empty (production with Caddy)
-// Falls back to localhost for local development
-const envUrl = import.meta.env.VITE_API_BASE_URL;
-const API_BASE_URL = envUrl === '' ? '' : (envUrl || 'http://localhost:8080');
+// PRODUCTION FIX: Use window.location.origin to always use the current domain
+// This prevents localhost:8080 issues when deploying from registry
+const API_BASE_URL = window.location.origin;
 
 class AdminAPI {
   constructor(apiKey) {

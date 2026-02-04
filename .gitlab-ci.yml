@@ -461,6 +461,7 @@ deploy:production:
     - cp "$ENV_FILE" .env
     - chmod 600 .env
     - echo "✅ .env file created ($(wc -l < .env) lines)"
+    - cp .env deployments/.env
     
     # Aggressive cleanup of existing containers (prevent name conflicts)
     - echo "🧹 Force-removing any existing LLM-Proxy containers..."

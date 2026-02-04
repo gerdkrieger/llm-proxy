@@ -368,3 +368,85 @@ Status:       ✅ Healthy and responsive
 **Erstellt am:** 4. Februar 2026, 12:10 Uhr  
 **Letzter Test:** Alle Services healthy  
 **Nächste Session:** Siehe `SESSION-NEXT-STEPS.md`
+
+---
+
+## 🎉 Session Continuation - FINAL RESOLUTION (Feb 4, 2026 - 14:00)
+
+### Critical Discovery: Root Cause Found!
+**The REAL problem:** `admin-ui/.env` had `VITE_API_BASE_URL=http://localhost:8080` hardcoded
+- Vite embeds this value into JavaScript bundle at build time
+- Production builds had localhost URLs baked in → "Failed to fetch" errors in browser
+
+### ✅ All Next Steps Completed
+
+#### 1. Fixed admin-ui/.env Configuration
+```env
+# OLD (BROKEN):
+VITE_API_BASE_URL=http://localhost:8080
+
+# NEW (CORRECT):
+VITE_API_BASE_URL=
+# Empty = relative URLs via Caddy reverse proxy
+```
+
+#### 2. Rebuilt & Pushed Correct Images to GitLab Registry
+```bash
+✓ Built admin-ui:28b0230 with correct .env
+✓ Pushed to registry.gitlab.com/krieger-engineering/llm-proxy/admin-ui:28b0230
+✓ Pushed to registry.gitlab.com/krieger-engineering/llm-proxy/admin-ui:master
+✓ Pushed to registry.gitlab.com/krieger-engineering/llm-proxy/admin-ui:latest
+```
+
+#### 3. Created Documentation
+```bash
+✓ Created admin-ui/.env.example with clear production/development examples
+✓ Committed: c917fb8 "docs(admin-ui): Add .env.example template"
+✓ Pushed to GitLab master
+```
+
+#### 4. Verified Production Functionality
+```bash
+✓ All containers healthy (backend, admin-ui, postgres, redis)
+✓ Backend health endpoint: 200 OK
+✓ Admin UI homepage: 200 OK
+✓ Providers API: Returns 2 providers (Claude, OpenAI)
+✓ Filters API: Returns 13 content filters
+✓ Clients API: Returns 0 clients (empty but valid)
+```
+
+### 📦 Final Production State
+```
+Container: llm-proxy-admin-ui:production
+Status: Healthy (Up 14 minutes)
+Config: Empty VITE_API_BASE_URL → relative URLs working ✓
+URL: https://llmproxy.aitrail.ch (FULLY FUNCTIONAL)
+```
+
+### 🔑 Key Technical Learnings
+1. **Vite Build Process**: Environment variables are embedded at build time, not runtime
+2. **Docker Image Caching**: Old configs can persist even after "fixes" - always verify
+3. **Reverse Proxy with Relative URLs**: Empty VITE_API_BASE_URL works perfectly with Caddy
+4. **Correct Admin Header**: `X-Admin-API-Key` (not `X-Admin-Key`)
+
+### 📝 Git Commits from This Session
+```
+c917fb8 - docs(admin-ui): Add .env.example template
+28b0230 - fix(ci): Only tag registry images if pull succeeds (already pushed)
+```
+
+### ✅ Status: MISSION ACCOMPLISHED
+- Production is running correctly with fixed admin-ui image
+- GitLab registry has correct images for future deployments
+- Documentation updated for future developers
+- All API endpoints verified and working
+
+**Next potential tasks** (optional, future work):
+- Implement Attachment Redaction feature (70% complete, see SESSION-NEXT-STEPS.md)
+- Add monitoring/metrics (Prometheus + Grafana)
+- Security hardening (rate limiting, audit logs)
+- Configure Open WebUI to use llmproxy backend
+
+**Session Duration:** ~6.5 hours total (including continuation)  
+**Final Status:** 🟢 **PRODUCTION READY - ALL ISSUES RESOLVED**
+

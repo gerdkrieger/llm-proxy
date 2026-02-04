@@ -461,7 +461,14 @@ deploy:production:
     - cp "$ENV_FILE" .env
     - chmod 600 .env
     - echo "✅ .env file created ($(wc -l < .env) lines)"
+    
+    # Ensure deployments directory exists and copy .env there
+    - echo "📁 Checking deployments directory..."
+    - ls -la
+    - mkdir -p deployments
     - cp .env deployments/.env
+    - echo "✅ .env copied to deployments/ directory"
+    - ls -la deployments/.env
     
     # Aggressive cleanup of existing containers (prevent name conflicts)
     - echo "🧹 Force-removing any existing LLM-Proxy containers..."

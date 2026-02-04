@@ -441,34 +441,11 @@ deploy:development:
     - develop
   when: manual
 
-deploy:staging:
-  extends: .deploy-template
-  variables:
-    ENVIRONMENT: "staging"
-    DEPLOY_HOST: "${STAGING_HOST}"
-    DEPLOY_USER: "${STAGING_USER}"
-    DEPLOY_PATH: "${STAGING_PATH}"
-    DEPLOY_URL: "${STAGING_URL}"
-  only:
-    - master
-  when: manual
+# =============================================================================
+# PRODUCTION DEPLOYMENT (runs on llm-proxy-runner on production server)
+# =============================================================================
 
 deploy:production:
-  extends: .deploy-template
-  variables:
-    ENVIRONMENT: "production"
-    DEPLOY_HOST: "${PROD_HOST}"
-    DEPLOY_USER: "${PROD_USER}"
-    DEPLOY_PATH: "${PROD_PATH}"
-    DEPLOY_URL: "${PROD_URL}"
-  only:
-    - tags
-  when: manual
-  environment:
-    name: production
-    url: ${PROD_URL}
-
-deploy:localhost:
   stage: deploy
   image: docker:27.1.1
   # services:
@@ -476,7 +453,7 @@ deploy:localhost:
   before_script:
     - set -euo pipefail
     - apk add --no-cache curl docker-compose
-    - echo "Deploying to localhost..."
+    - echo "Deploying to production..."
     - docker info  # Verify connection to host Docker
   script:
     # Create .env from GitLab CI/CD File Variable
@@ -502,7 +479,7 @@ deploy:localhost:
     - sleep 3
     
     # Pull pre-built images from registry and start services
-    # DO NOT BUILD on production server (1-CPU/2GB is too small!)
+    # DO NOT BUILD on production server - use pre-built images from GitLab Shared Runners
     - echo "📦 Pulling latest images from registry..."
     - docker pull ${BACKEND_IMAGE}:latest || echo "⚠️  Backend image not found in registry, will use local"
     - docker pull ${ADMIN_UI_IMAGE}:latest || echo "⚠️  Admin-UI image not found in registry, will use local"
@@ -524,17 +501,17 @@ deploy:localhost:
     
     - echo "Deployment complete!"
     - docker compose -f docker-compose.openwebui.yml ps
-    - echo "✅ LLM-Proxy Backend running on http://localhost:8080"
-    - echo "✅ Admin UI running on http://localhost:3005"
-    - echo "ℹ️  Configure your existing OpenWebUI with OPENAI_API_BASE_URLS=http://localhost:8080/v1"
+    - echo "✅ LLM-Proxy Backend running on https://llmproxy.aitrail.ch"
+    - echo "✅ Admin UI accessible at https://llmproxy.aitrail.ch"
+    - echo "ℹ️  Open WebUI configured at https://chat.aitrail.ch"
   environment:
-    name: localhost
-    url: http://localhost:8080
+    name: production
+    url: https://llmproxy.aitrail.ch
   only:
     - master
   when: manual
   tags:
-    - llm-proxy-runner
+    - llm-proxy-runner  # Runs on production server (8GB RAM, all services)
 
 # =============================================================================
 # UTILITY JOBS

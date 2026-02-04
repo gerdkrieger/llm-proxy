@@ -1,536 +1,270 @@
-# 🚀 LLM-Proxy - Enterprise-Grade LLM Gateway
+# LLM-Proxy
 
-[![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat&logo=go)](https://golang.org/)
-[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=flat&logo=docker)](https://www.docker.com/)
-[![Kubernetes](https://img.shields.io/badge/Kubernetes-Ready-326CE5?style=flat&logo=kubernetes)](https://kubernetes.io/)
-
-**LLM-Proxy** is an enterprise-grade API gateway for Large Language Model providers. It provides a unified, OpenAI-compatible interface with advanced features like load balancing, caching, rate limiting, cost tracking, and comprehensive analytics.
-
----
-
-## 📋 Table of Contents
-
-- [Features](#-features)
-- [Architecture](#-architecture)
-- [Quick Start](#-quick-start)
-- [Installation](#-installation)
-- [Configuration](#-configuration)
-- [API Documentation](#-api-documentation)
-- [Development](#-development)
-- [Testing](#-testing)
-- [Deployment](#-deployment)
-- [Monitoring](#-monitoring)
-- [Contributing](#-contributing)
-- [License](#-license)
-
----
-
-## ✨ Features
-
-### Core Functionality
-- ✅ **OpenAI-Compatible API** - Drop-in replacement for OpenAI SDK
-- ✅ **Multi-Provider Support** - Currently supports Anthropic Claude (extensible architecture)
-- ✅ **Load Balancing** - Distribute requests across multiple API keys
-- ✅ **Intelligent Caching** - Redis-backed response caching
-- ✅ **Streaming Support** - Server-Sent Events (SSE) for real-time responses
-
-### Security & Access Control
-- ✅ **OAuth 2.0** - Industry-standard authentication
-- ✅ **Scope-Based Authorization** - Read, write, and admin scopes
-- ✅ **Rate Limiting** - Configurable per-client limits (RPM/RPD)
-- ✅ **Access Lists** - Whitelist/blacklist for clients, IPs, and models
-- ✅ **API Key Encryption** - Secure storage of provider keys
-- ✅ **Content Filtering** - Automatic filtering of user prompts (word, phrase, regex)
-
-### Analytics & Billing
-- ✅ **Request Logging** - Comprehensive request/response tracking
-- ✅ **Cost Tracking** - Real-time token usage and cost calculation
-- ✅ **Usage Analytics** - Daily aggregated statistics
-- ✅ **Credit System** - Prepaid billing with manual top-up
-- ✅ **Export Functionality** - CSV/JSON export for analytics
-
-### Operations & Monitoring
-- ✅ **Prometheus Metrics** - Detailed performance metrics
-- ✅ **Grafana Dashboards** - Pre-configured monitoring dashboards
-- ✅ **Structured Logging** - JSON logs with request ID tracking
-- ✅ **Health Checks** - Liveness and readiness endpoints
-- ✅ **Graceful Shutdown** - Zero-downtime deployments
-
-### Admin Interface
-- ✅ **Svelte Admin UI** - Modern web interface (separate project)
-- ✅ **Client Management** - CRUD operations for OAuth clients
-- ✅ **Provider Configuration** - Manage LLM provider API keys
-- ✅ **Access Control** - Manage whitelists/blacklists
-- ✅ **Billing Dashboard** - Credit management and top-up
-- ✅ **Content Filter Management** - Create and manage content filters
-
----
-
-## 🏗️ Architecture
-
-```
-┌─────────────┐         ┌──────────────┐         ┌─────────────┐
-│   Clients   │────────▶│  LLM-Proxy   │────────▶│   Claude    │
-│ (OpenAI SDK)│         │  (Gateway)   │         │     API     │
-└─────────────┘         └──────────────┘         └─────────────┘
-                               │
-                               ├─────▶ PostgreSQL (Logging, Analytics)
-                               ├─────▶ Redis (Caching, Rate Limiting)
-                               └─────▶ Prometheus (Metrics)
-```
-
-### Technology Stack
-- **Backend**: Go 1.21+
-- **Database**: PostgreSQL 14+
-- **Cache**: Redis 7+
-- **Monitoring**: Prometheus + Grafana
-- **HTTP Framework**: Chi Router
-- **Authentication**: JWT (RS256)
-- **Containerization**: Docker + Docker Compose
-
----
+Intelligent multi-provider LLM proxy with content filtering, caching, and OAuth2 authentication.
 
 ## 🚀 Quick Start
 
-### Prerequisites
-- Go 1.21 or higher
-- Docker and Docker Compose
-- `golang-migrate` CLI tool
-- Claude API key (from [Anthropic Console](https://console.anthropic.com/))
-
-### 1. Clone the Repository
 ```bash
-git clone https://github.com/your-org/llm-proxy.git
-cd llm-proxy
+# Start all services
+./scripts/start-all.sh
+
+# Check status
+./scripts/status.sh
+
+# Run tests
+./scripts/testing/test_api.sh
 ```
 
-### 2. Configure Environment
-```bash
-# Copy example env file
-cp .env.example .env
-
-# Edit .env and add your Claude API key
-nano .env
-```
-
-### 3. Run Setup
-```bash
-# Install tools (optional, if not already installed)
-make install-tools
-
-# Run full setup (starts Docker, runs migrations)
-make setup
-```
-
-### 4. Start Development Server
-```bash
-make dev
-```
-
-The proxy is now running on `http://localhost:8080`!
-
-### 5. Verify Installation
-```bash
-# Check health
-curl http://localhost:8080/health
-
-# Check services
-make health-check
-```
-
----
-
-## 📦 Installation
-
-### Option 1: Using Make (Recommended)
-```bash
-# Full setup
-make setup
-
-# Start development
-make dev
-```
-
-### Option 2: Manual Setup
-```bash
-# 1. Install dependencies
-go mod download
-
-# 2. Start Docker services
-cd deployments/docker
-docker-compose up -d
-cd ../..
-
-# 3. Wait for services
-sleep 10
-
-# 4. Run migrations
-migrate -path migrations -database "postgres://proxy_user:dev_password_2024@localhost:5433/llm_proxy?sslmode=disable" up
-
-# 5. Run application
-go run cmd/server/main.go
-```
-
-### Option 3: Docker Only
-```bash
-# Build Docker image
-make docker-build
-
-# Run in Docker
-docker run -d \
-  --name llm-proxy \
-  -p 8080:8080 \
-  --env-file .env \
-  llm-proxy:latest
-```
-
----
-
-## ⚙️ Configuration
-
-### Environment Variables
-
-Key environment variables (see `.env.example` for full list):
-
-```bash
-# Server
-SERVER_PORT=8080
-
-# Database
-DB_HOST=localhost
-DB_PORT=5433
-DB_NAME=llm_proxy
-DB_USER=proxy_user
-DB_PASSWORD=your_secure_password
-
-# Redis
-REDIS_HOST=localhost
-REDIS_PORT=6380
-
-# OAuth
-OAUTH_JWT_SECRET=your-32-char-secret-key
-OAUTH_ACCESS_TOKEN_TTL=1h
-
-# Claude API
-CLAUDE_API_KEY=sk-ant-api03-your-key-here
-
-# Admin
-ADMIN_API_KEY=admin_your-secure-key
-```
-
-### Configuration File
-
-Create `configs/config.yaml`:
-
-```yaml
-server:
-  port: 8080
-  timeout: 300s
-
-cache:
-  enabled: true
-  ttl: 3600
-
-rate_limiting:
-  enabled: true
-  default_rpm: 1000
-```
-
----
-
-## 📚 API Documentation
-
-### Client API (OAuth 2.0 Protected)
-
-#### Authentication
-```bash
-# Get OAuth token (client_credentials flow)
-curl -X POST http://localhost:8080/oauth/token \
-  -H "Content-Type: application/json" \
-  -d '{
-    "grant_type": "client_credentials",
-    "client_id": "your_client_id",
-    "client_secret": "your_client_secret"
-  }'
-```
-
-#### Chat Completion
-```bash
-# OpenAI-compatible endpoint
-curl -X POST http://localhost:8080/v1/chat/completions \
-  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "claude-3-opus-20240229",
-    "messages": [
-      {"role": "user", "content": "Hello!"}
-    ],
-    "max_tokens": 1024
-  }'
-```
-
-#### List Models
-```bash
-curl http://localhost:8080/v1/models \
-  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
-```
-
-### Admin API (API Key Protected)
-
-#### Dashboard Stats
-```bash
-curl http://localhost:8080/admin/dashboard \
-  -H "X-Admin-API-Key: YOUR_ADMIN_API_KEY"
-```
-
-#### Create OAuth Client
-```bash
-curl -X POST http://localhost:8080/admin/clients \
-  -H "X-Admin-API-Key: YOUR_ADMIN_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "My App",
-    "rate_limit_rpm": 1000
-  }'
-```
-
----
-
-## 🛡️ Content Filtering
-
-LLM-Proxy includes a powerful content filtering system to automatically filter and replace unwanted content in user prompts.
-
-### Quick Example
-
-```bash
-# Create a word filter
-curl -X POST http://localhost:8080/admin/filters \
-  -H "X-Admin-API-Key: YOUR_ADMIN_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "pattern": "badword",
-    "replacement": "[FILTERED]",
-    "filter_type": "word",
-    "enabled": true
-  }'
-
-# Filters are automatically applied to all chat requests
-curl -X POST http://localhost:8080/v1/chat/completions \
-  -H "Authorization: Bearer YOUR_TOKEN" \
-  -d '{
-    "model": "claude-3-haiku-20240307",
-    "messages": [{"role": "user", "content": "This badword will be filtered"}]
-  }'
-# → User message is sent as: "This [FILTERED] will be filtered"
-```
-
-### Filter Types
-
-- **Word**: Match whole words with word boundaries
-- **Phrase**: Match exact phrases  
-- **Regex**: Match complex patterns (emails, URLs, etc.)
-
-### Features
-
-- ✅ Priority-based filtering (higher priority applied first)
-- ✅ Case-sensitive/insensitive matching
-- ✅ Real-time statistics and match tracking
-- ✅ Automatic caching (5-minute TTL)
-- ✅ ReDoS protection for regex patterns
-
-**See [CONTENT_FILTERING.md](CONTENT_FILTERING.md) for complete documentation.**
-
----
-
-## 🛠️ Development
-
-### Available Make Commands
-
-```bash
-make help              # Show all available commands
-make setup             # Initial project setup
-make dev               # Start development server
-make build             # Build production binary
-make test              # Run all tests
-make test-coverage     # Generate coverage report
-make lint              # Run linter
-make fmt               # Format code
-make docker-up         # Start Docker services
-make docker-down       # Stop Docker services
-make migrate-up        # Run database migrations
-make migrate-down      # Rollback last migration
-make clean             # Clean build artifacts
-```
-
-### Project Structure
+## 📁 Project Structure
 
 ```
 llm-proxy/
-├── cmd/server/           # Application entrypoint
-├── internal/             # Private application code
-│   ├── domain/          # Business logic & models
-│   ├── application/     # Use cases
-│   ├── infrastructure/  # External services (DB, Redis)
-│   └── interfaces/      # HTTP handlers, middleware
-├── pkg/                 # Public libraries
-├── migrations/          # Database migrations
-├── deployments/         # Docker configs
-├── tests/               # Test files
-└── docs/                # Documentation
+├── admin-ui/              # Admin UI (Svelte)
+├── cmd/                   # Main applications
+├── internal/              # Internal packages
+│   ├── application/       # Business logic
+│   ├── domain/            # Domain models
+│   ├── infrastructure/    # External services
+│   └── interfaces/        # HTTP handlers, middleware
+├── pkg/                   # Shared libraries
+├── api/                   # API definitions
+├── configs/               # Configuration files
+│   ├── Caddyfile.example  # Caddy reverse proxy config
+│   └── example-filters.csv # Example content filters
+├── deployments/           # Deployment configurations
+│   └── docker-compose.openwebui.yml
+├── migrations/            # Database migrations
+│   ├── 001_add_hash_and_stats_columns.sql
+│   ├── README.md
+│   └── DEPLOYMENT_CHECKLIST.md
+├── scripts/               # Utility scripts
+│   ├── setup/             # Setup scripts
+│   ├── maintenance/       # Maintenance scripts
+│   └── testing/           # Test scripts
+├── docs/                  # Documentation
+│   ├── guides/            # User guides
+│   ├── deployment/        # Deployment docs
+│   └── sessions/          # Development sessions
+├── filter-templates/      # Content filter templates
+└── README.md              # This file
 ```
 
-### Adding a New Feature
+## 📚 Documentation
 
-1. Create feature branch: `git checkout -b feature/my-feature`
-2. Implement in `internal/`
-3. Add tests in `tests/`
-4. Run checks: `make check test`
-5. Commit with conventional commit message
-6. Create pull request
+### Getting Started
+- [Resume Project](docs/RESUME-PROJECT.md) - Start here when resuming work
+- [Quick Start Filters](docs/guides/QUICK_START_FILTERS.md) - Get started with content filtering
+- [Testing Guide](docs/TESTING.md) - How to run tests
 
----
+### Guides
+- [Admin API](docs/guides/ADMIN_API.md) - API reference
+- [Content Filtering](docs/guides/CONTENT_FILTERING.md) - Filtering system
+- [Filter Management](docs/guides/FILTER_MANAGEMENT_GUIDE.md) - Managing filters
+- [Open WebUI Integration](docs/guides/OPENWEBUI_INTEGRATION_GUIDE.md) - Integration guide
+- [Model Management](docs/guides/MODEL_MANAGEMENT_MVP.md) - Managing models
+- [Anthropic Credits](docs/guides/ANTHROPIC_CREDITS_GUIDE.md) - Managing API credits
+- [Bulk Import](docs/guides/BULK_IMPORT_GUIDE.md) - Bulk importing filters
 
-## 🧪 Testing
+### Deployment
+- [Deployment Guide](docs/deployment/DEPLOYMENT.md) - How to deploy
+- [CI/CD Pipeline](docs/deployment/CICD.md) - CI/CD configuration
+- [Git Workflow](docs/deployment/GIT_WORKFLOW.md) - Branching strategy
+- [Migration Checklist](migrations/DEPLOYMENT_CHECKLIST.md) - Pre-deployment checklist
 
-### Run All Tests
-```bash
-make test
+### Operations
+- [Live Server Commands](docs/LIVE-SERVER-COMMANDS.md) - Common server commands
+- [Maintenance](docs/MAINTENANCE.md) - Routine maintenance
+- [Troubleshooting](docs/TROUBLESHOOTING.md) - Common issues
+
+## 🛠️ Features
+
+### Core Features
+- ✅ Multi-provider LLM routing (OpenAI, Anthropic Claude)
+- ✅ OAuth2 authentication with JWT tokens
+- ✅ Response caching with Redis
+- ✅ Content filtering (profanity, PII, custom patterns)
+- ✅ Rate limiting per client
+- ✅ Request/response logging
+- ✅ Cost tracking and billing
+
+### Admin Features
+- ✅ Web-based Admin UI
+- ✅ Client management (CRUD)
+- ✅ Filter management with live preview
+- ✅ Provider status monitoring
+- ✅ Usage statistics and analytics
+- ✅ Cache management
+
+## 🏗️ Architecture
+
+### Tech Stack
+- **Backend**: Go 1.25+
+- **Admin UI**: Svelte + Vite
+- **Database**: PostgreSQL 14
+- **Cache**: Redis 7
+- **Reverse Proxy**: Caddy
+- **Container**: Docker + Docker Compose
+
+### Components
+```
+┌─────────────┐
+│   Clients   │
+└──────┬──────┘
+       │
+┌──────▼──────────────┐
+│   Caddy (HTTPS)     │
+└──────┬──────────────┘
+       │
+┌──────▼──────────────┐      ┌──────────────┐
+│   LLM-Proxy         │─────▶│  PostgreSQL  │
+│   (Backend)         │      └──────────────┘
+└──────┬──────────────┘
+       │                      ┌──────────────┐
+       ├─────────────────────▶│    Redis     │
+       │                      └──────────────┘
+       │
+┌──────▼──────────────┐      ┌──────────────┐
+│   Admin UI          │      │   OpenAI     │
+│   (Svelte)          │      │   Anthropic  │
+└─────────────────────┘      └──────────────┘
 ```
 
-### Run Specific Test Suite
-```bash
-# Unit tests only
-make test-unit
+## 🔧 Development
 
-# Integration tests
-make test-integration
+### Prerequisites
+- Go 1.25+
+- Node.js 22+
+- Docker & Docker Compose
+- PostgreSQL 14
+- Redis 7
+
+### Local Development
+
+```bash
+# Start development environment
+./scripts/start-dev.sh
+
+# Backend API: http://localhost:8080
+# Admin UI: http://localhost:5173
+# PostgreSQL: localhost:5432
+# Redis: localhost:6379
+```
+
+### Running Tests
+
+```bash
+# All tests
+go test ./...
+
+# Specific package
+go test ./internal/application/oauth
 
 # With coverage
-make test-coverage
+go test -cover ./...
+
+# API tests
+./scripts/testing/test_api.sh
+./scripts/testing/test_admin_api.sh
+
+# Filter tests
+./scripts/testing/test-content-filters.sh
 ```
 
-### Benchmarks
+## 📦 Deployment
+
+### Production Deployment
+
+1. **Check for migrations**
 ```bash
-make bench
+ls migrations/
 ```
 
----
-
-## 🚢 Deployment
-
-### Docker Compose (Development/Staging)
-
+2. **Run database migrations**
 ```bash
-# Start all services
-cd deployments/docker
-docker-compose up -d
-
-# View logs
-docker-compose logs -f llm-proxy
-
-# Stop services
-docker-compose down
+# See migrations/DEPLOYMENT_CHECKLIST.md
 ```
 
-### Kubernetes (Production)
-
+3. **Deploy services**
 ```bash
-# Apply manifests
-kubectl apply -f deployments/kubernetes/base/
-
-# Check status
-kubectl get pods -l app=llm-proxy
-
-# View logs
-kubectl logs -f deployment/llm-proxy
+cd deployments/
+docker-compose -f docker-compose.openwebui.yml up -d
 ```
 
-### Environment-Specific Configs
+4. **Verify deployment**
+```bash
+curl https://llmproxy.aitrail.ch/health
+```
 
-- **Development**: Use `.env` file
-- **Staging**: Use Kubernetes ConfigMaps
-- **Production**: Use Kubernetes Secrets + Vault
+See [Deployment Checklist](migrations/DEPLOYMENT_CHECKLIST.md) for complete steps.
 
----
+## 🐛 Troubleshooting
+
+### Common Issues
+
+**Issue**: "Failed to fetch" in Admin UI
+**Solution**: Hard refresh browser (`Ctrl + Shift + R`)
+
+**Issue**: Database column errors
+**Solution**: Run migrations from `migrations/` directory
+
+**Issue**: Container won't start
+**Solution**: Check logs with `docker logs llm-proxy-backend`
+
+See [Troubleshooting Guide](docs/TROUBLESHOOTING.md) for more solutions.
 
 ## 📊 Monitoring
 
-### Prometheus Metrics
-
-Access metrics at: `http://localhost:9090`
-
-Key metrics:
-- `llm_proxy_requests_total` - Total requests
-- `llm_proxy_request_duration_seconds` - Request latency
-- `llm_proxy_tokens_total` - Token usage
-- `llm_proxy_cost_usd_total` - Total costs
-- `llm_proxy_cache_hits_total` - Cache performance
-
-### Grafana Dashboards
-
-Access Grafana at: `http://localhost:3001` (admin/admin)
-
-Pre-configured dashboards:
-- Overview Dashboard
-- Provider Performance
-- Billing & Costs
-- Infrastructure Metrics
-
-### Logs
-
+### Health Checks
 ```bash
-# View application logs
-make logs
+# Backend health
+curl https://llmproxy.aitrail.ch/health
 
-# Docker logs
-docker logs -f llm-proxy-app
+# Provider status
+curl -H "X-Admin-API-Key: YOUR_KEY" \
+  https://llmproxy.aitrail.ch/admin/providers/status
 ```
 
----
+### Logs
+```bash
+# Backend logs
+docker logs llm-proxy-backend -f
+
+# Admin UI logs
+docker logs llm-proxy-admin-ui -f
+
+# All services
+docker-compose logs -f
+```
 
 ## 🤝 Contributing
 
-We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for details.
+1. Create feature branch: `git checkout -b feature/my-feature`
+2. Make changes and test
+3. Run migrations if DB changes
+4. Commit with clear message
+5. Push and create pull request
 
-### Development Workflow
+See [Git Workflow](docs/deployment/GIT_WORKFLOW.md) for details.
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Run tests: `make test`
-5. Run linter: `make lint`
-6. Submit a pull request
+## 📝 License
 
-### Code Style
+[Add license information here]
 
-- Follow standard Go conventions
-- Use `gofmt` for formatting (run `make fmt`)
-- Add tests for new features
-- Update documentation
+## 🔗 Links
 
----
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-
-## 🙏 Acknowledgments
-
-- Built with [Go](https://golang.org/)
-- Powered by [Anthropic Claude](https://www.anthropic.com/)
-- Monitored by [Prometheus](https://prometheus.io/) & [Grafana](https://grafana.com/)
-
----
+- [Production](https://llmproxy.aitrail.ch)
+- [GitLab Repository](https://gitlab.com/krieger-engineering/llm-proxy)
+- [GitLab Container Registry](https://gitlab.com/krieger-engineering/llm-proxy/container_registry)
 
 ## 📞 Support
 
-- **Documentation**: [docs/](docs/)
-- **Issues**: [GitHub Issues](https://github.com/your-org/llm-proxy/issues)
-- **Email**: support@yourcompany.com
+For issues and questions:
+1. Check [Troubleshooting Guide](docs/TROUBLESHOOTING.md)
+2. Check [Session Notes](docs/sessions/) for recent fixes
+3. Check GitLab Issues
 
 ---
 
-**Made with ❤️ for Enterprise AI Applications**
+**Last Updated**: February 4, 2026  
+**Version**: 1.0.0  
+**Status**: Production Ready ✅

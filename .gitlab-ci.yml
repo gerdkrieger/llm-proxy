@@ -470,7 +470,7 @@ deploy:production:
     
     # Stop existing containers via compose (preserve volumes)
     - echo "🛑 Stopping services via docker compose..."
-    - docker compose -f docker-compose.openwebui.yml down --remove-orphans || true
+    - docker compose -f deployments/docker-compose.openwebui.yml down --remove-orphans || true
     
     # Remove network if it's stuck
     - docker network rm llm-proxy-network 2>/dev/null || true
@@ -487,18 +487,18 @@ deploy:production:
     # Note: If registry pulls fail, local images (including manually built ones) will be used
     
     - echo "🚀 Starting services with pre-built images..."
-    - docker compose -f docker-compose.openwebui.yml up -d --no-build
+    - docker compose -f deployments/docker-compose.openwebui.yml up -d --no-build
     
     # Wait for health checks (backend needs time on 1-CPU server)
     - sleep 60
     
     # Verify deployment
-    - docker compose -f docker-compose.openwebui.yml ps
+    - docker compose -f deployments/docker-compose.openwebui.yml ps
     - echo "Checking backend health (may take up to 90s on slow servers)..."
     - for i in $(seq 1 18); do curl -f http://localhost:8080/health && break || sleep 5; done
     
     - echo "Deployment complete!"
-    - docker compose -f docker-compose.openwebui.yml ps
+    - docker compose -f deployments/docker-compose.openwebui.yml ps
     - echo "✅ LLM-Proxy Backend running on https://llmproxy.aitrail.ch"
     - echo "✅ Admin UI accessible at https://llmproxy.aitrail.ch"
     - echo "ℹ️  Open WebUI configured at https://chat.aitrail.ch"

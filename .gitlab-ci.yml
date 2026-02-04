@@ -311,8 +311,8 @@ build:admin-ui:
 docker:backend:
   stage: docker
   image: docker:27.1.1
-  # services:
-  #   - docker:dind  # Not needed - using host Docker via socket mount
+  services:
+    - docker:dind  # Use GitLab Shared Runner with DinD
   extends: .docker-login
   before_script:
     - set -euo pipefail
@@ -342,8 +342,9 @@ docker:backend:
         docker push "${BACKEND_IMAGE}:${CI_COMMIT_TAG}" || true
       fi
   allow_failure: true
-  tags:
-    - llm-proxy-runner
+  # REMOVED llm-proxy-runner tag - now uses GitLab Shared Runner
+  # This prevents builds from running on the 1-CPU/2GB production server
+  when: manual  # Only build when manually triggered
   only:
     - master
     - develop
@@ -352,8 +353,8 @@ docker:backend:
 docker:admin-ui:
   stage: docker
   image: docker:27.1.1
-  # services:
-  #   - docker:dind  # Not needed - using host Docker via socket mount
+  services:
+    - docker:dind  # Use GitLab Shared Runner with DinD
   extends: .docker-login
   before_script:
     - set -euo pipefail
@@ -380,8 +381,9 @@ docker:admin-ui:
         docker push "${ADMIN_UI_IMAGE}:${CI_COMMIT_TAG}" || true
       fi
   allow_failure: true
-  tags:
-    - llm-proxy-runner
+  # REMOVED llm-proxy-runner tag - now uses GitLab Shared Runner
+  # This prevents builds from running on the 1-CPU/2GB production server
+  when: manual  # Only build when manually triggered
   only:
     - master
     - develop
@@ -499,10 +501,18 @@ deploy:localhost:
     # Wait for cleanup to complete
     - sleep 3
     
-    # Build and start complete stack with new images
-    # Images werden lokal gebaut statt von Registry gepullt
-    - echo "🚀 Starting services..."
-    - docker compose -f docker-compose.openwebui.yml up -d --build
+    # Pull pre-built images from registry and start services
+    # DO NOT BUILD on production server (1-CPU/2GB is too small!)
+    - echo "📦 Pulling latest images from registry..."
+    - docker pull ${BACKEND_IMAGE}:latest || echo "⚠️  Backend image not found in registry, will use local"
+    - docker pull ${ADMIN_UI_IMAGE}:latest || echo "⚠️  Admin-UI image not found in registry, will use local"
+    
+    # Tag registry images as local names for docker-compose
+    - docker tag ${BACKEND_IMAGE}:latest llm-proxy-backend:latest || true
+    - docker tag ${ADMIN_UI_IMAGE}:latest llm-proxy-admin-ui:latest || true
+    
+    - echo "🚀 Starting services with pre-built images..."
+    - docker compose -f docker-compose.openwebui.yml up -d --no-build
     
     # Wait for health checks (backend needs time on 1-CPU server)
     - sleep 60

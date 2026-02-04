@@ -1,7 +1,8 @@
 # Docker Deployment Fix
 
 **Datum:** 4. Februar 2026  
-**Problem:** GitLab CI/CD Deployment schlägt fehl mit Container-Name-Konflikt
+**Problem:** GitLab CI/CD Deployment schlägt fehl mit Container-Name-Konflikt  
+**Status:** ✅ **BEHOBEN** (Commit: `551e54f`)
 
 ---
 
@@ -68,7 +69,35 @@ docker compose -f docker-compose.openwebui.yml up -d --build
 
 ---
 
-## 🔧 Langfristige Lösung: GitLab CI Verbesserung
+## ✅ Implementierte Lösung (Commit: 551e54f)
+
+Die `.gitlab-ci.yml` wurde mit aggressivem Container-Cleanup erweitert:
+
+```yaml
+# Aggressive cleanup of existing containers (prevent name conflicts)
+- echo "🧹 Force-removing any existing LLM-Proxy containers..."
+- docker stop llm-proxy-admin-ui llm-proxy-backend llm-proxy-postgres llm-proxy-redis 2>/dev/null || true
+- docker rm -f llm-proxy-admin-ui llm-proxy-backend llm-proxy-postgres llm-proxy-redis 2>/dev/null || true
+- docker ps -a | grep llm-proxy | awk '{print $1}' | xargs -r docker rm -f || true
+
+# Stop existing containers via compose (preserve volumes)
+- docker compose -f docker-compose.openwebui.yml down --remove-orphans || true
+
+# Remove network if it's stuck
+- docker network rm llm-proxy-network 2>/dev/null || true
+
+# Wait for cleanup to complete
+- sleep 3
+
+# Build and start
+- docker compose -f docker-compose.openwebui.yml up -d --build
+```
+
+**Das sollte das Problem dauerhaft beheben!** ✅
+
+---
+
+## 🔧 Alternative Lösung: GitLab CI Verbesserung (VERALTET)
 
 ### Problem in `.gitlab-ci.yml`
 

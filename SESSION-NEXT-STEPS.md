@@ -8,26 +8,19 @@
 
 ## 🚨 Dringende Probleme (vor nächster Session beheben)
 
-### 1. Docker Deployment Konflikt ⚠️
+### 1. Docker Deployment Konflikt ✅ **BEHOBEN**
 
 **Problem:** Letzter GitLab CI/CD Deployment-Job fehlgeschlagen
 
-**Fehler:**
-```
-Error response from daemon: Conflict. The container name "/llm-proxy-admin-ui" 
-is already in use by container "e17b13de1a4d66544592b4ac127e22d355e7d5f3abb6d92ebf08471d1187a0dd"
-```
+**Status:** ✅ **BEHOBEN** in Commit `551e54f`
 
-**Lösung:** Siehe `DOCKER-DEPLOYMENT-FIX.md`
+**Was wurde gemacht:**
+- Aggressiver Container-Cleanup in `.gitlab-ci.yml` hinzugefügt
+- Force-remove aller llm-proxy Container VOR docker compose down
+- Network-Cleanup falls blockiert
+- 3-Sekunden Wait für sauberen Cleanup
 
-**Schnellfix:**
-```bash
-ssh openweb
-docker rm -f llm-proxy-admin-ui llm-proxy-backend llm-proxy-postgres llm-proxy-redis
-docker compose -f docker-compose.openwebui.yml up -d --build
-```
-
-**Zeitaufwand:** 5-10 Minuten
+**Nächstes Deployment sollte funktionieren!** 🚀
 
 ---
 

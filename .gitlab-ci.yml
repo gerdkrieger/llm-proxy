@@ -483,11 +483,25 @@ deploy:localhost:
     - chmod 600 .env
     - echo "✅ .env file created ($(wc -l < .env) lines)"
     
-    # Stop existing containers (preserve data)
+    # Aggressive cleanup of existing containers (prevent name conflicts)
+    - echo "🧹 Force-removing any existing LLM-Proxy containers..."
+    - docker stop llm-proxy-admin-ui llm-proxy-backend llm-proxy-postgres llm-proxy-redis 2>/dev/null || true
+    - docker rm -f llm-proxy-admin-ui llm-proxy-backend llm-proxy-postgres llm-proxy-redis 2>/dev/null || true
+    - docker ps -a | grep llm-proxy | awk '{print $1}' | xargs -r docker rm -f || true
+    
+    # Stop existing containers via compose (preserve volumes)
+    - echo "🛑 Stopping services via docker compose..."
     - docker compose -f docker-compose.openwebui.yml down --remove-orphans || true
+    
+    # Remove network if it's stuck
+    - docker network rm llm-proxy-network 2>/dev/null || true
+    
+    # Wait for cleanup to complete
+    - sleep 3
     
     # Build and start complete stack with new images
     # Images werden lokal gebaut statt von Registry gepullt
+    - echo "🚀 Starting services..."
     - docker compose -f docker-compose.openwebui.yml up -d --build
     
     # Wait for health checks (backend needs time on 1-CPU server)

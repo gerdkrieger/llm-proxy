@@ -87,7 +87,7 @@ type ClientResponse struct {
 	RedirectURIs  []string  `json:"redirect_uris"`
 	GrantTypes    []string  `json:"grant_types"`
 	DefaultScope  string    `json:"default_scope"`
-	AllowedModels []string  `json:"allowed_models,omitempty"` // null = all models, [] = none, ["model"] = specific
+	AllowedModels []string  `json:"allowed_models"` // Always include: null = all models, [] = none, ["model"] = specific
 	RateLimitRPM  *int      `json:"rate_limit_rpm"`
 	RateLimitRPD  *int      `json:"rate_limit_rpd"`
 	Enabled       bool      `json:"enabled"`

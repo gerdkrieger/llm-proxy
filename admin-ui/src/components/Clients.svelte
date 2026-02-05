@@ -136,7 +136,7 @@
     };
     
     // Determine selection mode based on allowed_models
-    if (client.allowed_models === null) {
+    if (client.allowed_models === null || client.allowed_models === undefined) {
       modelSelectionMode = 'all';
       selectedModels = [];
     } else if (client.allowed_models.length === 0) {
@@ -335,7 +335,7 @@
               <code class="text-sm bg-gray-100 px-2 py-1 rounded">{client.client_id}</code>
             </td>
             <td class="px-6 py-4">
-              {#if client.allowed_models === null}
+              {#if client.allowed_models === null || client.allowed_models === undefined}
                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                   All Models
                 </span>

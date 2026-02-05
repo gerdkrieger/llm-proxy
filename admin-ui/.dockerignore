@@ -1,0 +1,17 @@
+# Don't copy .env files into Docker image
+# This prevents localhost:8080 from being baked into the build
+.env
+.env.local
+.env.development
+.env.development.local
+
+# Don't copy build artifacts
+dist
+node_modules
+
+# Don't copy git files
+.git
+.gitignore
+
+# Don't copy documentation
+README.md

@@ -1,0 +1,50 @@
+# =============================================================================
+# LLM-PROXY BACKEND - DEVELOPMENT DOCKERFILE
+# =============================================================================
+# Multi-stage build for development with hot-reload using Air
+# =============================================================================
+
+# Stage 1: Backend Development with Air (hot-reload)
+FROM golang:1.25-alpine AS backend-dev
+
+# Install development dependencies
+RUN apk add --no-cache \
+    git \
+    make \
+    curl \
+    gcc \
+    musl-dev \
+    postgresql-client
+
+# Install Air for hot-reload
+RUN go install github.com/air-verse/air@latest
+
+# Install Delve debugger (optional, for debugging)
+RUN go install github.com/go-delve/delve/cmd/dlv@latest
+
+# Install golang-migrate for database migrations
+RUN go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
+
+# Set working directory
+WORKDIR /app
+
+# Copy go.mod and go.sum first (for better caching)
+COPY go.mod go.sum ./
+
+# Download dependencies
+RUN go mod download
+
+# Copy the rest of the application
+COPY . .
+
+# Air configuration is already in .air.toml (copied with COPY . .)
+
+# Copy entrypoint script
+COPY scripts/dev-entrypoint.sh /usr/local/bin/dev-entrypoint.sh
+RUN chmod +x /usr/local/bin/dev-entrypoint.sh
+
+# Expose ports
+EXPOSE 8080 9090 2345
+
+# Use entrypoint script that runs migrations then starts Air
+ENTRYPOINT ["/usr/local/bin/dev-entrypoint.sh"]

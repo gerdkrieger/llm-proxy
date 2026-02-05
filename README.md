@@ -15,6 +15,76 @@ Intelligent multi-provider LLM proxy with content filtering, caching, and OAuth2
 ./scripts/testing/test_api.sh
 ```
 
+## 💻 Local Development
+
+### Docker-Based Development (Recommended)
+
+Start the complete development environment with hot-reload using Docker:
+
+```bash
+# First time setup
+cp .env.example .env.local
+# Edit .env.local with your settings (Claude API key, etc.)
+
+# Start all services with hot-reload
+make dev-docker
+
+# Or run detached
+make dev-docker-up
+
+# View logs
+make dev-docker-logs
+
+# Stop services
+make dev-docker-down
+```
+
+**Services:**
+- Backend API: http://localhost:8080 (with Air hot-reload)
+- Admin UI: http://localhost:3005 (with Vite hot-reload)
+- PostgreSQL: localhost:5433
+- Redis: localhost:6380
+- Metrics: http://localhost:9090/metrics
+
+**Hot-Reload:**
+- Backend: Air watches Go files and automatically rebuilds
+- Admin-UI: Vite dev server with instant HMR (Hot Module Replacement)
+
+### Native Development
+
+Run services natively without Docker (requires local PostgreSQL and Redis):
+
+```bash
+# Start infrastructure only
+make docker-up
+
+# Run backend natively
+make dev
+
+# Run admin-ui natively
+cd admin-ui && npm run dev
+```
+
+**Environment Files:**
+- `.env.local` - Local Docker development (Docker service names)
+- `.env` - Native development (localhost connections)
+- `.env.example` - Template for new setup
+
+### Development Commands
+
+```bash
+make help              # Show all available commands
+make dev-docker        # Start Docker development (recommended)
+make dev               # Start native Go development
+make dev-docker-up     # Start Docker dev (detached)
+make dev-docker-down   # Stop Docker development
+make dev-docker-logs   # View development logs
+make dev-docker-clean  # Remove all dev containers and data
+make test              # Run tests
+make lint              # Run linter
+make fmt               # Format code
+```
+
 ## 📁 Project Structure
 
 ```

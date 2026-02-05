@@ -4,7 +4,7 @@
 # Comprehensive build, test, and deployment automation
 # =============================================================================
 
-.PHONY: help setup dev build test clean docker-up docker-down migrate-up migrate-down lint fmt vet security deps check install run logs
+.PHONY: help setup dev dev-native dev-docker dev-docker-up dev-docker-down dev-docker-logs dev-docker-restart dev-docker-clean build test clean docker-up docker-down migrate-up migrate-down lint fmt vet security deps check install run logs
 
 # -----------------------------------------------------------------------------
 # VARIABLES
@@ -51,9 +51,10 @@ help: ## Show this help message
 	@echo ''
 	@echo '$(COLOR_BOLD)Examples:$(COLOR_RESET)'
 	@echo '  make setup          # Initial project setup'
-	@echo '  make dev            # Start development server'
+	@echo '  make dev-docker     # Start Docker development (RECOMMENDED)'
+	@echo '  make dev            # Start native Go development'
 	@echo '  make test           # Run all tests'
-	@echo '  make docker-up      # Start Docker services'
+	@echo '  make docker-up      # Start Docker services only'
 	@echo ''
 
 # -----------------------------------------------------------------------------
@@ -88,9 +89,59 @@ install-tools: ## Install development tools (golangci-lint, migrate, etc.)
 # DEVELOPMENT
 # -----------------------------------------------------------------------------
 
-dev: ## Start development server with hot reload
-	@echo "$(COLOR_BLUE)Starting development server...$(COLOR_RESET)"
+dev: ## Start development server with hot reload (native Go)
+	@echo "$(COLOR_BLUE)Starting development server (native)...$(COLOR_RESET)"
+	@echo "$(COLOR_YELLOW)Note: Use 'make dev-docker' for Docker-based development$(COLOR_RESET)"
 	@go run cmd/server/main.go
+
+dev-native: dev ## Alias for native Go development
+
+dev-docker: ## Start local Docker development environment with hot-reload
+	@echo "$(COLOR_BLUE)Starting Docker development environment...$(COLOR_RESET)"
+	@echo "$(COLOR_YELLOW)This will start: Backend (Air), Admin-UI (Vite), PostgreSQL, Redis$(COLOR_RESET)"
+	@if [ ! -f .env.local ]; then \
+		echo "$(COLOR_YELLOW)Creating .env.local from .env.example...$(COLOR_RESET)"; \
+		cp .env.example .env.local; \
+		echo "$(COLOR_GREEN).env.local created. Please edit it with your settings.$(COLOR_RESET)"; \
+	fi
+	@docker compose -f docker-compose.dev.yml up --build
+	@echo "$(COLOR_GREEN)Docker development environment started$(COLOR_RESET)"
+	@echo "$(COLOR_YELLOW)Services:$(COLOR_RESET)"
+	@echo "  - Backend API:    http://localhost:8080"
+	@echo "  - Admin UI:       http://localhost:3005"
+	@echo "  - PostgreSQL:     localhost:5433"
+	@echo "  - Redis:          localhost:6380"
+	@echo "  - Metrics:        http://localhost:9090/metrics"
+
+dev-docker-up: ## Start Docker development environment (detached)
+	@echo "$(COLOR_BLUE)Starting Docker development environment (detached)...$(COLOR_RESET)"
+	@if [ ! -f .env.local ]; then \
+		echo "$(COLOR_YELLOW)Creating .env.local from .env.example...$(COLOR_RESET)"; \
+		cp .env.example .env.local; \
+		echo "$(COLOR_GREEN).env.local created. Please edit it with your settings.$(COLOR_RESET)"; \
+	fi
+	@docker compose -f docker-compose.dev.yml up -d --build
+	@echo "$(COLOR_GREEN)Docker development environment started$(COLOR_RESET)"
+	@echo "$(COLOR_YELLOW)View logs with: make dev-docker-logs$(COLOR_RESET)"
+
+dev-docker-down: ## Stop Docker development environment
+	@echo "$(COLOR_BLUE)Stopping Docker development environment...$(COLOR_RESET)"
+	@docker compose -f docker-compose.dev.yml down
+	@echo "$(COLOR_GREEN)Docker development environment stopped$(COLOR_RESET)"
+
+dev-docker-logs: ## View Docker development logs
+	@docker compose -f docker-compose.dev.yml logs -f
+
+dev-docker-restart: dev-docker-down dev-docker-up ## Restart Docker development environment
+
+dev-docker-clean: ## Stop and remove all dev containers and volumes
+	@echo "$(COLOR_YELLOW)WARNING: This will delete all development data!$(COLOR_RESET)"
+	@read -p "Are you sure? [y/N] " -n 1 -r; \
+	echo; \
+	if [[ $$REPLY =~ ^[Yy]$$ ]]; then \
+		docker compose -f docker-compose.dev.yml down -v; \
+		echo "$(COLOR_GREEN)Docker development environment cleaned$(COLOR_RESET)"; \
+	fi
 
 run: ## Run the application (alias for dev)
 	@$(MAKE) dev

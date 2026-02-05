@@ -24,10 +24,22 @@ class AdminAPI {
         headers,
       });
 
-      const data = await response.json();
+      // Always try to read response body as text first
+      const text = await response.text();
+      
+      // Try to parse JSON if we have content
+      let data = null;
+      if (text && text.trim()) {
+        try {
+          data = JSON.parse(text);
+        } catch (e) {
+          // Not JSON, that's ok for some responses
+        }
+      }
 
       if (!response.ok) {
-        throw new Error(data.message || `HTTP ${response.status}`);
+        const message = data?.message || data?.error || `Request failed with status ${response.status}`;
+        throw new Error(message);
       }
 
       return data;

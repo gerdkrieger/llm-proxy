@@ -344,11 +344,20 @@ docker:backend:
   allow_failure: true
   # REMOVED llm-proxy-runner tag - now uses GitLab Shared Runner
   # This prevents builds from running on the 1-CPU/2GB production server
-  when: manual  # Only build when manually triggered
+  # Automatic builds enabled - triggers on backend code changes
   only:
-    - master
-    - develop
-    - tags
+    refs:
+      - master
+      - develop
+      - tags
+    changes:
+      - cmd/**/*
+      - internal/**/*
+      - pkg/**/*
+      - migrations/**/*
+      - go.mod
+      - go.sum
+      - deployments/docker/Dockerfile
 
 docker:admin-ui:
   stage: docker
@@ -383,11 +392,14 @@ docker:admin-ui:
   allow_failure: true
   # REMOVED llm-proxy-runner tag - now uses GitLab Shared Runner
   # This prevents builds from running on the 1-CPU/2GB production server
-  when: manual  # Only build when manually triggered
+  # Automatic builds enabled - triggers on admin-ui code changes
   only:
-    - master
-    - develop
-    - tags
+    refs:
+      - master
+      - develop
+      - tags
+    changes:
+      - admin-ui/**/*
 
 # =============================================================================
 # STAGE 6: DEPLOY

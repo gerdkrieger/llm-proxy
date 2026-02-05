@@ -104,7 +104,10 @@ func main() {
 
 	// Initialize OAuth service
 	log.Info("Initializing OAuth service...")
-	oauthService := oauth.NewService(clientRepo, tokenRepo, cfg.OAuth, log)
+	oauthService, err := oauth.NewService(clientRepo, tokenRepo, cfg.OAuth, log)
+	if err != nil {
+		log.Fatalf("Failed to initialize OAuth service: %v", err)
+	}
 
 	// Initialize provider manager (Claude API)
 	log.Info("Initializing provider manager...")

@@ -20,19 +20,25 @@ type Service struct {
 	logger     *logger.Logger
 }
 
-// NewService creates a new OAuth service
+// NewService creates a new OAuth service with JWT secret validation
 func NewService(
 	clientRepo *repositories.OAuthClientRepository,
 	tokenRepo *repositories.OAuthTokenRepository,
 	cfg config.OAuthConfig,
 	log *logger.Logger,
-) *Service {
+) (*Service, error) {
+	// Create token generator with secret validation
+	tokenGen, err := NewTokenGenerator(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create token generator: %w", err)
+	}
+
 	return &Service{
 		clientRepo: clientRepo,
 		tokenRepo:  tokenRepo,
-		tokenGen:   NewTokenGenerator(cfg),
+		tokenGen:   tokenGen,
 		logger:     log,
-	}
+	}, nil
 }
 
 // TokenRequest represents a token request

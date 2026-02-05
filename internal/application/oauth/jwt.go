@@ -10,16 +10,32 @@ import (
 	"github.com/llm-proxy/llm-proxy/internal/config"
 )
 
+const (
+	// MinJWTSecretLength defines the minimum required length for JWT secrets
+	// Using 64 characters ensures 512 bits of entropy when base64 encoded
+	MinJWTSecretLength = 64
+)
+
 // TokenGenerator handles JWT token generation and validation
 type TokenGenerator struct {
 	config config.OAuthConfig
 }
 
-// NewTokenGenerator creates a new token generator
-func NewTokenGenerator(cfg config.OAuthConfig) *TokenGenerator {
+// NewTokenGenerator creates a new token generator with JWT secret validation
+func NewTokenGenerator(cfg config.OAuthConfig) (*TokenGenerator, error) {
+	// Validate JWT secret length for security
+	if len(cfg.JWTSecret) < MinJWTSecretLength {
+		return nil, fmt.Errorf(
+			"JWT secret is too short: got %d characters, minimum required is %d characters (512 bits). "+
+				"Generate a secure secret with: openssl rand -base64 64 | tr -d '\\n'",
+			len(cfg.JWTSecret),
+			MinJWTSecretLength,
+		)
+	}
+
 	return &TokenGenerator{
 		config: cfg,
-	}
+	}, nil
 }
 
 // Claims represents JWT claims

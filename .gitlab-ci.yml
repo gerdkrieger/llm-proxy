@@ -306,7 +306,15 @@ build:admin-ui:
 .docker-login:
   before_script:
     - echo "Logging into GitLab Container Registry..."
-    - echo "${CI_REGISTRY_PASSWORD}" | docker login -u "${CI_REGISTRY_USER}" --password-stdin "${CI_REGISTRY}"
+    # Use Deploy Token if available, otherwise fall back to CI_JOB_TOKEN
+    - |
+      if [ -n "${CI_DEPLOY_PASSWORD:-}" ]; then
+        echo "Using Deploy Token for registry access"
+        echo "${CI_DEPLOY_PASSWORD}" | docker login -u "${CI_DEPLOY_USER}" --password-stdin "${CI_REGISTRY}"
+      else
+        echo "Using CI_JOB_TOKEN for registry access"
+        echo "${CI_REGISTRY_PASSWORD}" | docker login -u "${CI_REGISTRY_USER}" --password-stdin "${CI_REGISTRY}"
+      fi
 
 docker:backend:
   stage: docker
@@ -317,7 +325,14 @@ docker:backend:
   before_script:
     - set -euo pipefail
     - echo "Logging into GitLab Container Registry..."
-    - echo "${CI_REGISTRY_PASSWORD}" | docker login -u "${CI_REGISTRY_USER}" --password-stdin "${CI_REGISTRY}"
+    - |
+      if [ -n "${CI_DEPLOY_PASSWORD:-}" ]; then
+        echo "Using Deploy Token for registry access"
+        echo "${CI_DEPLOY_PASSWORD}" | docker login -u "${CI_DEPLOY_USER}" --password-stdin "${CI_REGISTRY}"
+      else
+        echo "Using CI_JOB_TOKEN for registry access"
+        echo "${CI_REGISTRY_PASSWORD}" | docker login -u "${CI_REGISTRY_USER}" --password-stdin "${CI_REGISTRY}"
+      fi
   script:
     - echo "Building backend Docker image..."
     - |
@@ -368,7 +383,14 @@ docker:admin-ui:
   before_script:
     - set -euo pipefail
     - echo "Logging into GitLab Container Registry..."
-    - echo "${CI_REGISTRY_PASSWORD}" | docker login -u "${CI_REGISTRY_USER}" --password-stdin "${CI_REGISTRY}"
+    - |
+      if [ -n "${CI_DEPLOY_PASSWORD:-}" ]; then
+        echo "Using Deploy Token for registry access"
+        echo "${CI_DEPLOY_PASSWORD}" | docker login -u "${CI_DEPLOY_USER}" --password-stdin "${CI_REGISTRY}"
+      else
+        echo "Using CI_JOB_TOKEN for registry access"
+        echo "${CI_REGISTRY_PASSWORD}" | docker login -u "${CI_REGISTRY_USER}" --password-stdin "${CI_REGISTRY}"
+      fi
   script:
     - echo "Building Admin UI Docker image..."
     - |

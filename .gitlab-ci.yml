@@ -557,3 +557,4 @@ cleanup:old-images:
   only:
     - schedules
   when: manual
+# Test push permissions

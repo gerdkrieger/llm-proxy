@@ -303,6 +303,7 @@ docker:backend:
   allow_failure: true
   # REMOVED llm-proxy-runner tag - now uses GitLab Shared Runner
   # This prevents builds from running on the 1-CPU/2GB production server
+  when: manual  # MANUAL - Images sind noch kaputt (localhost:8080 + DB credentials)
   only:
     - master
     - develop
@@ -350,6 +351,7 @@ docker:admin-ui:
   allow_failure: true
   # REMOVED llm-proxy-runner tag - now uses GitLab Shared Runner
   # This prevents builds from running on the 1-CPU/2GB production server
+  when: manual  # MANUAL - Images sind noch kaputt (localhost:8080 + DB credentials)
   only:
     - master
     - develop
@@ -484,6 +486,7 @@ deploy:production:
     url: https://llmproxy.aitrail.ch
   only:
     - master
+  when: manual  # MANUAL - DO NOT AUTO-DEPLOY until images are fixed
   tags:
     - llm-proxy-runner  # Runs on production server (8GB RAM, all services)
 

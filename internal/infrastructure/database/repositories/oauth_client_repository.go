@@ -3,6 +3,7 @@ package repositories
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -11,20 +12,21 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// OAuthClient represents an OAuth 2.0 client
+// OAuthClient represents an OAuth 2.0 client (now used as generic API client)
 type OAuthClient struct {
-	ID           uuid.UUID
-	ClientID     string
-	ClientSecret string // This will be hashed
-	Name         string
-	RedirectURIs []string
-	GrantTypes   []string
-	DefaultScope string
-	RateLimitRPM *int // NULL = unlimited
-	RateLimitRPD *int
-	Enabled      bool
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	ID            uuid.UUID
+	ClientID      string
+	ClientSecret  string // This will be hashed
+	Name          string
+	RedirectURIs  []string
+	GrantTypes    []string
+	DefaultScope  string
+	AllowedModels []string // NULL = all models allowed, empty array = no models, specific array = only those models
+	RateLimitRPM  *int     // NULL = unlimited
+	RateLimitRPD  *int
+	Enabled       bool
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
 }
 
 // OAuthClientRepository handles OAuth client database operations
@@ -48,11 +50,17 @@ func (r *OAuthClientRepository) Create(ctx context.Context, client *OAuthClient)
 	query := `
 		INSERT INTO oauth_clients (
 			id, client_id, client_secret_hash, name, redirect_uris, grant_types, 
-			default_scope, rate_limit_rpm, rate_limit_rpd, enabled
+			default_scope, allowed_models, rate_limit_rpm, rate_limit_rpd, enabled
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 		RETURNING created_at, updated_at
 	`
+
+	// Convert allowed_models to JSONB (nil stays nil, empty slice becomes [], populated slice becomes JSON array)
+	var allowedModelsJSON interface{}
+	if client.AllowedModels != nil {
+		allowedModelsJSON = client.AllowedModels
+	}
 
 	err = r.db.Pool.QueryRow(
 		ctx, query,
@@ -63,6 +71,7 @@ func (r *OAuthClientRepository) Create(ctx context.Context, client *OAuthClient)
 		client.RedirectURIs,
 		client.GrantTypes,
 		client.DefaultScope,
+		allowedModelsJSON,
 		client.RateLimitRPM,
 		client.RateLimitRPD,
 		client.Enabled,
@@ -80,13 +89,14 @@ func (r *OAuthClientRepository) GetByClientID(ctx context.Context, clientID stri
 	query := `
 		SELECT 
 			id, client_id, client_secret_hash, name, redirect_uris, grant_types,
-			default_scope, rate_limit_rpm, rate_limit_rpd, enabled, created_at, updated_at
+			default_scope, allowed_models, rate_limit_rpm, rate_limit_rpd, enabled, created_at, updated_at
 		FROM oauth_clients
 		WHERE client_id = $1
 	`
 
 	client := &OAuthClient{}
 	var secretHash string
+	var allowedModelsJSON []byte
 
 	err := r.db.Pool.QueryRow(ctx, query, clientID).Scan(
 		&client.ID,
@@ -96,12 +106,22 @@ func (r *OAuthClientRepository) GetByClientID(ctx context.Context, clientID stri
 		&client.RedirectURIs,
 		&client.GrantTypes,
 		&client.DefaultScope,
+		&allowedModelsJSON,
 		&client.RateLimitRPM,
 		&client.RateLimitRPD,
 		&client.Enabled,
 		&client.CreatedAt,
 		&client.UpdatedAt,
 	)
+
+	// Parse allowed_models JSON if present
+	if len(allowedModelsJSON) > 0 {
+		// unmarshal JSON array into []string
+		var models []string
+		if err := json.Unmarshal(allowedModelsJSON, &models); err == nil {
+			client.AllowedModels = models
+		}
+	}
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to get OAuth client: %w", err)
@@ -123,13 +143,14 @@ func (r *OAuthClientRepository) GetByID(ctx context.Context, id uuid.UUID) (*OAu
 	query := `
 		SELECT 
 			id, client_id, client_secret_hash, name, redirect_uris, grant_types,
-			default_scope, rate_limit_rpm, rate_limit_rpd, enabled, created_at, updated_at
+			default_scope, allowed_models, rate_limit_rpm, rate_limit_rpd, enabled, created_at, updated_at
 		FROM oauth_clients
 		WHERE id = $1
 	`
 
 	client := &OAuthClient{}
 	var secretHash string
+	var allowedModelsJSON []byte
 
 	err := r.db.Pool.QueryRow(ctx, query, id).Scan(
 		&client.ID,
@@ -139,6 +160,7 @@ func (r *OAuthClientRepository) GetByID(ctx context.Context, id uuid.UUID) (*OAu
 		&client.RedirectURIs,
 		&client.GrantTypes,
 		&client.DefaultScope,
+		&allowedModelsJSON,
 		&client.RateLimitRPM,
 		&client.RateLimitRPD,
 		&client.Enabled,
@@ -148,6 +170,14 @@ func (r *OAuthClientRepository) GetByID(ctx context.Context, id uuid.UUID) (*OAu
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to get OAuth client: %w", err)
+	}
+
+	// Parse allowed_models JSON if present
+	if len(allowedModelsJSON) > 0 {
+		var models []string
+		if err := json.Unmarshal(allowedModelsJSON, &models); err == nil {
+			client.AllowedModels = models
+		}
 	}
 
 	client.ClientSecret = secretHash
@@ -160,7 +190,7 @@ func (r *OAuthClientRepository) List(ctx context.Context, limit, offset int) ([]
 	query := `
 		SELECT 
 			id, client_id, name, redirect_uris, grant_types,
-			default_scope, rate_limit_rpm, rate_limit_rpd, enabled, created_at, updated_at
+			default_scope, allowed_models, rate_limit_rpm, rate_limit_rpd, enabled, created_at, updated_at
 		FROM oauth_clients
 		ORDER BY created_at DESC
 		LIMIT $1 OFFSET $2
@@ -175,6 +205,7 @@ func (r *OAuthClientRepository) List(ctx context.Context, limit, offset int) ([]
 	var clients []*OAuthClient
 	for rows.Next() {
 		client := &OAuthClient{}
+		var allowedModelsJSON []byte
 		err := rows.Scan(
 			&client.ID,
 			&client.ClientID,
@@ -182,6 +213,7 @@ func (r *OAuthClientRepository) List(ctx context.Context, limit, offset int) ([]
 			&client.RedirectURIs,
 			&client.GrantTypes,
 			&client.DefaultScope,
+			&allowedModelsJSON,
 			&client.RateLimitRPM,
 			&client.RateLimitRPD,
 			&client.Enabled,
@@ -191,6 +223,15 @@ func (r *OAuthClientRepository) List(ctx context.Context, limit, offset int) ([]
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan OAuth client: %w", err)
 		}
+
+		// Parse allowed_models JSON if present
+		if len(allowedModelsJSON) > 0 {
+			var models []string
+			if err := json.Unmarshal(allowedModelsJSON, &models); err == nil {
+				client.AllowedModels = models
+			}
+		}
+
 		clients = append(clients, client)
 	}
 
@@ -202,10 +243,16 @@ func (r *OAuthClientRepository) Update(ctx context.Context, client *OAuthClient)
 	query := `
 		UPDATE oauth_clients
 		SET name = $1, redirect_uris = $2, grant_types = $3, default_scope = $4,
-		    rate_limit_rpm = $5, rate_limit_rpd = $6, enabled = $7, updated_at = CURRENT_TIMESTAMP
-		WHERE id = $8
+		    allowed_models = $5, rate_limit_rpm = $6, rate_limit_rpd = $7, enabled = $8, updated_at = CURRENT_TIMESTAMP
+		WHERE id = $9
 		RETURNING updated_at
 	`
+
+	// Convert allowed_models to JSONB
+	var allowedModelsJSON interface{}
+	if client.AllowedModels != nil {
+		allowedModelsJSON = client.AllowedModels
+	}
 
 	err := r.db.Pool.QueryRow(
 		ctx, query,
@@ -213,6 +260,7 @@ func (r *OAuthClientRepository) Update(ctx context.Context, client *OAuthClient)
 		client.RedirectURIs,
 		client.GrantTypes,
 		client.DefaultScope,
+		allowedModelsJSON,
 		client.RateLimitRPM,
 		client.RateLimitRPD,
 		client.Enabled,

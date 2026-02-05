@@ -89,6 +89,23 @@ func (h *ChatHandler) CreateCompletion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check if client has access to the requested model
+	if clientID != "" {
+		hasAccess, err := h.checkModelAccess(ctx, clientID, openAIReq.Model)
+		if err != nil {
+			h.logger.Errorf(err, "Failed to check model access for client %s", clientID)
+			h.logRequest(ctx, r, clientID, requestID, openAIReq.Model, http.StatusInternalServerError, 0, 0, 0, startTime, err)
+			h.respondError(w, http.StatusInternalServerError, "server_error", "Failed to verify model access")
+			return
+		}
+		if !hasAccess {
+			h.logger.Warnf("Client %s attempted to access unauthorized model: %s", clientID, openAIReq.Model)
+			h.logRequest(ctx, r, clientID, requestID, openAIReq.Model, http.StatusForbidden, 0, 0, 0, startTime, nil)
+			h.respondError(w, http.StatusForbidden, "model_not_allowed", fmt.Sprintf("no access to model '%s'", openAIReq.Model))
+			return
+		}
+	}
+
 	// Analyze attachments for sensitive content
 	if h.attachmentService != nil {
 		attachmentResult, err := h.attachmentService.AnalyzeAttachments(ctx, openAIReq.Messages)
@@ -477,6 +494,39 @@ func (h *ChatHandler) writeSSEError(w http.ResponseWriter, flusher http.Flusher,
 	errorJSON, _ := json.Marshal(errorResponse)
 	fmt.Fprintf(w, "data: %s\n\n", string(errorJSON))
 	flusher.Flush()
+}
+
+// checkModelAccess verifies if a client has access to a specific model
+// Returns true if:
+// - client.AllowedModels is nil (all models allowed)
+// - model is in client.AllowedModels array
+// Returns false otherwise
+func (h *ChatHandler) checkModelAccess(ctx context.Context, clientID string, model string) (bool, error) {
+	// Get client from database
+	client, err := h.clientRepo.GetByClientID(ctx, clientID)
+	if err != nil {
+		return false, fmt.Errorf("failed to get client: %w", err)
+	}
+
+	// If AllowedModels is nil, all models are allowed
+	if client.AllowedModels == nil {
+		return true, nil
+	}
+
+	// If AllowedModels is empty array, no models are allowed
+	if len(client.AllowedModels) == 0 {
+		return false, nil
+	}
+
+	// Check if requested model is in the allowed list
+	for _, allowedModel := range client.AllowedModels {
+		if allowedModel == model {
+			return true, nil
+		}
+	}
+
+	// Model not found in allowed list
+	return false, nil
 }
 
 // respondError sends an OpenAI-compatible error response

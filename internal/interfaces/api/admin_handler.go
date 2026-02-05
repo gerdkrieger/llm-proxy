@@ -54,42 +54,45 @@ func NewAdminHandler(
 // CLIENT MANAGEMENT
 // ============================================================================
 
-// CreateClientRequest represents a request to create an OAuth client
+// CreateClientRequest represents a request to create an API client
 type CreateClientRequest struct {
-	ClientID     string   `json:"client_id"`
-	ClientSecret string   `json:"client_secret"`
-	Name         string   `json:"name"`
-	RedirectURIs []string `json:"redirect_uris"`
-	GrantTypes   []string `json:"grant_types"`
-	DefaultScope string   `json:"default_scope"`
-	RateLimitRPM *int     `json:"rate_limit_rpm,omitempty"`
-	RateLimitRPD *int     `json:"rate_limit_rpd,omitempty"`
+	ClientID      string   `json:"client_id"`
+	ClientSecret  string   `json:"client_secret"`
+	Name          string   `json:"name"`
+	RedirectURIs  []string `json:"redirect_uris"`
+	GrantTypes    []string `json:"grant_types"`
+	DefaultScope  string   `json:"default_scope"`
+	AllowedModels []string `json:"allowed_models,omitempty"` // null = all models, [] = none, ["model"] = specific
+	RateLimitRPM  *int     `json:"rate_limit_rpm,omitempty"`
+	RateLimitRPD  *int     `json:"rate_limit_rpd,omitempty"`
 }
 
-// UpdateClientRequest represents a request to update an OAuth client
+// UpdateClientRequest represents a request to update an API client
 type UpdateClientRequest struct {
-	Name         *string  `json:"name,omitempty"`
-	RedirectURIs []string `json:"redirect_uris,omitempty"`
-	GrantTypes   []string `json:"grant_types,omitempty"`
-	DefaultScope *string  `json:"default_scope,omitempty"`
-	RateLimitRPM *int     `json:"rate_limit_rpm,omitempty"`
-	RateLimitRPD *int     `json:"rate_limit_rpd,omitempty"`
-	Enabled      *bool    `json:"enabled,omitempty"`
+	Name          *string  `json:"name,omitempty"`
+	RedirectURIs  []string `json:"redirect_uris,omitempty"`
+	GrantTypes    []string `json:"grant_types,omitempty"`
+	DefaultScope  *string  `json:"default_scope,omitempty"`
+	AllowedModels []string `json:"allowed_models,omitempty"` // null = all models, [] = none, ["model"] = specific
+	RateLimitRPM  *int     `json:"rate_limit_rpm,omitempty"`
+	RateLimitRPD  *int     `json:"rate_limit_rpd,omitempty"`
+	Enabled       *bool    `json:"enabled,omitempty"`
 }
 
-// ClientResponse represents an OAuth client response
+// ClientResponse represents an API client response
 type ClientResponse struct {
-	ID           string    `json:"id"`
-	ClientID     string    `json:"client_id"`
-	Name         string    `json:"name"`
-	RedirectURIs []string  `json:"redirect_uris"`
-	GrantTypes   []string  `json:"grant_types"`
-	DefaultScope string    `json:"default_scope"`
-	RateLimitRPM *int      `json:"rate_limit_rpm"`
-	RateLimitRPD *int      `json:"rate_limit_rpd"`
-	Enabled      bool      `json:"enabled"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	ID            string    `json:"id"`
+	ClientID      string    `json:"client_id"`
+	Name          string    `json:"name"`
+	RedirectURIs  []string  `json:"redirect_uris"`
+	GrantTypes    []string  `json:"grant_types"`
+	DefaultScope  string    `json:"default_scope"`
+	AllowedModels []string  `json:"allowed_models,omitempty"` // null = all models, [] = none, ["model"] = specific
+	RateLimitRPM  *int      `json:"rate_limit_rpm"`
+	RateLimitRPD  *int      `json:"rate_limit_rpd"`
+	Enabled       bool      `json:"enabled"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
 }
 
 // ListClients lists all OAuth clients
@@ -115,17 +118,18 @@ func (h *AdminHandler) ListClients(w http.ResponseWriter, r *http.Request) {
 	clients := make([]ClientResponse, 0, len(dbClients))
 	for _, client := range dbClients {
 		clients = append(clients, ClientResponse{
-			ID:           client.ID.String(),
-			ClientID:     client.ClientID,
-			Name:         client.Name,
-			RedirectURIs: client.RedirectURIs,
-			GrantTypes:   client.GrantTypes,
-			DefaultScope: client.DefaultScope,
-			RateLimitRPM: client.RateLimitRPM,
-			RateLimitRPD: client.RateLimitRPD,
-			Enabled:      client.Enabled,
-			CreatedAt:    client.CreatedAt,
-			UpdatedAt:    client.UpdatedAt,
+			ID:            client.ID.String(),
+			ClientID:      client.ClientID,
+			Name:          client.Name,
+			RedirectURIs:  client.RedirectURIs,
+			GrantTypes:    client.GrantTypes,
+			DefaultScope:  client.DefaultScope,
+			AllowedModels: client.AllowedModels,
+			RateLimitRPM:  client.RateLimitRPM,
+			RateLimitRPD:  client.RateLimitRPD,
+			Enabled:       client.Enabled,
+			CreatedAt:     client.CreatedAt,
+			UpdatedAt:     client.UpdatedAt,
 		})
 	}
 
@@ -187,18 +191,19 @@ func (h *AdminHandler) CreateClient(w http.ResponseWriter, r *http.Request) {
 
 	// Create client
 	client := &repositories.OAuthClient{
-		ID:           uuid.New(),
-		ClientID:     req.ClientID,
-		ClientSecret: req.ClientSecret, // Will be hashed by repository
-		Name:         req.Name,
-		RedirectURIs: req.RedirectURIs,
-		GrantTypes:   req.GrantTypes,
-		DefaultScope: req.DefaultScope,
-		RateLimitRPM: req.RateLimitRPM,
-		RateLimitRPD: req.RateLimitRPD,
-		Enabled:      true,
-		CreatedAt:    time.Now(),
-		UpdatedAt:    time.Now(),
+		ID:            uuid.New(),
+		ClientID:      req.ClientID,
+		ClientSecret:  req.ClientSecret, // Will be hashed by repository
+		Name:          req.Name,
+		RedirectURIs:  req.RedirectURIs,
+		GrantTypes:    req.GrantTypes,
+		DefaultScope:  req.DefaultScope,
+		AllowedModels: req.AllowedModels, // nil = all models allowed
+		RateLimitRPM:  req.RateLimitRPM,
+		RateLimitRPD:  req.RateLimitRPD,
+		Enabled:       true,
+		CreatedAt:     time.Now(),
+		UpdatedAt:     time.Now(),
 	}
 
 	if err := h.clientRepo.Create(ctx, client); err != nil {
@@ -208,17 +213,18 @@ func (h *AdminHandler) CreateClient(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response := ClientResponse{
-		ID:           client.ID.String(),
-		ClientID:     client.ClientID,
-		Name:         client.Name,
-		RedirectURIs: client.RedirectURIs,
-		GrantTypes:   client.GrantTypes,
-		DefaultScope: client.DefaultScope,
-		RateLimitRPM: client.RateLimitRPM,
-		RateLimitRPD: client.RateLimitRPD,
-		Enabled:      client.Enabled,
-		CreatedAt:    client.CreatedAt,
-		UpdatedAt:    client.UpdatedAt,
+		ID:            client.ID.String(),
+		ClientID:      client.ClientID,
+		Name:          client.Name,
+		RedirectURIs:  client.RedirectURIs,
+		GrantTypes:    client.GrantTypes,
+		DefaultScope:  client.DefaultScope,
+		AllowedModels: client.AllowedModels,
+		RateLimitRPM:  client.RateLimitRPM,
+		RateLimitRPD:  client.RateLimitRPD,
+		Enabled:       client.Enabled,
+		CreatedAt:     client.CreatedAt,
+		UpdatedAt:     client.UpdatedAt,
 	}
 
 	h.respondJSON(w, http.StatusCreated, response)
@@ -258,6 +264,9 @@ func (h *AdminHandler) UpdateClient(w http.ResponseWriter, r *http.Request) {
 	if req.DefaultScope != nil {
 		client.DefaultScope = *req.DefaultScope
 	}
+	if req.AllowedModels != nil {
+		client.AllowedModels = req.AllowedModels
+	}
 	if req.RateLimitRPM != nil {
 		client.RateLimitRPM = req.RateLimitRPM
 	}
@@ -277,23 +286,24 @@ func (h *AdminHandler) UpdateClient(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response := ClientResponse{
-		ID:           client.ID.String(),
-		ClientID:     client.ClientID,
-		Name:         client.Name,
-		RedirectURIs: client.RedirectURIs,
-		GrantTypes:   client.GrantTypes,
-		DefaultScope: client.DefaultScope,
-		RateLimitRPM: client.RateLimitRPM,
-		RateLimitRPD: client.RateLimitRPD,
-		Enabled:      client.Enabled,
-		CreatedAt:    client.CreatedAt,
-		UpdatedAt:    client.UpdatedAt,
+		ID:            client.ID.String(),
+		ClientID:      client.ClientID,
+		Name:          client.Name,
+		RedirectURIs:  client.RedirectURIs,
+		GrantTypes:    client.GrantTypes,
+		DefaultScope:  client.DefaultScope,
+		AllowedModels: client.AllowedModels,
+		RateLimitRPM:  client.RateLimitRPM,
+		RateLimitRPD:  client.RateLimitRPD,
+		Enabled:       client.Enabled,
+		CreatedAt:     client.CreatedAt,
+		UpdatedAt:     client.UpdatedAt,
 	}
 
 	h.respondJSON(w, http.StatusOK, response)
 }
 
-// DeleteClient deletes an OAuth client
+// DeleteClient deletes an API client
 // DELETE /admin/clients/{client_id}
 func (h *AdminHandler) DeleteClient(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()

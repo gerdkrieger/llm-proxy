@@ -89,7 +89,10 @@
 
 <div class="p-8">
   <div class="flex justify-between items-center mb-8">
-    <h1 class="text-3xl font-bold">OAuth Clients</h1>
+    <div>
+      <h1 class="text-3xl font-bold text-gray-900">API Clients</h1>
+      <p class="text-gray-600 mt-1">Manage API clients and their model access permissions</p>
+    </div>
     <button on:click={openCreateForm} class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
       + New Client
     </button>
@@ -197,7 +200,7 @@
     
     {#if clients.length === 0}
       <div class="p-8 text-center text-gray-500">
-        <p>No clients found. Create your first OAuth client to get started.</p>
+        <p>No clients found. Create your first API client to get started.</p>
       </div>
     {/if}
   </div>

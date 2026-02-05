@@ -232,3 +232,19 @@ services:
 # NOTE: Prometheus and Grafana are currently disabled due to file mount limitations
 #       with Docker socket mount strategy. Will be re-enabled in future version.
 # =============================================================================
+
+# =============================================================================
+# DOCKER VOLUMES
+# =============================================================================
+volumes:
+  llm-proxy-postgres-data:
+    driver: local
+  llm-proxy-redis-data:
+    driver: local
+
+# =============================================================================
+# DOCKER NETWORKS
+# =============================================================================
+networks:
+  llm-proxy-network:
+    driver: bridge

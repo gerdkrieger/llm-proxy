@@ -1,17 +1,76 @@
 # LLM-PROXY DEPLOYMENT GUIDE
 
-## ⚠️ WICHTIG: Manuelles Deployment verwenden
+## ⚠️ WICHTIG: GitLab Pipeline nicht verwenden
 
-Die GitLab CI/CD Pipeline ist **DEAKTIVIERT** weil:
-- Registry Push scheitert (Permission Probleme)
-- Registry Images sind alt/kaputt
-- Automatisches Deployment würde Production zerstören
+Die GitLab CI/CD Pipeline ist **DEAKTIVIERT** (`when: manual` auf allen Jobs) weil:
 
-**Verwende IMMER den manuellen Deployment-Prozess unten!**
+**ROOT CAUSE:** `CI_JOB_TOKEN` hat keine WRITE-Rechte auf GitLab Container Registry
+
+```
+GitLab Runner baut Image ✅
+    ↓
+docker push registry.gitlab.com/... ❌ denied: requested access to the resource is denied
+    ↓
+Registry enthält alte/kaputte Images
+    ↓
+deploy:production pulled alte Images → Production kaputt
+```
+
+**Warum nicht über API/Token fixbar?**
+- Deploy Token probiert ❌ - scheitert trotzdem
+- Personal Access Token probiert ❌ - scheitert trotzdem  
+- CI/CD Token Access Settings können nur im GitLab UI geändert werden
+- Project ist unter Group → Permissions komplizierter
+
+**Lösung:** Manuelles Deployment mit lokalem Build (siehe unten)
 
 ---
 
-## 🚀 Manuelles Deployment (FUNKTIONIERT 100%)
+## 🚀 SCHNELLES DEPLOYMENT MIT SCRIPT (EMPFOHLEN)
+
+**Ein-Befehl-Deployment:**
+
+```bash
+./deploy.sh
+```
+
+Das Script macht automatisch:
+1. ✅ Prerequisites checken (Docker, SSH)
+2. 🔨 Backend Image bauen
+3. 🔨 Admin-UI Image bauen
+4. 🚚 Images zum Server übertragen (docker save | ssh | docker load)
+5. 🚀 Services auf Production neu starten
+6. 🏥 Health Checks durchführen
+
+**Ausgabe:**
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🚀 LLM-PROXY DEPLOYMENT SCRIPT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📦 Step 1/4: Building Docker images...
+✅ Backend image built: llm-proxy-backend:latest
+✅ Admin-UI image built: llm-proxy-admin-ui:latest
+
+🚚 Step 2/4: Transferring images to server...
+✅ Backend image transferred
+✅ Admin-UI image transferred
+
+🚀 Step 3/4: Deploying to production...
+✅ Services deployed and restarted
+
+🏥 Step 4/4: Running health checks...
+✅ Backend is healthy
+✅ Admin-UI is responding
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🚀 DEPLOYMENT SUCCESSFUL
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+---
+
+## 🔧 Manuelles Deployment (Schritt für Schritt)
 
 ### 1. Lokale Images bauen
 

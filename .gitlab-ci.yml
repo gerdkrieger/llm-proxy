@@ -301,6 +301,7 @@ docker:backend:
         docker push "${BACKEND_IMAGE}:${CI_COMMIT_TAG}" || true
       fi
   allow_failure: true
+  when: manual  # MANUAL - Registry push scheitert, Images müssen lokal gebaut werden
   # REMOVED llm-proxy-runner tag - now uses GitLab Shared Runner
   # This prevents builds from running on the 1-CPU/2GB production server
   only:
@@ -348,6 +349,7 @@ docker:admin-ui:
         docker push "${ADMIN_UI_IMAGE}:${CI_COMMIT_TAG}" || true
       fi
   allow_failure: true
+  when: manual  # MANUAL - Registry push scheitert, Images müssen lokal gebaut werden
   # REMOVED llm-proxy-runner tag - now uses GitLab Shared Runner
   # This prevents builds from running on the 1-CPU/2GB production server
   only:
@@ -480,6 +482,7 @@ deploy:production:
     url: https://llmproxy.aitrail.ch
   only:
     - master
+  when: manual  # MANUAL - Use working local images, not broken registry images
   tags:
     - llm-proxy-runner  # Runs on production server (8GB RAM, all services)
 

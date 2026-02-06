@@ -455,15 +455,11 @@ deploy:production:
     # Wait for cleanup to complete
     - sleep 3
     
-    # Pull pre-built images from registry and start services
-    # DO NOT BUILD on production server - use pre-built images from GitLab Shared Runners
-    - echo "📦 Pulling latest images from registry..."
-    - docker pull ${BACKEND_IMAGE}:latest && docker tag ${BACKEND_IMAGE}:latest llm-proxy-backend:latest || echo "⚠️  Backend image not found in registry, using local"
-    - docker pull ${ADMIN_UI_IMAGE}:latest && docker tag ${ADMIN_UI_IMAGE}:latest llm-proxy-admin-ui:latest || echo "⚠️  Admin-UI image not found in registry, using local"
+    # NOTE: Registry push fails due to permissions, so we use manually transferred local images
+    # The working images are already on the server (llm-proxy-backend:latest, llm-proxy-admin-ui:latest)
+    # DO NOT pull from registry as those images may be outdated or broken
     
-    # Note: If registry pulls fail, local images (including manually built ones) will be used
-    
-    - echo "🚀 Starting services with pre-built images..."
+    - echo "🚀 Starting services with local images..."
     - docker compose -f deployments/docker-compose.openwebui.yml up -d --no-build
     
     # Wait for health checks (backend needs time on 1-CPU server)

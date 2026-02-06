@@ -122,10 +122,7 @@ transfer_images() {
 deploy_to_production() {
     log_info "Deploying to production..."
     
-    ssh "${SERVER_HOST}" << 'ENDSSH' || {
-        log_error "Deployment failed"
-        exit 1
-    }
+    ssh "${SERVER_HOST}" << 'ENDSSH'
         set -e
         cd /opt/llm-proxy/deployments
         
@@ -140,6 +137,11 @@ deploy_to_production() {
         
         echo "✅ Deployment complete"
 ENDSSH
+
+    if [ $? -ne 0 ]; then
+        log_error "Deployment failed"
+        exit 1
+    fi
     
     log_success "Services deployed and restarted"
 }

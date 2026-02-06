@@ -600,6 +600,125 @@ docker logs llm-proxy-backend | grep "redaction\|OCR"
 
 ---
 
+## ⚠️ Bekannte Limitierungen
+
+### PDF-Unterstützung mit Claude API
+
+**Problem:** Claude's API akzeptiert nur Bild-MIME-Types (`image/png`, `image/jpeg`, `image/gif`, `image/webp`), aber keine PDFs (`application/pdf`).
+
+**Technische Details:**
+- PDFs die als `data:application/pdf;base64,...` gesendet werden, werden von Claude abgelehnt
+- Fehlermeldung: `"Input should be 'image/jpeg', 'image/png', 'image/gif' or 'image/webp'"`
+- Dies ist eine Einschränkung der Claude API, nicht des LLM-Proxy
+
+**Aktuelles Verhalten:**
+```json
+// ❌ Funktioniert NICHT mit Claude API
+{
+  "type": "image_url",
+  "image_url": {
+    "url": "data:application/pdf;base64,JVBERi0xLjQK..."
+  }
+}
+
+// ✅ Funktioniert mit Claude API  
+{
+  "type": "image_url",
+  "image_url": {
+    "url": "data:image/png;base64,iVBORw0KGgoA..."
+  }
+}
+```
+
+**Workaround (aktuell):**
+
+Benutzer müssen PDFs als Bilder senden:
+
+```bash
+# PDF zu PNG konvertieren
+pdftoppm -png -f 1 -l 1 -singlefile -r 300 input.pdf output
+
+# Als Base64 kodieren
+base64 output.png > output.base64
+
+# Als image/png senden (nicht application/pdf)
+curl -X POST https://llmproxy.aitrail.ch/v1/chat/completions \
+  -H "Authorization: Bearer YOUR_KEY" \
+  -d '{
+    "model": "claude-3-haiku-20240307",
+    "messages": [{
+      "role": "user",
+      "content": [
+        {"type": "text", "text": "Analysiere dieses Dokument"},
+        {"type": "image_url", "image_url": {"url": "data:image/png;base64,..."}}
+      ]
+    }]
+  }'
+```
+
+**Zukünftige Lösung (Enhancement):**
+
+Der LLM-Proxy könnte automatisch PDFs zu Bildern konvertieren:
+
+```go
+// Pseudo-Code für zukünftige Implementierung
+func (s *Service) analyzeImageData(ctx context.Context, dataURL string) {
+    // 1. Erkenne application/pdf MIME-Type
+    if strings.Contains(dataURL, "application/pdf") {
+        // 2. Extrahiere PDF-Daten
+        pdfData := extractBase64Data(dataURL)
+        
+        // 3. Konvertiere zu PNG
+        pngData := s.redactionService.convertPDFToImage(pdfData)
+        
+        // 4. Update MIME-Type
+        dataURL = "data:image/png;base64," + base64.Encode(pngData)
+    }
+    
+    // 5. OCR und Redaktion wie gewohnt
+    result := s.redactionService.RedactDocument(ctx, imageData, filename)
+}
+```
+
+**Code-Änderungen erforderlich:**
+- Datei: `internal/application/attachment/service.go`
+- Funktion: `analyzeImageData()` (Zeilen 141-219)
+- Aufwand: ca. 2-4 Stunden
+
+**Status:** Enhancement geplant, nicht kritisch (Workaround verfügbar)
+
+**Betroffene Anbieter:**
+- ✅ **Claude (Anthropic):** Nur Bilder, keine PDFs
+- ⚠️  **OpenAI (GPT-4 Vision):** Unterstützt ebenfalls nur Bilder
+- ℹ️  **Andere Anbieter:** Müssen individuell geprüft werden
+
+### Alternative: PDFs als Text-Extraktion
+
+Für reine Text-PDFs ohne visuelle Redaktion:
+
+```bash
+# PDF-Text extrahieren (ohne OCR)
+pdftotext input.pdf - | jq -Rs '{
+  "model": "claude-3-haiku-20240307",
+  "messages": [{
+    "role": "user", 
+    "content": "Analysiere diesen Text:\n\n" + .
+  }]
+}'
+```
+
+**Vorteile:**
+- ✅ Funktioniert mit allen LLM-Anbietern
+- ✅ Keine Bildkonvertierung notwendig
+- ✅ Content Filter funktionieren auf reinem Text
+
+**Nachteile:**
+- ❌ Keine visuelle Schwärzung (nur Text-Replacement)
+- ❌ Formatierung geht verloren
+- ❌ Keine OCR bei gescannten PDFs
+
+---
+
 ## 📚 Weiterführende Dokumentation
 
 - **Content Filtering:** [CONTENT_FILTERING.md](CONTENT_FILTERING.md)

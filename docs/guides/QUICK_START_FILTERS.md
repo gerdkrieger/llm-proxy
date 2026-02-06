@@ -331,7 +331,7 @@ curl -X POST http://localhost:8080/admin/filters/test \
 ## Weitere Ressourcen
 
 - **Vollständige Dokumentation:** `CONTENT_FILTERING.md`
-- **Test-Script:** `./test-content-filters.sh`
+- **Test-Script:** `# Use Admin UI at http://localhost:3005`
 - **Setup-Script:** `./create-example-filters.sh`
 - **Web Interface:** `filter-management.html`
 

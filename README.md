@@ -5,14 +5,18 @@ Intelligent multi-provider LLM proxy with content filtering, caching, and OAuth2
 ## 🚀 Quick Start
 
 ```bash
-# Start all services
-./scripts/start-all.sh
+# Start local development environment
+docker compose -f docker-compose.dev.yml up -d
 
 # Check status
-./scripts/status.sh
+docker compose ps
 
-# Run tests
-./scripts/testing/test_api.sh
+# View logs
+docker compose logs -f
+
+# Access services
+open http://localhost:3005  # Admin UI
+open http://localhost:8080  # Backend API
 ```
 
 ## 💻 Local Development

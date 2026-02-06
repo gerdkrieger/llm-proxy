@@ -357,7 +357,7 @@ Gesamt: 10 | Erfolg: 8 | Fehler: 2
 - **Vollständige API Dokumentation:** `CONTENT_FILTERING.md`
 - **Einzelfilter-Erstellung:** `filter-management.html`
 - **Schnellstart:** `QUICK_START_FILTERS.md`
-- **Test-Script:** `./test-content-filters.sh`
+- **Test-Script:** `# Use Admin UI at http://localhost:3005`
 
 ---
 

@@ -501,7 +501,7 @@ curl -X POST http://localhost:8080/admin/chat/test \
 **Lösung:**
 ```bash
 # Services prüfen
-./start-all.sh
+docker compose -f docker-compose.dev.yml up -d
 
 # Oder manuell
 cd admin-ui && npm run dev

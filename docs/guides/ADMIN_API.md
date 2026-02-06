@@ -347,7 +347,7 @@ Admin API endpoints are **not rate limited** by default. Ensure proper network-l
 Run the Admin API test suite:
 
 ```bash
-./test_admin_api.sh
+curl -H "X-Admin-API-Key: key" http://localhost:8080/admin/filters
 ```
 
 This will test all endpoints including:

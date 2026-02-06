@@ -569,7 +569,7 @@ Track filter usage via Prometheus metrics:
 Use the provided test script to verify your setup:
 
 ```bash
-./test-content-filters.sh
+# Use Admin UI at http://localhost:3005
 ```
 
 This script tests:

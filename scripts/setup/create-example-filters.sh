@@ -5,8 +5,8 @@
 
 set -e
 
-BASE_URL="http://localhost:8080"
-ADMIN_KEY="admin_dev_key_12345678901234567890123456789012"
+BASE_URL="${BASE_URL:-http://localhost:8080}"
+ADMIN_KEY="${ADMIN_KEY:-admin_dev_local_key_12345678901234567890123456789012}"
 
 echo "=========================================="
 echo "Content Filter Setup - Beispiele"

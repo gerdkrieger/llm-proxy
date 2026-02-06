@@ -238,11 +238,9 @@ services:
 # =============================================================================
 volumes:
   llm-proxy-postgres-data:
-    external: true
-    name: llm-proxy-postgres-data
+    driver: local
   llm-proxy-redis-data:
-    external: true
-    name: llm-proxy-redis-data
+    driver: local
 
 # =============================================================================
 # DOCKER NETWORKS

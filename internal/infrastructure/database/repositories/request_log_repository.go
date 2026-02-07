@@ -30,6 +30,12 @@ type RequestLog struct {
 	UserAgent        *string
 	ErrorMessage     *string
 	CreatedAt        time.Time
+
+	// New fields for Live Monitor (added in migration 000007)
+	AuthType     *string `json:"auth_type"`     // 'api_key', 'oauth', 'admin', 'none'
+	APIKeyName   *string `json:"api_key_name"`  // Name of API key (not the actual key!)
+	WasFiltered  bool    `json:"was_filtered"`  // Whether content was filtered
+	FilterReason *string `json:"filter_reason"` // Reason for filtering
 }
 
 // RequestLogRepository handles request log database operations
@@ -48,9 +54,10 @@ func (r *RequestLogRepository) Create(ctx context.Context, log *RequestLog) erro
 		INSERT INTO request_logs (
 			id, client_id, request_id, method, path, model, provider,
 			prompt_tokens, completion_tokens, total_tokens, cost_usd,
-			duration_ms, status_code, cached, ip_address, user_agent, error_message
+			duration_ms, status_code, cached, ip_address, user_agent, error_message,
+			auth_type, api_key_name, was_filtered, filter_reason
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
 		RETURNING created_at
 	`
 
@@ -73,6 +80,10 @@ func (r *RequestLogRepository) Create(ctx context.Context, log *RequestLog) erro
 		log.IPAddress,
 		log.UserAgent,
 		log.ErrorMessage,
+		log.AuthType,
+		log.APIKeyName,
+		log.WasFiltered,
+		log.FilterReason,
 	).Scan(&log.CreatedAt)
 
 	if err != nil {
@@ -88,7 +99,8 @@ func (r *RequestLogRepository) GetByRequestID(ctx context.Context, requestID str
 		SELECT 
 			id, client_id, request_id, method, path, model, provider,
 			prompt_tokens, completion_tokens, total_tokens, cost_usd,
-			duration_ms, status_code, cached, ip_address, user_agent, error_message, created_at
+			duration_ms, status_code, cached, ip_address, user_agent, error_message, created_at,
+			auth_type, api_key_name, was_filtered, filter_reason
 		FROM request_logs
 		WHERE request_id = $1
 	`
@@ -113,6 +125,10 @@ func (r *RequestLogRepository) GetByRequestID(ctx context.Context, requestID str
 		&log.UserAgent,
 		&log.ErrorMessage,
 		&log.CreatedAt,
+		&log.AuthType,
+		&log.APIKeyName,
+		&log.WasFiltered,
+		&log.FilterReason,
 	)
 
 	if err != nil {
@@ -128,7 +144,8 @@ func (r *RequestLogRepository) List(ctx context.Context, filters RequestLogFilte
 		SELECT 
 			id, client_id, request_id, method, path, model, provider,
 			prompt_tokens, completion_tokens, total_tokens, cost_usd,
-			duration_ms, status_code, cached, ip_address, user_agent, error_message, created_at
+			duration_ms, status_code, cached, ip_address, user_agent, error_message, created_at,
+			auth_type, api_key_name, was_filtered, filter_reason
 		FROM request_logs
 		WHERE 1=1
 	`
@@ -203,6 +220,10 @@ func (r *RequestLogRepository) List(ctx context.Context, filters RequestLogFilte
 			&log.UserAgent,
 			&log.ErrorMessage,
 			&log.CreatedAt,
+			&log.AuthType,
+			&log.APIKeyName,
+			&log.WasFiltered,
+			&log.FilterReason,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan request log: %w", err)

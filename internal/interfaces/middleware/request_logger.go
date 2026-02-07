@@ -1,0 +1,222 @@
+// Package middleware provides HTTP middleware for the LLM-Proxy.
+package middleware
+
+import (
+	"context"
+	"net/http"
+	"strings"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/llm-proxy/llm-proxy/internal/infrastructure/database/repositories"
+	"github.com/llm-proxy/llm-proxy/pkg/logger"
+)
+
+// RequestLoggerMiddleware logs all API requests to the database
+type RequestLoggerMiddleware struct {
+	repo   *repositories.RequestLogRepository
+	logger *logger.Logger
+}
+
+// NewRequestLoggerMiddleware creates a new request logger middleware
+func NewRequestLoggerMiddleware(repo *repositories.RequestLogRepository, log *logger.Logger) *RequestLoggerMiddleware {
+	return &RequestLoggerMiddleware{
+		repo:   repo,
+		logger: log,
+	}
+}
+
+// loggingResponseWriter is a wrapper that captures status code and response size
+type loggingResponseWriter struct {
+	http.ResponseWriter
+	statusCode   int
+	bytesWritten int64
+	written      bool
+}
+
+// WriteHeader captures the status code
+func (rw *loggingResponseWriter) WriteHeader(code int) {
+	if !rw.written {
+		rw.statusCode = code
+		rw.written = true
+		rw.ResponseWriter.WriteHeader(code)
+	}
+}
+
+// Write captures bytes written
+func (rw *loggingResponseWriter) Write(b []byte) (int, error) {
+	if !rw.written {
+		rw.statusCode = http.StatusOK
+		rw.written = true
+	}
+	n, err := rw.ResponseWriter.Write(b)
+	rw.bytesWritten += int64(n)
+	return n, err
+}
+
+// Middleware logs the request to the database
+func (m *RequestLoggerMiddleware) Middleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Start timer
+		start := time.Now()
+
+		// Create response writer wrapper
+		wrapped := &loggingResponseWriter{
+			ResponseWriter: w,
+			statusCode:     http.StatusOK, // Default if WriteHeader not called
+		}
+
+		// Get or create request ID
+		requestID := r.Header.Get("X-Request-ID")
+		if requestID == "" {
+			requestID = uuid.New().String()
+		}
+
+		// Extract IP address
+		ipAddress := extractIPAddress(r)
+
+		// Extract authentication info from context (set by auth middlewares)
+		authType, apiKeyName := extractAuthInfo(r.Context())
+
+		// Call next handler
+		next.ServeHTTP(wrapped, r)
+
+		// Calculate duration
+		duration := time.Since(start)
+
+		// Extract error message if any
+		var errorMsg *string
+		if wrapped.statusCode >= 400 {
+			// Try to get error from context
+			if errCtx := r.Context().Value("error"); errCtx != nil {
+				if err, ok := errCtx.(string); ok {
+					errorMsg = &err
+				}
+			}
+		}
+
+		// Extract model and provider info from context (if available)
+		var model, provider string
+		if modelCtx := r.Context().Value("model"); modelCtx != nil {
+			if m, ok := modelCtx.(string); ok {
+				model = m
+			}
+		}
+		if providerCtx := r.Context().Value("provider"); providerCtx != nil {
+			if p, ok := providerCtx.(string); ok {
+				provider = p
+			}
+		}
+
+		// Extract filtering info from context
+		wasFiltered := false
+		var filterReason *string
+		if filteredCtx := r.Context().Value("filtered"); filteredCtx != nil {
+			if filtered, ok := filteredCtx.(bool); ok {
+				wasFiltered = filtered
+			}
+		}
+		if reasonCtx := r.Context().Value("filter_reason"); reasonCtx != nil {
+			if reason, ok := reasonCtx.(string); ok {
+				filterReason = &reason
+			}
+		}
+
+		// Create log entry
+		userAgent := r.UserAgent()
+		logEntry := &repositories.RequestLog{
+			ID:           uuid.New(),
+			RequestID:    requestID,
+			Method:       r.Method,
+			Path:         r.URL.Path,
+			Model:        model,
+			Provider:     provider,
+			DurationMS:   int(duration.Milliseconds()),
+			StatusCode:   wrapped.statusCode,
+			IPAddress:    &ipAddress,
+			UserAgent:    &userAgent,
+			ErrorMessage: errorMsg,
+			AuthType:     authType,
+			APIKeyName:   apiKeyName,
+			WasFiltered:  wasFiltered,
+			FilterReason: filterReason,
+		}
+
+		// Log to database (fire and forget - don't block response)
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+
+			if err := m.repo.Create(ctx, logEntry); err != nil {
+				m.logger.Warnf("Failed to log request to database: %v", err)
+			} else {
+				m.logger.Debugf("Logged request: %s %s -> %d (%dms)", logEntry.Method, logEntry.Path, logEntry.StatusCode, logEntry.DurationMS)
+			}
+		}()
+	})
+}
+
+// extractIPAddress extracts the real IP address from the request
+func extractIPAddress(r *http.Request) string {
+	// Check X-Forwarded-For header (if behind proxy)
+	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+		// Take the first IP in the list
+		ips := strings.Split(xff, ",")
+		if len(ips) > 0 {
+			return strings.TrimSpace(ips[0])
+		}
+	}
+
+	// Check X-Real-IP header
+	if xri := r.Header.Get("X-Real-IP"); xri != "" {
+		return xri
+	}
+
+	// Fall back to RemoteAddr
+	// RemoteAddr is in format "IP:Port", so we need to strip the port
+	ip := r.RemoteAddr
+	if idx := strings.LastIndex(ip, ":"); idx != -1 {
+		ip = ip[:idx]
+	}
+
+	return ip
+}
+
+// extractAuthInfo extracts authentication type and key name from context
+// These values should be set by the authentication middlewares
+func extractAuthInfo(ctx context.Context) (*string, *string) {
+	var authType, apiKeyName *string
+
+	// Check for API key authentication
+	if keyName := ctx.Value("api_key_name"); keyName != nil {
+		if name, ok := keyName.(string); ok {
+			apiKeyName = &name
+			authTypeVal := "api_key"
+			authType = &authTypeVal
+		}
+	}
+
+	// Check for OAuth authentication
+	if clientID := ctx.Value("oauth_client_id"); clientID != nil {
+		if _, ok := clientID.(string); ok {
+			authTypeVal := "oauth"
+			authType = &authTypeVal
+		}
+	}
+
+	// Check for admin authentication
+	if adminKey := ctx.Value("admin_authenticated"); adminKey != nil {
+		if _, ok := adminKey.(bool); ok {
+			authTypeVal := "admin"
+			authType = &authTypeVal
+		}
+	}
+
+	// If no authentication found
+	if authType == nil {
+		noneVal := "none"
+		authType = &noneVal
+	}
+
+	return authType, apiKeyName
+}

@@ -21,7 +21,7 @@
   async function fetchLogs() {
     try {
       const API_BASE = window.location.origin.replace(':3005', ':8080');
-      const response = await fetch(`${API_BASE}/admin/logs?limit=50`, {
+      const response = await fetch(`${API_BASE}/admin/requests?limit=50`, {
         headers: {
           'X-Admin-API-Key': $apiKey
         }
@@ -380,7 +380,7 @@
                   {log.method}
                 </td>
                 <td class="px-6 py-4 text-sm text-gray-900 max-w-xs truncate">
-                  {log.path}
+                  {log.endpoint}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm">
                   {#if log.ip_address === '172.18.0.2' || (log.user_agent && log.user_agent.includes('Python'))}

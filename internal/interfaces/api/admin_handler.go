@@ -638,6 +638,84 @@ func (h *AdminHandler) respondJSON(w http.ResponseWriter, status int, data inter
 	json.NewEncoder(w).Encode(data)
 }
 
+// ============================================================================
+// REQUEST LOGS (for Live Monitor)
+// ============================================================================
+
+// GetRequestLogs retrieves recent API request logs for monitoring
+// GET /admin/requests?limit=50
+func (h *AdminHandler) GetRequestLogs(w http.ResponseWriter, r *http.Request) {
+	// Parse limit parameter
+	limitStr := r.URL.Query().Get("limit")
+	limit := 50 // Default limit
+	if limitStr != "" {
+		parsedLimit, err := strconv.Atoi(limitStr)
+		if err == nil && parsedLimit > 0 && parsedLimit <= 500 {
+			limit = parsedLimit
+		}
+	}
+
+	// Build filters
+	filters := repositories.RequestLogFilters{
+		Limit: limit,
+	}
+
+	// Get logs from repository
+	logs, err := h.requestLogRepo.List(r.Context(), filters)
+	if err != nil {
+		h.logger.Warnf("Failed to retrieve request logs: %v", err)
+		h.respondError(w, http.StatusInternalServerError, "failed to retrieve request logs")
+		return
+	}
+
+	// Convert to response format (keep structure compatible with Live Monitor)
+	type RequestLogResponse struct {
+		ID           string    `json:"id"`
+		CreatedAt    time.Time `json:"created_at"`
+		Method       string    `json:"method"`
+		Endpoint     string    `json:"endpoint"`
+		StatusCode   int       `json:"status_code"`
+		IPAddress    *string   `json:"ip_address"`
+		UserAgent    *string   `json:"user_agent"`
+		AuthType     *string   `json:"auth_type"`
+		APIKeyName   *string   `json:"api_key_name"`
+		DurationMS   int       `json:"duration_ms"`
+		Model        string    `json:"model,omitempty"`
+		Provider     string    `json:"provider,omitempty"`
+		WasFiltered  bool      `json:"was_filtered"`
+		FilterReason *string   `json:"filter_reason,omitempty"`
+		ErrorMessage *string   `json:"error_message,omitempty"`
+	}
+
+	response := make([]RequestLogResponse, 0, len(logs))
+	for _, log := range logs {
+		response = append(response, RequestLogResponse{
+			ID:           log.ID.String(),
+			CreatedAt:    log.CreatedAt,
+			Method:       log.Method,
+			Endpoint:     log.Path,
+			StatusCode:   log.StatusCode,
+			IPAddress:    log.IPAddress,
+			UserAgent:    log.UserAgent,
+			AuthType:     log.AuthType,
+			APIKeyName:   log.APIKeyName,
+			DurationMS:   log.DurationMS,
+			Model:        log.Model,
+			Provider:     log.Provider,
+			WasFiltered:  log.WasFiltered,
+			FilterReason: log.FilterReason,
+			ErrorMessage: log.ErrorMessage,
+		})
+	}
+
+	// Send response
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"logs":  response,
+		"total": len(response),
+	})
+}
+
 // respondError sends an error response
 func (h *AdminHandler) respondError(w http.ResponseWriter, status int, message string) {
 	w.Header().Set("Content-Type", "application/json")

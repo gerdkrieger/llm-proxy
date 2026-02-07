@@ -39,6 +39,7 @@ func NewRouter(
 	apiKeyMiddleware *customMiddleware.APIKeyMiddleware,
 	oauthMiddleware *customMiddleware.OAuthMiddleware,
 	adminMiddleware *customMiddleware.AdminMiddleware,
+	requestLoggerMiddleware *customMiddleware.RequestLoggerMiddleware,
 	metricsMiddleware func(http.Handler) http.Handler,
 	metricsHandler http.Handler,
 ) *Router {
@@ -52,6 +53,9 @@ func NewRouter(
 
 	// Custom logging middleware
 	r.Use(LoggingMiddleware(log))
+
+	// Request logger middleware (logs to database for Live Monitor)
+	r.Use(requestLoggerMiddleware.Middleware)
 
 	// Metrics middleware (must be before routes)
 	r.Use(metricsMiddleware)
@@ -122,6 +126,9 @@ func NewRouter(
 
 		// Usage Statistics
 		r.Get("/stats/usage", adminHandler.GetUsageStats)
+
+		// Request Logs (for Live Monitor)
+		r.Get("/requests", adminHandler.GetRequestLogs)
 
 		// Provider Management
 		r.Get("/providers/status", adminHandler.GetProviderStatus)

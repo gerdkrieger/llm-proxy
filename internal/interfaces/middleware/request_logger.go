@@ -4,7 +4,6 @@ package middleware
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"io"
 	"net/http"
 	"strings"

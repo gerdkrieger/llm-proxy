@@ -293,8 +293,10 @@ main() {
     
     if [ -n "${migration_number}" ]; then
         # Deploy specific migration
-        local migration_file="${MIGRATIONS_DIR}/${migration_number}_*.up.sql"
-        if [ -f ${migration_file} ]; then
+        # Find migration file matching the pattern
+        local migration_file=$(ls "${MIGRATIONS_DIR}/${migration_number}"_*.up.sql 2>/dev/null | head -1)
+        
+        if [ -n "${migration_file}" ] && [ -f "${migration_file}" ]; then
             deploy_migration "${migration_file}" || {
                 log_error "Migration deployment failed!"
                 if [ -n "${backup_file}" ]; then
@@ -303,7 +305,9 @@ main() {
                 exit 1
             }
         else
-            log_error "Migration file not found: ${migration_file}"
+            log_error "Migration file not found: ${MIGRATIONS_DIR}/${migration_number}_*.up.sql"
+            log_info "Available migrations:"
+            ls -1 "${MIGRATIONS_DIR}"/*.up.sql 2>/dev/null || echo "  No migrations found"
             exit 1
         fi
     else

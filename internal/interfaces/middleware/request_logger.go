@@ -2,7 +2,10 @@
 package middleware
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -26,29 +29,47 @@ func NewRequestLoggerMiddleware(repo *repositories.RequestLogRepository, log *lo
 	}
 }
 
-// loggingResponseWriter is a wrapper that captures status code and response size
+// loggingResponseWriter is a wrapper that captures status code, response size, and body
 type loggingResponseWriter struct {
 	http.ResponseWriter
 	statusCode   int
 	bytesWritten int64
 	written      bool
+	body         *bytes.Buffer // Capture response body
+	headers      http.Header   // Capture response headers
 }
 
-// WriteHeader captures the status code
+// WriteHeader captures the status code and headers
 func (rw *loggingResponseWriter) WriteHeader(code int) {
 	if !rw.written {
 		rw.statusCode = code
 		rw.written = true
+		// Capture response headers before writing
+		rw.headers = make(http.Header)
+		for k, v := range rw.ResponseWriter.Header() {
+			rw.headers[k] = v
+		}
 		rw.ResponseWriter.WriteHeader(code)
 	}
 }
 
-// Write captures bytes written
+// Write captures bytes written and response body
 func (rw *loggingResponseWriter) Write(b []byte) (int, error) {
 	if !rw.written {
 		rw.statusCode = http.StatusOK
 		rw.written = true
+		// Capture headers on first write
+		rw.headers = make(http.Header)
+		for k, v := range rw.ResponseWriter.Header() {
+			rw.headers[k] = v
+		}
 	}
+
+	// Capture response body (limit to 100KB to avoid memory issues)
+	if rw.body.Len() < 100*1024 {
+		rw.body.Write(b)
+	}
+
 	n, err := rw.ResponseWriter.Write(b)
 	rw.bytesWritten += int64(n)
 	return n, err
@@ -60,10 +81,26 @@ func (m *RequestLoggerMiddleware) Middleware(next http.Handler) http.Handler {
 		// Start timer
 		start := time.Now()
 
+		// Capture request body (limit to 100KB)
+		var requestBody *string
+		if r.Body != nil && r.ContentLength > 0 && r.ContentLength < 100*1024 {
+			bodyBytes, err := io.ReadAll(r.Body)
+			if err == nil {
+				bodyStr := string(bodyBytes)
+				requestBody = &bodyStr
+				// Restore the body for the next handler
+				r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+			}
+		}
+
+		// Capture request headers (sanitize auth headers)
+		requestHeaders := sanitizeHeaders(r.Header)
+
 		// Create response writer wrapper
 		wrapped := &loggingResponseWriter{
 			ResponseWriter: w,
 			statusCode:     http.StatusOK, // Default if WriteHeader not called
+			body:           &bytes.Buffer{},
 		}
 
 		// Get or create request ID
@@ -122,24 +159,42 @@ func (m *RequestLoggerMiddleware) Middleware(next http.Handler) http.Handler {
 			}
 		}
 
+		// Capture response body and headers
+		var responseBody *string
+		if wrapped.body.Len() > 0 {
+			bodyStr := wrapped.body.String()
+			responseBody = &bodyStr
+		}
+
+		// Sanitize response headers
+		responseHeaders := sanitizeHeaders(wrapped.headers)
+
+		// Calculate response size
+		responseSize := int64(wrapped.body.Len())
+
 		// Create log entry
 		userAgent := r.UserAgent()
 		logEntry := &repositories.RequestLog{
-			ID:           uuid.New(),
-			RequestID:    requestID,
-			Method:       r.Method,
-			Path:         r.URL.Path,
-			Model:        model,
-			Provider:     provider,
-			DurationMS:   int(duration.Milliseconds()),
-			StatusCode:   wrapped.statusCode,
-			IPAddress:    &ipAddress,
-			UserAgent:    &userAgent,
-			ErrorMessage: errorMsg,
-			AuthType:     authType,
-			APIKeyName:   apiKeyName,
-			WasFiltered:  wasFiltered,
-			FilterReason: filterReason,
+			ID:                uuid.New(),
+			RequestID:         requestID,
+			Method:            r.Method,
+			Path:              r.URL.Path,
+			Model:             model,
+			Provider:          provider,
+			DurationMS:        int(duration.Milliseconds()),
+			StatusCode:        wrapped.statusCode,
+			IPAddress:         &ipAddress,
+			UserAgent:         &userAgent,
+			ErrorMessage:      errorMsg,
+			AuthType:          authType,
+			APIKeyName:        apiKeyName,
+			WasFiltered:       wasFiltered,
+			FilterReason:      filterReason,
+			RequestHeaders:    requestHeaders,
+			RequestBody:       requestBody,
+			ResponseHeaders:   responseHeaders,
+			ResponseBody:      responseBody,
+			ResponseSizeBytes: &responseSize,
 		}
 
 		// Log to database (fire and forget - don't block response)
@@ -227,4 +282,36 @@ func extractAuthInfo(ctx context.Context) (*string, *string) {
 	}
 
 	return authType, apiKeyName
+}
+
+// sanitizeHeaders removes or masks sensitive headers
+func sanitizeHeaders(headers http.Header) map[string]interface{} {
+	sanitized := make(map[string]interface{})
+
+	// List of sensitive headers to mask
+	sensitiveHeaders := map[string]bool{
+		"Authorization":   true,
+		"X-Api-Key":       true,
+		"X-Admin-Api-Key": true,
+		"Cookie":          true,
+		"Set-Cookie":      true,
+		"X-Auth-Token":    true,
+		"Api-Key":         true,
+	}
+
+	for key, values := range headers {
+		// Check if this is a sensitive header
+		if sensitiveHeaders[key] {
+			// Mask it
+			sanitized[key] = "***REDACTED***"
+		} else if len(values) == 1 {
+			// Single value
+			sanitized[key] = values[0]
+		} else {
+			// Multiple values
+			sanitized[key] = values
+		}
+	}
+
+	return sanitized
 }

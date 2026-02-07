@@ -129,6 +129,7 @@ func NewRouter(
 
 		// Request Logs (for Live Monitor)
 		r.Get("/requests", adminHandler.GetRequestLogs)
+		r.Get("/requests/{id}", adminHandler.GetRequestLogDetails)
 
 		// Provider Management
 		r.Get("/providers/status", adminHandler.GetProviderStatus)

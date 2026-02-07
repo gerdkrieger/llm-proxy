@@ -716,6 +716,87 @@ func (h *AdminHandler) GetRequestLogs(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// GetRequestLogDetails retrieves detailed information for a specific request
+// GET /admin/requests/{id}
+func (h *AdminHandler) GetRequestLogDetails(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	idStr := chi.URLParam(r, "id")
+
+	// Parse UUID
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		h.respondError(w, http.StatusBadRequest, "invalid request ID format")
+		return
+	}
+
+	// Get full log details from repository
+	log, err := h.requestLogRepo.GetByID(ctx, id)
+	if err != nil {
+		h.logger.Warnf("Failed to retrieve request log details for ID %s: %v", idStr, err)
+		h.respondError(w, http.StatusNotFound, "request log not found")
+		return
+	}
+
+	// Return full log with all details including request/response bodies
+	type RequestLogDetailResponse struct {
+		ID                string                 `json:"id"`
+		RequestID         string                 `json:"request_id"`
+		CreatedAt         time.Time              `json:"created_at"`
+		Method            string                 `json:"method"`
+		Path              string                 `json:"path"`
+		StatusCode        int                    `json:"status_code"`
+		DurationMS        int                    `json:"duration_ms"`
+		IPAddress         *string                `json:"ip_address"`
+		UserAgent         *string                `json:"user_agent"`
+		AuthType          *string                `json:"auth_type"`
+		APIKeyName        *string                `json:"api_key_name"`
+		Model             string                 `json:"model,omitempty"`
+		Provider          string                 `json:"provider,omitempty"`
+		PromptTokens      int                    `json:"prompt_tokens,omitempty"`
+		CompletionTokens  int                    `json:"completion_tokens,omitempty"`
+		TotalTokens       int                    `json:"total_tokens,omitempty"`
+		CostUSD           float64                `json:"cost_usd,omitempty"`
+		WasFiltered       bool                   `json:"was_filtered"`
+		FilterReason      *string                `json:"filter_reason,omitempty"`
+		ErrorMessage      *string                `json:"error_message,omitempty"`
+		RequestHeaders    map[string]interface{} `json:"request_headers,omitempty"`
+		RequestBody       *string                `json:"request_body,omitempty"`
+		ResponseHeaders   map[string]interface{} `json:"response_headers,omitempty"`
+		ResponseBody      *string                `json:"response_body,omitempty"`
+		ResponseSizeBytes *int64                 `json:"response_size_bytes,omitempty"`
+	}
+
+	response := RequestLogDetailResponse{
+		ID:                log.ID.String(),
+		RequestID:         log.RequestID,
+		CreatedAt:         log.CreatedAt,
+		Method:            log.Method,
+		Path:              log.Path,
+		StatusCode:        log.StatusCode,
+		DurationMS:        log.DurationMS,
+		IPAddress:         log.IPAddress,
+		UserAgent:         log.UserAgent,
+		AuthType:          log.AuthType,
+		APIKeyName:        log.APIKeyName,
+		Model:             log.Model,
+		Provider:          log.Provider,
+		PromptTokens:      log.PromptTokens,
+		CompletionTokens:  log.CompletionTokens,
+		TotalTokens:       log.TotalTokens,
+		CostUSD:           log.CostUSD,
+		WasFiltered:       log.WasFiltered,
+		FilterReason:      log.FilterReason,
+		ErrorMessage:      log.ErrorMessage,
+		RequestHeaders:    log.RequestHeaders,
+		RequestBody:       log.RequestBody,
+		ResponseHeaders:   log.ResponseHeaders,
+		ResponseBody:      log.ResponseBody,
+		ResponseSizeBytes: log.ResponseSizeBytes,
+	}
+
+	h.respondJSON(w, http.StatusOK, response)
+}
+
 // respondError sends an error response
 func (h *AdminHandler) respondError(w http.ResponseWriter, status int, message string) {
 	w.Header().Set("Content-Type", "application/json")

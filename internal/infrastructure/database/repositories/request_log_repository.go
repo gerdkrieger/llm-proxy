@@ -36,6 +36,13 @@ type RequestLog struct {
 	APIKeyName   *string `json:"api_key_name"`  // Name of API key (not the actual key!)
 	WasFiltered  bool    `json:"was_filtered"`  // Whether content was filtered
 	FilterReason *string `json:"filter_reason"` // Reason for filtering
+
+	// Request/Response content (added in migration 000008)
+	RequestHeaders    map[string]interface{} `json:"request_headers,omitempty"`     // Request HTTP headers
+	RequestBody       *string                `json:"request_body,omitempty"`        // Request body
+	ResponseHeaders   map[string]interface{} `json:"response_headers,omitempty"`    // Response HTTP headers
+	ResponseBody      *string                `json:"response_body,omitempty"`       // Response body
+	ResponseSizeBytes *int64                 `json:"response_size_bytes,omitempty"` // Response size
 }
 
 // RequestLogRepository handles request log database operations
@@ -55,9 +62,10 @@ func (r *RequestLogRepository) Create(ctx context.Context, log *RequestLog) erro
 			id, client_id, request_id, method, path, model, provider,
 			prompt_tokens, completion_tokens, total_tokens, cost_usd,
 			duration_ms, status_code, cached, ip_address, user_agent, error_message,
-			auth_type, api_key_name, was_filtered, filter_reason
+			auth_type, api_key_name, was_filtered, filter_reason,
+			request_headers, request_body, response_headers, response_body, response_size_bytes
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26)
 		RETURNING created_at
 	`
 
@@ -84,6 +92,11 @@ func (r *RequestLogRepository) Create(ctx context.Context, log *RequestLog) erro
 		log.APIKeyName,
 		log.WasFiltered,
 		log.FilterReason,
+		log.RequestHeaders,
+		log.RequestBody,
+		log.ResponseHeaders,
+		log.ResponseBody,
+		log.ResponseSizeBytes,
 	).Scan(&log.CreatedAt)
 
 	if err != nil {
@@ -93,6 +106,57 @@ func (r *RequestLogRepository) Create(ctx context.Context, log *RequestLog) erro
 	return nil
 }
 
+// GetByID retrieves a log entry by ID with full details
+func (r *RequestLogRepository) GetByID(ctx context.Context, id uuid.UUID) (*RequestLog, error) {
+	query := `
+		SELECT 
+			id, client_id, request_id, method, path, model, provider,
+			prompt_tokens, completion_tokens, total_tokens, cost_usd,
+			duration_ms, status_code, cached, ip_address, user_agent, error_message, created_at,
+			auth_type, api_key_name, was_filtered, filter_reason,
+			request_headers, request_body, response_headers, response_body, response_size_bytes
+		FROM request_logs
+		WHERE id = $1
+	`
+
+	log := &RequestLog{}
+	err := r.db.Pool.QueryRow(ctx, query, id).Scan(
+		&log.ID,
+		&log.ClientID,
+		&log.RequestID,
+		&log.Method,
+		&log.Path,
+		&log.Model,
+		&log.Provider,
+		&log.PromptTokens,
+		&log.CompletionTokens,
+		&log.TotalTokens,
+		&log.CostUSD,
+		&log.DurationMS,
+		&log.StatusCode,
+		&log.Cached,
+		&log.IPAddress,
+		&log.UserAgent,
+		&log.ErrorMessage,
+		&log.CreatedAt,
+		&log.AuthType,
+		&log.APIKeyName,
+		&log.WasFiltered,
+		&log.FilterReason,
+		&log.RequestHeaders,
+		&log.RequestBody,
+		&log.ResponseHeaders,
+		&log.ResponseBody,
+		&log.ResponseSizeBytes,
+	)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to get request log by ID: %w", err)
+	}
+
+	return log, nil
+}
+
 // GetByRequestID retrieves a log entry by request ID
 func (r *RequestLogRepository) GetByRequestID(ctx context.Context, requestID string) (*RequestLog, error) {
 	query := `
@@ -100,7 +164,8 @@ func (r *RequestLogRepository) GetByRequestID(ctx context.Context, requestID str
 			id, client_id, request_id, method, path, model, provider,
 			prompt_tokens, completion_tokens, total_tokens, cost_usd,
 			duration_ms, status_code, cached, ip_address, user_agent, error_message, created_at,
-			auth_type, api_key_name, was_filtered, filter_reason
+			auth_type, api_key_name, was_filtered, filter_reason,
+			request_headers, request_body, response_headers, response_body, response_size_bytes
 		FROM request_logs
 		WHERE request_id = $1
 	`
@@ -129,6 +194,11 @@ func (r *RequestLogRepository) GetByRequestID(ctx context.Context, requestID str
 		&log.APIKeyName,
 		&log.WasFiltered,
 		&log.FilterReason,
+		&log.RequestHeaders,
+		&log.RequestBody,
+		&log.ResponseHeaders,
+		&log.ResponseBody,
+		&log.ResponseSizeBytes,
 	)
 
 	if err != nil {

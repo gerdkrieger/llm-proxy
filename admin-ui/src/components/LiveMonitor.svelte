@@ -18,6 +18,11 @@
   let autoRefresh = true;
   let refreshInterval;
   
+  // Request detail modal state
+  let showDetailModal = false;
+  let selectedRequest = null;
+  let loadingDetails = false;
+  
   async function fetchLogs() {
     try {
       const API_BASE = window.location.origin.replace(':3005', ':8080');
@@ -219,6 +224,50 @@
     }
   }
   
+  async function showRequestDetails(log) {
+    showDetailModal = true;
+    loadingDetails = true;
+    selectedRequest = null;
+    
+    try {
+      const API_BASE = window.location.origin.replace(':3005', ':8080');
+      const response = await fetch(`${API_BASE}/admin/requests/${log.id}`, {
+        headers: {
+          'X-Admin-API-Key': $apiKey
+        }
+      });
+      
+      if (response.ok) {
+        selectedRequest = await response.json();
+      } else {
+        console.error('Failed to fetch request details:', response.statusText);
+        alert('Failed to load request details');
+        showDetailModal = false;
+      }
+    } catch (error) {
+      console.error('Error fetching request details:', error);
+      alert('Error loading request details');
+      showDetailModal = false;
+    } finally {
+      loadingDetails = false;
+    }
+  }
+  
+  function closeModal() {
+    showDetailModal = false;
+    selectedRequest = null;
+  }
+  
+  function formatJSON(str) {
+    if (!str) return null;
+    try {
+      const obj = typeof str === 'string' ? JSON.parse(str) : str;
+      return JSON.stringify(obj, null, 2);
+    } catch (e) {
+      return str;
+    }
+  }
+  
   onMount(() => {
     fetchLogs();
     fetchClients();
@@ -367,7 +416,7 @@
           </thead>
           <tbody class="bg-white divide-y divide-gray-200">
             {#each logs as log (log.request_id)}
-              <tr class="hover:bg-gray-50">
+              <tr class="hover:bg-blue-50 cursor-pointer transition-colors" on:click={() => showRequestDetails(log)}>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                   {formatTime(log.created_at)}
                 </td>
@@ -404,6 +453,177 @@
             {/each}
           </tbody>
         </table>
+      </div>
+    </div>
+  {/if}
+  
+  <!-- Request Detail Modal -->
+  {#if showDetailModal}
+    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" on:click={closeModal}>
+      <div class="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto" on:click|stopPropagation>
+        <div class="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
+          <h2 class="text-2xl font-bold text-gray-800">Request Details</h2>
+          <button on:click={closeModal} class="text-gray-500 hover:text-gray-700 text-2xl font-bold">×</button>
+        </div>
+        
+        {#if loadingDetails}
+          <div class="p-12 text-center">
+            <div class="text-4xl mb-4">⏳</div>
+            <div class="text-gray-600">Loading details...</div>
+          </div>
+        {:else if selectedRequest}
+          <div class="p-6 space-y-6">
+            <!-- Overview Section -->
+            <div class="grid grid-cols-2 gap-6">
+              <div class="space-y-3">
+                <div>
+                  <div class="text-sm font-medium text-gray-500">Request ID</div>
+                  <div class="text-sm font-mono text-gray-900">{selectedRequest.request_id}</div>
+                </div>
+                <div>
+                  <div class="text-sm font-medium text-gray-500">Timestamp</div>
+                  <div class="text-sm text-gray-900">{new Date(selectedRequest.created_at).toLocaleString()}</div>
+                </div>
+                <div>
+                  <div class="text-sm font-medium text-gray-500">Method & Path</div>
+                  <div class="text-sm text-gray-900 font-mono">{selectedRequest.method} {selectedRequest.path}</div>
+                </div>
+                <div>
+                  <div class="text-sm font-medium text-gray-500">Status Code</div>
+                  <div>
+                    <span class="px-2 py-1 text-xs font-semibold rounded {getStatusCodeClass(selectedRequest.status_code)}">
+                      {selectedRequest.status_code}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="space-y-3">
+                <div>
+                  <div class="text-sm font-medium text-gray-500">Duration</div>
+                  <div class="text-sm text-gray-900">{selectedRequest.duration_ms}ms</div>
+                </div>
+                <div>
+                  <div class="text-sm font-medium text-gray-500">IP Address</div>
+                  <div class="text-sm text-gray-900 font-mono">{selectedRequest.ip_address || 'N/A'}</div>
+                </div>
+                <div>
+                  <div class="text-sm font-medium text-gray-500">Auth Type</div>
+                  <div class="text-sm text-gray-900">{selectedRequest.auth_type || 'none'}</div>
+                </div>
+                {#if selectedRequest.api_key_name}
+                  <div>
+                    <div class="text-sm font-medium text-gray-500">API Key Name</div>
+                    <div class="text-sm text-gray-900">{selectedRequest.api_key_name}</div>
+                  </div>
+                {/if}
+                {#if selectedRequest.model}
+                  <div>
+                    <div class="text-sm font-medium text-gray-500">Model</div>
+                    <div class="text-sm text-gray-900">{selectedRequest.model}</div>
+                  </div>
+                {/if}
+                {#if selectedRequest.provider}
+                  <div>
+                    <div class="text-sm font-medium text-gray-500">Provider</div>
+                    <div class="text-sm text-gray-900">{selectedRequest.provider}</div>
+                  </div>
+                {/if}
+              </div>
+            </div>
+            
+            {#if selectedRequest.error_message}
+              <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                <div class="text-sm font-medium text-red-800 mb-2">Error Message</div>
+                <div class="text-sm text-red-700 font-mono whitespace-pre-wrap">{selectedRequest.error_message}</div>
+              </div>
+            {/if}
+            
+            {#if selectedRequest.was_filtered}
+              <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <div class="text-sm font-medium text-yellow-800 mb-2">🚨 Content Filtered</div>
+                <div class="text-sm text-yellow-700">{selectedRequest.filter_reason || 'No reason provided'}</div>
+              </div>
+            {/if}
+            
+            <!-- Request Headers -->
+            {#if selectedRequest.request_headers}
+              <div class="border rounded-lg overflow-hidden">
+                <div class="bg-gray-50 px-4 py-3 border-b">
+                  <h3 class="text-lg font-semibold text-gray-800">Request Headers</h3>
+                </div>
+                <div class="p-4">
+                  <pre class="text-xs font-mono bg-gray-50 p-3 rounded overflow-x-auto">{formatJSON(selectedRequest.request_headers)}</pre>
+                </div>
+              </div>
+            {/if}
+            
+            <!-- Request Body -->
+            {#if selectedRequest.request_body}
+              <div class="border rounded-lg overflow-hidden">
+                <div class="bg-gray-50 px-4 py-3 border-b">
+                  <h3 class="text-lg font-semibold text-gray-800">Request Body</h3>
+                </div>
+                <div class="p-4">
+                  <pre class="text-xs font-mono bg-gray-50 p-3 rounded overflow-x-auto max-h-96">{formatJSON(selectedRequest.request_body)}</pre>
+                </div>
+              </div>
+            {/if}
+            
+            <!-- Response Headers -->
+            {#if selectedRequest.response_headers}
+              <div class="border rounded-lg overflow-hidden">
+                <div class="bg-gray-50 px-4 py-3 border-b">
+                  <h3 class="text-lg font-semibold text-gray-800">Response Headers</h3>
+                </div>
+                <div class="p-4">
+                  <pre class="text-xs font-mono bg-gray-50 p-3 rounded overflow-x-auto">{formatJSON(selectedRequest.response_headers)}</pre>
+                </div>
+              </div>
+            {/if}
+            
+            <!-- Response Body -->
+            {#if selectedRequest.response_body}
+              <div class="border rounded-lg overflow-hidden">
+                <div class="bg-gray-50 px-4 py-3 border-b flex justify-between items-center">
+                  <h3 class="text-lg font-semibold text-gray-800">Response Body</h3>
+                  {#if selectedRequest.response_size_bytes}
+                    <span class="text-sm text-gray-600">{(selectedRequest.response_size_bytes / 1024).toFixed(2)} KB</span>
+                  {/if}
+                </div>
+                <div class="p-4">
+                  <pre class="text-xs font-mono bg-gray-50 p-3 rounded overflow-x-auto max-h-96">{formatJSON(selectedRequest.response_body)}</pre>
+                </div>
+              </div>
+            {/if}
+            
+            {#if selectedRequest.total_tokens}
+              <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <h3 class="text-sm font-medium text-blue-800 mb-2">Token Usage</h3>
+                <div class="grid grid-cols-3 gap-4 text-sm">
+                  <div>
+                    <div class="text-blue-600">Prompt Tokens</div>
+                    <div class="font-semibold">{selectedRequest.prompt_tokens || 0}</div>
+                  </div>
+                  <div>
+                    <div class="text-blue-600">Completion Tokens</div>
+                    <div class="font-semibold">{selectedRequest.completion_tokens || 0}</div>
+                  </div>
+                  <div>
+                    <div class="text-blue-600">Total Tokens</div>
+                    <div class="font-semibold">{selectedRequest.total_tokens}</div>
+                  </div>
+                </div>
+                {#if selectedRequest.cost_usd}
+                  <div class="mt-3 pt-3 border-t border-blue-200">
+                    <div class="text-blue-600">Estimated Cost</div>
+                    <div class="font-semibold text-lg">${selectedRequest.cost_usd.toFixed(4)}</div>
+                  </div>
+                {/if}
+              </div>
+            {/if}
+          </div>
+        {/if}
       </div>
     </div>
   {/if}

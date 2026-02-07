@@ -179,6 +179,14 @@ func extractIPAddress(r *http.Request) string {
 		ip = ip[:idx]
 	}
 
+	// Handle IPv6 localhost
+	if ip == "[::1]" || ip == "::1" {
+		return "127.0.0.1"
+	}
+
+	// Remove IPv6 brackets if present
+	ip = strings.Trim(ip, "[]")
+
 	return ip
 }
 

@@ -84,6 +84,8 @@ func (m *APIKeyMiddleware) Authenticate(next http.Handler) http.Handler {
 		ctx := r.Context()
 		ctx = context.WithValue(ctx, ClientIDKey, clientConfig.Name)
 		ctx = context.WithValue(ctx, ScopeKey, strings.Join(clientConfig.Scopes, " "))
+		// Also set for RequestLoggerMiddleware
+		ctx = context.WithValue(ctx, "api_key_name", clientConfig.Name)
 
 		m.logger.Infof("Static API key authenticated successfully: %s", clientConfig.Name)
 

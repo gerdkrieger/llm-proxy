@@ -2,6 +2,7 @@
 package middleware
 
 import (
+	"context"
 	"net/http"
 	"strings"
 
@@ -61,7 +62,10 @@ func (m *AdminMiddleware) Authenticate(next http.Handler) http.Handler {
 
 		// API key is valid
 		m.logger.Debugf("Admin authenticated successfully")
-		next.ServeHTTP(w, r)
+
+		// Add admin auth info to context for RequestLoggerMiddleware
+		ctx := context.WithValue(r.Context(), "admin_authenticated", true)
+		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
 

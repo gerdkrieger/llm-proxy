@@ -334,6 +334,32 @@ build-prod-images: ## Build production Docker images
 	@echo "$(COLOR_GREEN)Images built successfully$(COLOR_RESET)"
 
 # -----------------------------------------------------------------------------
+# REMOTE DEPLOYMENT (Database Migrations & Filters)
+# -----------------------------------------------------------------------------
+
+deploy-migrations: ## Deploy database migrations to production server
+	@echo "$(COLOR_BLUE)Deploying migrations to production...$(COLOR_RESET)"
+	@./scripts/deployment/deploy-migrations.sh
+	@echo "$(COLOR_GREEN)Migrations deployed successfully$(COLOR_RESET)"
+
+deploy-filters: ## Deploy content filters to production server
+	@echo "$(COLOR_BLUE)Deploying filters to production...$(COLOR_RESET)"
+	@./scripts/deployment/deploy-filters.sh
+	@echo "$(COLOR_GREEN)Filters deployed successfully$(COLOR_RESET)"
+
+deploy-full: ## Full deployment (code + migrations + filters + restart)
+	@echo "$(COLOR_BLUE)Starting full deployment...$(COLOR_RESET)"
+	@./scripts/deployment/deploy-full.sh
+	@echo "$(COLOR_GREEN)Full deployment complete$(COLOR_RESET)"
+
+deploy-auto: ## Run auto-deployment check (detects pending migrations/filters)
+	@./scripts/deployment/auto-deploy-migrations.sh
+
+setup-hooks: ## Install Git hooks for auto-deployment
+	@echo "$(COLOR_BLUE)Setting up Git hooks...$(COLOR_RESET)"
+	@./scripts/setup-git-hooks.sh
+
+# -----------------------------------------------------------------------------
 # UTILITIES
 # -----------------------------------------------------------------------------
 

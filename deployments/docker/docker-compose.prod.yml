@@ -1,10 +1,9 @@
-version: '3.8'
-
 # =============================================================================
 # LLM-PROXY PRODUCTION DOCKER COMPOSE
 # =============================================================================
 # Full stack deployment: Backend, Admin UI, PostgreSQL, Redis, Monitoring
 # Production-ready with health checks, resource limits, and monitoring
+# External volumes and network prevent accidental data loss
 # =============================================================================
 
 services:
@@ -122,8 +121,13 @@ services:
     
     environment:
       # Override for container network
-      DB_HOST: postgres
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_DATABASE: ${DB_NAME:-llm_proxy}
+      DATABASE_USER: ${DB_USER:-proxy_user}
+      DATABASE_PASSWORD: ${DB_PASSWORD:-dev_password_2024}
       REDIS_HOST: redis
+      REDIS_PORT: 6379
       ENVIRONMENT: production
     
     ports:
@@ -137,7 +141,7 @@ services:
         condition: service_healthy
     
     healthcheck:
-      test: ["CMD", "wget", "-q", "--tries=1", "--spider", "http://localhost:8080/health"]
+      test: ["CMD", "wget", "-q", "--tries=1", "-O", "/dev/null", "http://localhost:8080/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -279,32 +283,36 @@ services:
       - prometheus
 
 # =============================================================================
-# NETWORKS
+# NETWORKS - EXTERNAL TO PREVENT RECREATION
 # =============================================================================
+# IMPORTANT: Network is marked as external to prevent recreation
+# Create it manually once: docker network create llm-proxy-network
 networks:
   llm-proxy-network:
-    driver: bridge
     name: llm-proxy-network
+    external: true
 
 # =============================================================================
-# VOLUMES
+# VOLUMES - EXTERNAL TO PREVENT DATA LOSS
 # =============================================================================
+# IMPORTANT: These volumes are marked as external to prevent accidental deletion
+# Create them manually once: docker volume create llm-proxy-postgres-data
 volumes:
   postgres_data:
     name: llm-proxy-postgres-data
-    driver: local
+    external: true
   
   redis_data:
     name: llm-proxy-redis-data
-    driver: local
+    external: true
   
   prometheus_data:
     name: llm-proxy-prometheus-data
-    driver: local
+    external: true
   
   grafana_data:
     name: llm-proxy-grafana-data
-    driver: local
+    external: true
 
 # =============================================================================
 # USAGE

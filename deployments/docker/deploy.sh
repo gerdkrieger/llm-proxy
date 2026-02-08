@@ -88,6 +88,111 @@ check_env() {
     print_success "Environment configuration OK"
 }
 
+# Ensure Docker volumes exist (prevents data loss)
+ensure_volumes() {
+    print_info "Ensuring persistent volumes exist..."
+    
+    local volumes=(
+        "llm-proxy-postgres-data"
+        "llm-proxy-redis-data"
+        "llm-proxy-prometheus-data"
+        "llm-proxy-grafana-data"
+    )
+    
+    for volume in "${volumes[@]}"; do
+        if ! docker volume inspect "$volume" &> /dev/null; then
+            print_info "Creating volume: $volume"
+            docker volume create "$volume"
+        else
+            print_info "Volume exists: $volume"
+        fi
+    done
+    
+    print_success "All volumes ready"
+}
+
+# Ensure Docker network exists
+ensure_network() {
+    print_info "Ensuring network exists..."
+    
+    if ! docker network inspect llm-proxy-network &> /dev/null; then
+        print_info "Creating network: llm-proxy-network"
+        docker network create llm-proxy-network
+    else
+        print_info "Network exists: llm-proxy-network"
+    fi
+    
+    print_success "Network ready"
+}
+
+# Validate and repair database schema
+validate_schema() {
+    print_header "Validating Database Schema"
+    
+    print_info "Waiting for PostgreSQL to be ready..."
+    sleep 5
+    
+    # Check if postgres container is running
+    if ! docker ps | grep -q llm-proxy-postgres; then
+        print_error "PostgreSQL container is not running"
+        return 1
+    fi
+    
+    local VALIDATION_SCRIPT="$SCRIPT_DIR/validate-schema.sh"
+    
+    if [ ! -f "$VALIDATION_SCRIPT" ]; then
+        print_warning "Schema validation script not found, skipping..."
+        return 0
+    fi
+    
+    print_info "Running schema validation..."
+    
+    # Make script executable
+    chmod +x "$VALIDATION_SCRIPT"
+    
+    # Run validation script
+    if "$VALIDATION_SCRIPT"; then
+        print_success "Schema validation complete"
+    else
+        print_error "Schema validation failed"
+        return 1
+    fi
+}
+
+# Run database migrations
+run_migrations() {
+    print_header "Running Database Migrations"
+    
+    # Check if postgres container is running
+    if ! docker ps | grep -q llm-proxy-postgres; then
+        print_error "PostgreSQL container is not running"
+        return 1
+    fi
+    
+    local MIGRATIONS_DIR="$PROJECT_ROOT/migrations"
+    
+    if [ ! -d "$MIGRATIONS_DIR" ]; then
+        print_warning "Migrations directory not found"
+        return 0
+    fi
+    
+    print_info "Applying migrations from $MIGRATIONS_DIR..."
+    
+    # Apply each migration in order
+    for migration_file in "$MIGRATIONS_DIR"/[0-9]*_*.up.sql; do
+        if [ -f "$migration_file" ]; then
+            local filename=$(basename "$migration_file")
+            print_info "Applying migration: $filename"
+            
+            if docker exec -i llm-proxy-postgres psql -U proxy_user -d llm_proxy < "$migration_file" 2>&1 | grep -v "NOTICE.*already exists" | grep -v "^$" | grep -v "ERROR.*already exists"; then
+                print_success "Applied: $filename"
+            fi
+        fi
+    done
+    
+    print_success "Migrations complete"
+}
+
 # Build images
 build_images() {
     print_header "Building Docker Images"
@@ -115,16 +220,17 @@ start_services() {
     print_success "All services started"
 }
 
-# Stop services
+# Stop services (NEVER removes volumes to prevent data loss)
 stop_services() {
     print_header "Stopping Services"
     
     cd "$SCRIPT_DIR"
     
-    print_info "Stopping all services..."
-    docker compose -f docker-compose.prod.yml down
+    print_info "Stopping all services (preserving data volumes)..."
+    docker compose -f docker-compose.prod.yml stop
+    docker compose -f docker-compose.prod.yml rm -f
     
-    print_success "All services stopped"
+    print_success "All services stopped (volumes preserved)"
 }
 
 # Show status
@@ -204,8 +310,12 @@ full_deploy() {
     
     check_prerequisites
     check_env
+    ensure_volumes
+    ensure_network
     build_images
     start_services
+    validate_schema
+    run_migrations
     health_check
     show_urls
     
@@ -218,12 +328,16 @@ update_deploy() {
     
     check_prerequisites
     check_env
+    ensure_volumes
+    ensure_network
     
     print_info "Stopping services..."
     stop_services
     
     build_images
     start_services
+    validate_schema
+    run_migrations
     health_check
     
     print_success "Update complete!"
@@ -254,15 +368,30 @@ backup_data() {
 clean_up() {
     print_header "Clean Up"
     
-    print_warning "This will remove all containers and volumes!"
-    read -p "Are you sure? (yes/no): " confirm
+    print_error "⚠️  DANGER: This will PERMANENTLY DELETE ALL DATA!"
+    print_error "This includes:"
+    print_error "  - All PostgreSQL data (filters, requests, clients, etc.)"
+    print_error "  - All Redis cache data"
+    print_error "  - All Prometheus metrics"
+    print_error "  - All Grafana dashboards"
+    echo ""
+    print_warning "Make sure you have a backup before proceeding!"
+    echo ""
+    read -p "Type 'DELETE ALL DATA' to confirm: " confirm
     
-    if [ "$confirm" = "yes" ]; then
+    if [ "$confirm" = "DELETE ALL DATA" ]; then
+        print_info "Creating backup before cleanup..."
+        backup_data
+        
         cd "$SCRIPT_DIR"
         docker compose -f docker-compose.prod.yml down -v
+        
+        # Also remove external volumes
+        docker volume rm -f llm-proxy-postgres-data llm-proxy-redis-data llm-proxy-prometheus-data llm-proxy-grafana-data 2>/dev/null || true
+        
         print_success "Clean up complete"
     else
-        print_info "Clean up cancelled"
+        print_info "Clean up cancelled (data preserved)"
     fi
 }
 
@@ -273,18 +402,20 @@ show_menu() {
     echo "       LLM-Proxy Deployment Management"
     echo "==================================================="
     echo ""
-    echo "1. Full Deploy (build + start)"
-    echo "2. Update Deploy (rebuild + restart)"
+    echo "1. Full Deploy (build + start + validate + migrate)"
+    echo "2. Update Deploy (rebuild + restart + validate + migrate)"
     echo "3. Start Services"
     echo "4. Stop Services"
     echo "5. Restart Services"
-    echo "6. Show Status"
-    echo "7. Show Logs"
-    echo "8. Health Check"
-    echo "9. Show URLs"
-    echo "10. Backup Data"
-    echo "11. Clean Up (remove all)"
-    echo "12. Exit"
+    echo "6. Validate Schema"
+    echo "7. Run Migrations"
+    echo "8. Show Status"
+    echo "9. Show Logs"
+    echo "10. Health Check"
+    echo "11. Show URLs"
+    echo "12. Backup Data"
+    echo "13. Clean Up (DELETES ALL DATA)"
+    echo "14. Exit"
     echo ""
 }
 
@@ -302,13 +433,15 @@ main() {
                 3) start_services ;;
                 4) stop_services ;;
                 5) stop_services && start_services ;;
-                6) show_status ;;
-                7) show_logs ;;
-                8) health_check ;;
-                9) show_urls ;;
-                10) backup_data ;;
-                11) clean_up ;;
-                12) exit 0 ;;
+                6) validate_schema ;;
+                7) run_migrations ;;
+                8) show_status ;;
+                9) show_logs ;;
+                10) health_check ;;
+                11) show_urls ;;
+                12) backup_data ;;
+                13) clean_up ;;
+                14) exit 0 ;;
                 *) print_error "Invalid option" ;;
             esac
             
@@ -323,6 +456,8 @@ main() {
             start) start_services ;;
             stop) stop_services ;;
             restart) stop_services && start_services ;;
+            validate) validate_schema ;;
+            migrate) run_migrations ;;
             status) show_status ;;
             logs) shift; show_logs "$@" ;;
             health) health_check ;;
@@ -330,7 +465,7 @@ main() {
             backup) backup_data ;;
             clean) clean_up ;;
             *)
-                echo "Usage: $0 {deploy|update|start|stop|restart|status|logs|health|urls|backup|clean}"
+                echo "Usage: $0 {deploy|update|start|stop|restart|validate|migrate|status|logs|health|urls|backup|clean}"
                 exit 1
                 ;;
         esac

@@ -78,6 +78,13 @@ class AdminAPI {
     });
   }
 
+  async resetClientSecret(clientId, newSecret = '') {
+    return this.request(`/admin/clients/${clientId}/reset-secret`, {
+      method: 'POST',
+      body: JSON.stringify({ new_secret: newSecret }),
+    });
+  }
+
   // Cache Management
   async getCacheStats() {
     return this.request('/admin/cache/stats');

@@ -121,6 +121,7 @@ func NewRouter(
 		r.Get("/clients/{client_id}", adminHandler.GetClient)
 		r.Patch("/clients/{client_id}", adminHandler.UpdateClient)
 		r.Delete("/clients/{client_id}", adminHandler.DeleteClient)
+		r.Post("/clients/{client_id}/reset-secret", adminHandler.ResetClientSecret)
 
 		// Cache Management
 		r.Get("/cache/stats", adminHandler.GetCacheStats)

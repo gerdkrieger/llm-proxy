@@ -274,6 +274,31 @@ func (r *OAuthClientRepository) Update(ctx context.Context, client *OAuthClient)
 	return nil
 }
 
+// UpdateSecret updates only the client secret hash
+func (r *OAuthClientRepository) UpdateSecret(ctx context.Context, id uuid.UUID, newSecret string) error {
+	hashedSecret, err := bcrypt.GenerateFromPassword([]byte(newSecret), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("failed to hash client secret: %w", err)
+	}
+
+	query := `
+		UPDATE oauth_clients
+		SET client_secret_hash = $1, updated_at = CURRENT_TIMESTAMP
+		WHERE id = $2
+	`
+
+	result, err := r.db.Pool.Exec(ctx, query, string(hashedSecret), id)
+	if err != nil {
+		return fmt.Errorf("failed to update client secret: %w", err)
+	}
+
+	if result.RowsAffected() == 0 {
+		return fmt.Errorf("client not found")
+	}
+
+	return nil
+}
+
 // Delete deletes an OAuth client
 func (r *OAuthClientRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	query := `DELETE FROM oauth_clients WHERE id = $1`

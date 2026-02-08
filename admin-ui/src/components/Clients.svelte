@@ -19,6 +19,15 @@
   let modelSelectionMode = 'all'; // 'all', 'none', 'specific'
   let selectedModels = []; // For 'specific' mode
   
+  // Reset Secret Modal
+  let showResetSecretModal = false;
+  let resetSecretClient = null;
+  let resetSecretMode = 'generate'; // 'generate' or 'custom'
+  let customSecret = '';
+  let newSecretResult = null;
+  let resetSecretLoading = false;
+  let secretCopied = false;
+  
   async function loadClients() {
     const api = new AdminAPI($apiKey);
     const data = await api.listClients();
@@ -188,6 +197,46 @@
   
   function deselectAllModels() {
     selectedModels = [];
+  }
+  
+  function openResetSecretModal(client) {
+    resetSecretClient = client;
+    resetSecretMode = 'generate';
+    customSecret = '';
+    newSecretResult = null;
+    secretCopied = false;
+    showResetSecretModal = true;
+  }
+  
+  function closeResetSecretModal() {
+    showResetSecretModal = false;
+    resetSecretClient = null;
+    newSecretResult = null;
+    customSecret = '';
+    secretCopied = false;
+  }
+  
+  async function resetSecret() {
+    resetSecretLoading = true;
+    secretCopied = false;
+    try {
+      const api = new AdminAPI($apiKey);
+      const secret = resetSecretMode === 'custom' ? customSecret : '';
+      const result = await api.resetClientSecret(resetSecretClient.client_id, secret);
+      newSecretResult = result.new_secret;
+    } catch (err) {
+      alert('Failed to reset secret: ' + err.message);
+    } finally {
+      resetSecretLoading = false;
+    }
+  }
+  
+  async function copySecret() {
+    if (newSecretResult) {
+      await navigator.clipboard.writeText(newSecretResult);
+      secretCopied = true;
+      setTimeout(() => { secretCopied = false; }, 3000);
+    }
   }
   
   onMount(() => {
@@ -366,6 +415,10 @@
                         class="text-blue-600 hover:text-blue-800">
                   Edit
                 </button>
+                <button on:click={() => openResetSecretModal(client)} 
+                        class="text-orange-600 hover:text-orange-800">
+                  Reset Secret
+                </button>
                 <button on:click={() => toggleEnabled(client)} 
                         class="text-yellow-600 hover:text-yellow-800">
                   {client.enabled ? 'Disable' : 'Enable'}
@@ -387,4 +440,104 @@
       </div>
     {/if}
   </div>
+
+  <!-- Reset Secret Modal -->
+  {#if showResetSecretModal && resetSecretClient}
+    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div class="bg-white rounded-lg shadow-xl max-w-lg w-full mx-4">
+        <div class="p-6 border-b border-gray-200 flex justify-between items-center">
+          <h2 class="text-xl font-bold text-gray-900">Reset Client Secret</h2>
+          <button on:click={closeResetSecretModal} class="text-gray-500 hover:text-gray-700 text-2xl font-bold">&times;</button>
+        </div>
+        
+        <div class="p-6">
+          <div class="mb-4 p-3 bg-gray-50 rounded">
+            <div class="text-sm text-gray-600">Client</div>
+            <div class="font-semibold">{resetSecretClient.name}</div>
+            <div class="text-sm text-gray-500 font-mono">{resetSecretClient.client_id}</div>
+          </div>
+          
+          {#if !newSecretResult}
+            <!-- Secret Mode Selection -->
+            <div class="mb-4">
+              <div class="text-sm font-medium text-gray-700 mb-2">How would you like to set the new secret?</div>
+              <div class="space-y-2">
+                <label class="flex items-center cursor-pointer p-2 rounded hover:bg-gray-50">
+                  <input type="radio" bind:group={resetSecretMode} value="generate" class="mr-3" />
+                  <div>
+                    <div class="font-medium">Auto-generate</div>
+                    <div class="text-sm text-gray-500">Generate a secure random secret</div>
+                  </div>
+                </label>
+                <label class="flex items-center cursor-pointer p-2 rounded hover:bg-gray-50">
+                  <input type="radio" bind:group={resetSecretMode} value="custom" class="mr-3" />
+                  <div>
+                    <div class="font-medium">Custom secret</div>
+                    <div class="text-sm text-gray-500">Enter your own secret (min. 16 characters)</div>
+                  </div>
+                </label>
+              </div>
+            </div>
+            
+            {#if resetSecretMode === 'custom'}
+              <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-1">New Secret</label>
+                <input 
+                  type="text" 
+                  bind:value={customSecret} 
+                  placeholder="Enter at least 16 characters..."
+                  class="w-full p-2 border rounded font-mono text-sm {customSecret.length > 0 && customSecret.length < 16 ? 'border-red-500' : ''}"
+                />
+                {#if customSecret.length > 0 && customSecret.length < 16}
+                  <div class="text-red-500 text-xs mt-1">Secret must be at least 16 characters ({customSecret.length}/16)</div>
+                {/if}
+              </div>
+            {/if}
+            
+            <div class="bg-yellow-50 border border-yellow-200 rounded p-3 mb-4">
+              <div class="text-sm text-yellow-800">
+                <strong>Warning:</strong> This will invalidate the current secret. Any applications using the old secret will stop working immediately.
+              </div>
+            </div>
+            
+            <div class="flex justify-end gap-2">
+              <button on:click={closeResetSecretModal} class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">
+                Cancel
+              </button>
+              <button 
+                on:click={resetSecret}
+                disabled={resetSecretLoading || (resetSecretMode === 'custom' && customSecret.length < 16)}
+                class="px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {resetSecretLoading ? 'Resetting...' : 'Reset Secret'}
+              </button>
+            </div>
+          {:else}
+            <!-- Secret Result -->
+            <div class="mb-4 p-4 bg-green-50 border border-green-200 rounded">
+              <div class="text-sm font-medium text-green-800 mb-2">New secret generated successfully!</div>
+              <div class="text-sm text-green-700 mb-3">Copy this secret now. It will not be shown again.</div>
+              <div class="flex items-center gap-2">
+                <code class="flex-1 p-3 bg-white border border-green-300 rounded font-mono text-sm break-all select-all">
+                  {newSecretResult}
+                </code>
+                <button 
+                  on:click={copySecret}
+                  class="px-3 py-3 rounded text-sm font-medium {secretCopied ? 'bg-green-600 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'}"
+                >
+                  {secretCopied ? 'Copied!' : 'Copy'}
+                </button>
+              </div>
+            </div>
+            
+            <div class="flex justify-end">
+              <button on:click={closeResetSecretModal} class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                Done
+              </button>
+            </div>
+          {/if}
+        </div>
+      </div>
+    </div>
+  {/if}
 </div>

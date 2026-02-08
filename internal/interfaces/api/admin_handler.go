@@ -2,6 +2,7 @@
 package api
 
 import (
+	"crypto/rand"
 	"encoding/json"
 	"net/http"
 	"strconv"
@@ -331,6 +332,70 @@ func (h *AdminHandler) DeleteClient(w http.ResponseWriter, r *http.Request) {
 	h.respondJSON(w, http.StatusOK, map[string]string{
 		"message": "client deleted successfully",
 	})
+}
+
+// ResetClientSecret resets the client secret
+// POST /admin/clients/{client_id}/reset-secret
+func (h *AdminHandler) ResetClientSecret(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	clientID := chi.URLParam(r, "client_id")
+
+	var req struct {
+		NewSecret string `json:"new_secret"` // If empty, auto-generate
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	h.logger.Infof("Admin: Resetting secret for client: %s", clientID)
+
+	// Get client
+	client, err := h.clientRepo.GetByClientID(ctx, clientID)
+	if err != nil {
+		h.respondError(w, http.StatusNotFound, "client not found")
+		return
+	}
+
+	// Generate secret if not provided
+	newSecret := req.NewSecret
+	if newSecret == "" {
+		newSecret = generateSecureSecret()
+	}
+
+	// Validate minimum length
+	if len(newSecret) < 16 {
+		h.respondError(w, http.StatusBadRequest, "secret must be at least 16 characters")
+		return
+	}
+
+	// Update secret in DB
+	if err := h.clientRepo.UpdateSecret(ctx, client.ID, newSecret); err != nil {
+		h.logger.Errorf(err, "Failed to reset client secret")
+		h.respondError(w, http.StatusInternalServerError, "failed to reset client secret")
+		return
+	}
+
+	h.logger.Infof("Admin: Secret reset successfully for client: %s (%s)", clientID, client.Name)
+
+	// Return the new secret (shown only once!)
+	h.respondJSON(w, http.StatusOK, map[string]interface{}{
+		"message":    "Client secret reset successfully. Store this secret securely - it cannot be retrieved later!",
+		"client_id":  clientID,
+		"new_secret": newSecret,
+	})
+}
+
+// generateSecureSecret generates a cryptographically secure API key
+func generateSecureSecret() string {
+	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	b := make([]byte, 48)
+	for i := range b {
+		randomByte := make([]byte, 1)
+		_, _ = rand.Read(randomByte)
+		b[i] = charset[int(randomByte[0])%len(charset)]
+	}
+	return "sk-llmproxy-" + string(b)
 }
 
 // ============================================================================

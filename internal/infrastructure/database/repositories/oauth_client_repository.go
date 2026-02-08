@@ -238,6 +238,62 @@ func (r *OAuthClientRepository) List(ctx context.Context, limit, offset int) ([]
 	return clients, nil
 }
 
+// ListWithSecrets retrieves all OAuth clients including their secret hashes.
+// Used internally for authentication validation only - never expose hashes via API.
+func (r *OAuthClientRepository) ListWithSecrets(ctx context.Context) ([]*OAuthClient, error) {
+	query := `
+		SELECT 
+			id, client_id, client_secret_hash, name, redirect_uris, grant_types,
+			default_scope, allowed_models, rate_limit_rpm, rate_limit_rpd, enabled, created_at, updated_at
+		FROM oauth_clients
+		WHERE enabled = true
+	`
+
+	rows, err := r.db.Pool.Query(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list OAuth clients: %w", err)
+	}
+	defer rows.Close()
+
+	var clients []*OAuthClient
+	for rows.Next() {
+		client := &OAuthClient{}
+		var secretHash string
+		var allowedModelsJSON []byte
+		err := rows.Scan(
+			&client.ID,
+			&client.ClientID,
+			&secretHash,
+			&client.Name,
+			&client.RedirectURIs,
+			&client.GrantTypes,
+			&client.DefaultScope,
+			&allowedModelsJSON,
+			&client.RateLimitRPM,
+			&client.RateLimitRPD,
+			&client.Enabled,
+			&client.CreatedAt,
+			&client.UpdatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan OAuth client: %w", err)
+		}
+
+		client.ClientSecret = secretHash
+
+		if len(allowedModelsJSON) > 0 {
+			var models []string
+			if err := json.Unmarshal(allowedModelsJSON, &models); err == nil {
+				client.AllowedModels = models
+			}
+		}
+
+		clients = append(clients, client)
+	}
+
+	return clients, nil
+}
+
 // Update updates an OAuth client
 func (r *OAuthClientRepository) Update(ctx context.Context, client *OAuthClient) error {
 	query := `

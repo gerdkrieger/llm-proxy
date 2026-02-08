@@ -72,23 +72,17 @@ func (m *APIKeyAuthMiddleware) Authenticate(next http.Handler) http.Handler {
 			return
 		}
 
-		// Try to find client by validating API key against all clients
-		// This is not the most efficient, but works for small number of clients
-		// For production with many clients, consider adding api_key index
-		clients, err := m.clientRepo.List(r.Context(), 1000, 0)
+		// Try to find client by validating API key against all enabled clients
+		clients, err := m.clientRepo.ListWithSecrets(r.Context())
 		if err != nil {
-			m.logger.Error(err, "Failed to list clients")
+			m.logger.Error(err, "Failed to list clients for authentication")
 			http.Error(w, `{"error":"internal_error","message":"Authentication service unavailable"}`, http.StatusInternalServerError)
 			return
 		}
 
 		var authenticatedClient *repositories.OAuthClient
 		for _, client := range clients {
-			if !client.Enabled {
-				continue
-			}
-
-			// Validate API key against client secret hash
+			// Validate API key against client secret hash (bcrypt)
 			if m.clientRepo.ValidateSecret(client, apiKey) {
 				authenticatedClient = client
 				break

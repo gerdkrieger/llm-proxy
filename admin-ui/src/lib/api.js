@@ -194,6 +194,31 @@ class AdminAPI {
     });
   }
 
+  // Provider API Key Management
+  async listProviderKeys(providerId) {
+    return this.request(`/admin/providers/${providerId}/keys`);
+  }
+
+  async addProviderKey(providerId, data) {
+    return this.request(`/admin/providers/${providerId}/keys`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteProviderKey(providerId, keyId) {
+    return this.request(`/admin/providers/${providerId}/keys/${keyId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async toggleProviderKey(providerId, keyId, enabled) {
+    return this.request(`/admin/providers/${providerId}/keys/${keyId}/toggle`, {
+      method: 'PUT',
+      body: JSON.stringify({ enabled }),
+    });
+  }
+
   // Model Management
   async getProviderModels(providerId) {
     return this.request(`/admin/providers/${providerId}/models`, {

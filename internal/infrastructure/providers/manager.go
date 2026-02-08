@@ -33,8 +33,23 @@ type ProviderManager struct {
 	config        config.ProvidersConfig
 }
 
-// NewProviderManager creates a new provider manager
-func NewProviderManager(cfg config.ProvidersConfig, log *logger.Logger) *ProviderManager {
+// DBKeyProvider provides decrypted API keys from the database.
+// This is used to load provider keys from the DB instead of config.yaml.
+type DBKeyProvider interface {
+	GetDecryptedKeysByProvider(ctx context.Context, providerID string) ([]DBProviderKey, error)
+}
+
+// DBProviderKey holds a decrypted API key loaded from the database.
+type DBProviderKey struct {
+	APIKey string
+	Weight int
+	MaxRPM int
+}
+
+// NewProviderManager creates a new provider manager.
+// It first tries to load API keys from the database. If no DB keys are found
+// for a provider, it falls back to the keys defined in config.yaml.
+func NewProviderManager(cfg config.ProvidersConfig, log *logger.Logger, dbKeyProvider DBKeyProvider) *ProviderManager {
 	pm := &ProviderManager{
 		providers:     make([]Provider, 0),
 		openaiClients: make([]*openai.Client, 0),
@@ -43,21 +58,41 @@ func NewProviderManager(cfg config.ProvidersConfig, log *logger.Logger) *Provide
 		config:        cfg,
 	}
 
-	// Initialize Claude providers
+	ctx := context.Background()
+
+	// Initialize Claude providers (DB keys first, fallback to config)
 	if cfg.Claude.Enabled {
-		for i, apiKeyConfig := range cfg.Claude.APIKeys {
-			client := claude.NewClient(apiKeyConfig.Key, cfg.Claude, log)
-			pm.providers = append(pm.providers, client)
-			log.Infof("Initialized Claude provider %d with key: %s", i+1, client.GetAPIKey())
+		dbKeys := loadDBKeys(ctx, dbKeyProvider, "claude", log)
+		if len(dbKeys) > 0 {
+			for i, k := range dbKeys {
+				client := claude.NewClient(k.APIKey, cfg.Claude, log)
+				pm.providers = append(pm.providers, client)
+				log.Infof("Initialized Claude provider %d from DB with key: %s", i+1, client.GetAPIKey())
+			}
+		} else {
+			for i, apiKeyConfig := range cfg.Claude.APIKeys {
+				client := claude.NewClient(apiKeyConfig.Key, cfg.Claude, log)
+				pm.providers = append(pm.providers, client)
+				log.Infof("Initialized Claude provider %d from config with key: %s", i+1, client.GetAPIKey())
+			}
 		}
 	}
 
-	// Initialize OpenAI providers
+	// Initialize OpenAI providers (DB keys first, fallback to config)
 	if cfg.OpenAI.Enabled {
-		for i, apiKeyConfig := range cfg.OpenAI.APIKeys {
-			client := openai.NewClient(apiKeyConfig.Key, log)
-			pm.openaiClients = append(pm.openaiClients, client)
-			log.Infof("Initialized OpenAI provider %d with key: %s", i+1, client.GetAPIKey())
+		dbKeys := loadDBKeys(ctx, dbKeyProvider, "openai", log)
+		if len(dbKeys) > 0 {
+			for i, k := range dbKeys {
+				client := openai.NewClient(k.APIKey, log)
+				pm.openaiClients = append(pm.openaiClients, client)
+				log.Infof("Initialized OpenAI provider %d from DB with key: %s", i+1, client.GetAPIKey())
+			}
+		} else {
+			for i, apiKeyConfig := range cfg.OpenAI.APIKeys {
+				client := openai.NewClient(apiKeyConfig.Key, log)
+				pm.openaiClients = append(pm.openaiClients, client)
+				log.Infof("Initialized OpenAI provider %d from config with key: %s", i+1, client.GetAPIKey())
+			}
 		}
 	}
 
@@ -70,6 +105,24 @@ func NewProviderManager(cfg config.ProvidersConfig, log *logger.Logger) *Provide
 	}
 
 	return pm
+}
+
+// loadDBKeys tries to load keys from DB, returns nil on error or if no provider given.
+func loadDBKeys(ctx context.Context, dbKeyProvider DBKeyProvider, providerID string, log *logger.Logger) []DBProviderKey {
+	if dbKeyProvider == nil {
+		return nil
+	}
+	keys, err := dbKeyProvider.GetDecryptedKeysByProvider(ctx, providerID)
+	if err != nil {
+		log.Warnf("Failed to load %s keys from DB (falling back to config): %v", providerID, err)
+		return nil
+	}
+	if len(keys) == 0 {
+		log.Debugf("No %s keys in DB, using config.yaml", providerID)
+		return nil
+	}
+	log.Infof("Loaded %d %s API key(s) from database", len(keys), providerID)
+	return keys
 }
 
 // CreateMessage sends a request with load balancing and retry logic

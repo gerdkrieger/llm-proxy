@@ -12,6 +12,7 @@
   let showConfigModal = false;
   let showTestModal = false;
   let showModelsModal = false;
+  let showKeysModal = false;
   let selectedProvider = null;
   let configData = null;
   let testResult = null;
@@ -19,6 +20,16 @@
   let modelsData = null;
   let modelsLoading = false;
   let modelsSaving = false;
+  
+  // API Key management state
+  let keysData = null;
+  let keysLoading = false;
+  let showAddKeyForm = false;
+  let addKeyLoading = false;
+  let newKeyName = '';
+  let newKeyValue = '';
+  let newKeyWeight = 1;
+  let newKeyMaxRPM = 60;
   
   async function loadProviderStatus() {
     loading = true;
@@ -163,6 +174,83 @@
     if (modelsData && modelsData.models) {
       modelsData.models.forEach(m => m.enabled = false);
       modelsData = modelsData;
+    }
+  }
+
+  // API Key Management
+  async function openKeysModal(provider) {
+    selectedProvider = provider;
+    keysLoading = true;
+    showKeysModal = true;
+    keysData = null;
+    showAddKeyForm = false;
+    resetAddKeyForm();
+    
+    const api = new AdminAPI($apiKey);
+    try {
+      keysData = await api.listProviderKeys(provider.id);
+    } catch (err) {
+      alert('Failed to load API keys: ' + err.message);
+      showKeysModal = false;
+    } finally {
+      keysLoading = false;
+    }
+  }
+
+  function resetAddKeyForm() {
+    newKeyName = '';
+    newKeyValue = '';
+    newKeyWeight = 1;
+    newKeyMaxRPM = 60;
+  }
+
+  async function addAPIKey() {
+    if (!newKeyName.trim() || !newKeyValue.trim()) {
+      alert('Key name and API key value are required');
+      return;
+    }
+    
+    addKeyLoading = true;
+    const api = new AdminAPI($apiKey);
+    try {
+      await api.addProviderKey(selectedProvider.id, {
+        key_name: newKeyName.trim(),
+        api_key: newKeyValue.trim(),
+        weight: newKeyWeight,
+        max_rpm: newKeyMaxRPM,
+      });
+      
+      // Refresh key list
+      keysData = await api.listProviderKeys(selectedProvider.id);
+      showAddKeyForm = false;
+      resetAddKeyForm();
+      alert('API key stored successfully. The key value will not be shown again.');
+    } catch (err) {
+      alert('Failed to add API key: ' + err.message);
+    } finally {
+      addKeyLoading = false;
+    }
+  }
+
+  async function deleteAPIKey(key) {
+    if (!confirm(`Delete API key "${key.key_name}" (${key.key_hint})? This cannot be undone.`)) return;
+    
+    const api = new AdminAPI($apiKey);
+    try {
+      await api.deleteProviderKey(selectedProvider.id, key.id);
+      keysData = await api.listProviderKeys(selectedProvider.id);
+    } catch (err) {
+      alert('Failed to delete API key: ' + err.message);
+    }
+  }
+
+  async function toggleAPIKey(key) {
+    const api = new AdminAPI($apiKey);
+    try {
+      await api.toggleProviderKey(selectedProvider.id, key.id, !key.enabled);
+      keysData = await api.listProviderKeys(selectedProvider.id);
+    } catch (err) {
+      alert('Failed to toggle API key: ' + err.message);
     }
   }
   
@@ -364,7 +452,7 @@
                   </div>
                 </div>
                 
-                <div class="mt-4 flex gap-2">
+                <div class="mt-4 flex flex-wrap gap-2">
                   <button 
                     on:click={() => viewConfig(provider)}
                     class="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
@@ -382,6 +470,12 @@
                     class="px-3 py-1.5 text-sm bg-purple-600 text-white rounded hover:bg-purple-700"
                   >
                     Manage Models
+                  </button>
+                  <button 
+                    on:click={() => openKeysModal(provider)}
+                    class="px-3 py-1.5 text-sm bg-yellow-600 text-white rounded hover:bg-yellow-700"
+                  >
+                    Manage API Keys
                   </button>
                   <button 
                     on:click={() => toggleProvider(provider)}
@@ -633,6 +727,161 @@
             disabled={modelsSaving}
           >
             {modelsSaving ? 'Saving...' : 'Save Configuration'}
+          </button>
+        </div>
+      {/if}
+    </div>
+  </div>
+{/if}
+
+<!-- API Keys Management Modal -->
+{#if showKeysModal}
+  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-6 max-w-3xl w-full max-h-[80vh] overflow-y-auto m-4">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-xl font-semibold">
+          API Keys - {selectedProvider?.name}
+        </h3>
+        <button on:click={() => showKeysModal = false} class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+      </div>
+      
+      {#if keysLoading}
+        <div class="flex justify-center py-8">
+          <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        </div>
+      {:else if keysData}
+        <!-- Info banner -->
+        <div class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded text-sm text-blue-800">
+          {#if keysData.total > 0}
+            {keysData.total} database key{keysData.total !== 1 ? 's' : ''} configured. DB keys take priority over config.yaml keys.
+          {:else}
+            No database keys configured. Using {keysData.config_key_count} key{keysData.config_key_count !== 1 ? 's' : ''} from config.yaml.
+          {/if}
+        </div>
+
+        <!-- Key list -->
+        {#if keysData.keys && keysData.keys.length > 0}
+          <div class="space-y-2 mb-4">
+            {#each keysData.keys as key}
+              <div class="border border-gray-200 rounded-lg p-3 flex items-center justify-between {key.enabled ? '' : 'opacity-60 bg-gray-50'}">
+                <div class="flex-1">
+                  <div class="flex items-center gap-2">
+                    <span class="font-medium text-sm">{key.key_name}</span>
+                    <code class="text-xs bg-gray-100 px-2 py-0.5 rounded text-gray-600">{key.key_hint}</code>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {key.enabled ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}">
+                      {key.enabled ? 'Enabled' : 'Disabled'}
+                    </span>
+                  </div>
+                  <div class="text-xs text-gray-500 mt-1">
+                    Weight: {key.weight} | Max RPM: {key.max_rpm} | Added: {new Date(key.created_at).toLocaleDateString()}
+                  </div>
+                </div>
+                <div class="flex gap-2 ml-3">
+                  <button
+                    on:click={() => toggleAPIKey(key)}
+                    class="px-2 py-1 text-xs rounded {key.enabled ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200' : 'bg-green-100 text-green-800 hover:bg-green-200'}"
+                  >
+                    {key.enabled ? 'Disable' : 'Enable'}
+                  </button>
+                  <button
+                    on:click={() => deleteAPIKey(key)}
+                    class="px-2 py-1 text-xs bg-red-100 text-red-800 rounded hover:bg-red-200"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            {/each}
+          </div>
+        {:else}
+          <div class="text-center py-6 text-gray-500 mb-4">
+            No API keys stored in database yet.
+          </div>
+        {/if}
+
+        <!-- Add Key Form -->
+        {#if showAddKeyForm}
+          <div class="border border-blue-200 rounded-lg p-4 bg-blue-50">
+            <h4 class="font-medium text-sm mb-3">Add New API Key</h4>
+            <div class="space-y-3">
+              <div>
+                <label class="block text-xs font-medium text-gray-700 mb-1">Key Name</label>
+                <input
+                  type="text"
+                  bind:value={newKeyName}
+                  placeholder="e.g. Production Key 1"
+                  class="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-gray-700 mb-1">API Key</label>
+                <input
+                  type="password"
+                  bind:value={newKeyValue}
+                  placeholder="sk-..."
+                  class="w-full px-3 py-2 border border-gray-300 rounded text-sm font-mono focus:ring-blue-500 focus:border-blue-500"
+                />
+                <p class="text-xs text-gray-500 mt-1">The key will be encrypted and stored securely. It will not be shown again.</p>
+              </div>
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-xs font-medium text-gray-700 mb-1">Weight</label>
+                  <input
+                    type="number"
+                    bind:value={newKeyWeight}
+                    min="1"
+                    class="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  <p class="text-xs text-gray-500 mt-1">Higher = more traffic routed here</p>
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-700 mb-1">Max RPM</label>
+                  <input
+                    type="number"
+                    bind:value={newKeyMaxRPM}
+                    min="1"
+                    class="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  <p class="text-xs text-gray-500 mt-1">Requests per minute limit</p>
+                </div>
+              </div>
+              <div class="flex justify-end gap-2 pt-2">
+                <button
+                  on:click={() => { showAddKeyForm = false; resetAddKeyForm(); }}
+                  class="px-4 py-2 text-sm bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                  disabled={addKeyLoading}
+                >
+                  Cancel
+                </button>
+                <button
+                  on:click={addAPIKey}
+                  class="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                  disabled={addKeyLoading}
+                >
+                  {addKeyLoading ? 'Storing...' : 'Store Key'}
+                </button>
+              </div>
+            </div>
+          </div>
+        {:else}
+          <button
+            on:click={() => showAddKeyForm = true}
+            class="w-full py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center justify-center gap-2"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
+            </svg>
+            Add API Key
+          </button>
+        {/if}
+
+        <!-- Close button -->
+        <div class="mt-4 flex justify-end">
+          <button
+            on:click={() => showKeysModal = false}
+            class="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+          >
+            Close
           </button>
         </div>
       {/if}

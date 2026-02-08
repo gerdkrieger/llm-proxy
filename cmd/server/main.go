@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"net/http"
 	"os"
@@ -22,6 +23,7 @@ import (
 	"github.com/llm-proxy/llm-proxy/internal/infrastructure/providers"
 	"github.com/llm-proxy/llm-proxy/internal/interfaces/api"
 	"github.com/llm-proxy/llm-proxy/internal/interfaces/middleware"
+	"github.com/llm-proxy/llm-proxy/pkg/crypto"
 	"github.com/llm-proxy/llm-proxy/pkg/logger"
 	"github.com/llm-proxy/llm-proxy/pkg/metrics"
 
@@ -87,6 +89,31 @@ func main() {
 	providerModelRepo := repositories.NewProviderModelRepository(db)
 	systemSettingsRepo := repositories.NewSystemSettingsRepository(db)
 
+	// Initialize encryption for provider API keys stored in DB
+	var providerAPIKeyRepo *repositories.ProviderAPIKeyRepository
+	var dbKeyAdapter *repositories.ProviderAPIKeyDBAdapter
+	encryptionKey := cfg.EncryptionKey
+	if encryptionKey == "" {
+		encryptionKey = os.Getenv("ENCRYPTION_KEY")
+	}
+	if encryptionKey != "" {
+		keyBytes, err := hexDecodeKey(encryptionKey)
+		if err != nil {
+			log.Warnf("Invalid ENCRYPTION_KEY (must be 64 hex chars / 32 bytes): %v — DB key management disabled", err)
+		} else {
+			encryptor, err := crypto.NewKeyEncryptor(keyBytes)
+			if err != nil {
+				log.Warnf("Failed to initialize encryptor: %v — DB key management disabled", err)
+			} else {
+				providerAPIKeyRepo = repositories.NewProviderAPIKeyRepository(db, encryptor)
+				dbKeyAdapter = repositories.NewProviderAPIKeyDBAdapter(providerAPIKeyRepo)
+				log.Info("Provider API key encryption initialized (DB key management enabled)")
+			}
+		}
+	} else {
+		log.Info("No ENCRYPTION_KEY configured — provider API keys managed via config.yaml only")
+	}
+
 	// Initialize caching service
 	log.Info("Initializing caching service...")
 	cacheService := caching.NewService(redis, cfg.Cache, log)
@@ -110,9 +137,13 @@ func main() {
 		log.Fatalf("Failed to initialize OAuth service: %v", err)
 	}
 
-	// Initialize provider manager (Claude API)
+	// Initialize provider manager (loads keys from DB first, falls back to config.yaml)
 	log.Info("Initializing provider manager...")
-	providerManager := providers.NewProviderManager(cfg.Providers, log)
+	var dbKeyProvider providers.DBKeyProvider
+	if dbKeyAdapter != nil {
+		dbKeyProvider = dbKeyAdapter
+	}
+	providerManager := providers.NewProviderManager(cfg.Providers, log, dbKeyProvider)
 
 	// Check provider health
 	ctx := context.Background()
@@ -136,7 +167,7 @@ func main() {
 	modelsHandler := api.NewModelsHandler(providerManager, providerModelRepo, log)
 	adminHandler := api.NewAdminHandler(clientRepo, tokenRepo, requestLogRepo, filterMatchRepo, providerModelRepo, systemSettingsRepo, cacheService, providerManager, log)
 	filterHandler := api.NewContentFilterHandler(contentFilterRepo, filterService, log)
-	providerMgmtHandler := api.NewProviderManagementHandler(providerSettingsRepo, providerModelRepo, providerManager, cfg, log)
+	providerMgmtHandler := api.NewProviderManagementHandler(providerSettingsRepo, providerModelRepo, providerAPIKeyRepo, providerManager, cfg, log)
 
 	// Initialize middleware
 	log.Info("Initializing middleware...")
@@ -218,4 +249,16 @@ func main() {
 	redis.LogStats()
 
 	log.Info("Server shut down successfully")
+}
+
+// hexDecodeKey decodes a hex-encoded 32-byte encryption key.
+func hexDecodeKey(hexKey string) ([]byte, error) {
+	key, err := hex.DecodeString(hexKey)
+	if err != nil {
+		return nil, fmt.Errorf("invalid hex: %w", err)
+	}
+	if len(key) != 32 {
+		return nil, fmt.Errorf("key must be 32 bytes (64 hex chars), got %d bytes", len(key))
+	}
+	return key, nil
 }

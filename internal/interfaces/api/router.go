@@ -152,6 +152,12 @@ func NewRouter(
 			r.Put("/toggle", providerMgmtHandler.ToggleProvider)                     // PUT /admin/providers/{id}/toggle
 			r.Get("/models", providerMgmtHandler.GetProviderModels)                  // GET /admin/providers/{id}/models
 			r.Post("/models/configure", providerMgmtHandler.ConfigureProviderModels) // POST /admin/providers/{id}/models/configure
+
+			// Provider API Key Management
+			r.Get("/keys", providerMgmtHandler.ListProviderAPIKeys)                  // GET /admin/providers/{id}/keys
+			r.Post("/keys", providerMgmtHandler.AddProviderAPIKey)                   // POST /admin/providers/{id}/keys
+			r.Delete("/keys/{key_id}", providerMgmtHandler.DeleteProviderAPIKey)     // DELETE /admin/providers/{id}/keys/{key_id}
+			r.Put("/keys/{key_id}/toggle", providerMgmtHandler.ToggleProviderAPIKey) // PUT /admin/providers/{id}/keys/{key_id}/toggle
 		})
 
 		// Content Filter Management

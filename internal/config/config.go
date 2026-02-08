@@ -23,6 +23,7 @@ type Config struct {
 	RateLimiting  RateLimitingConfig   `mapstructure:"rate_limiting"`
 	Logging       LoggingConfig        `mapstructure:"logging"`
 	Metrics       MetricsConfig        `mapstructure:"metrics"`
+	EncryptionKey string               `mapstructure:"encryption_key"` // 32-byte hex key for encrypting secrets in DB
 }
 
 // ServerConfig holds HTTP server configuration

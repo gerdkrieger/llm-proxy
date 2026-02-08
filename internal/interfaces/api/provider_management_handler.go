@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"github.com/llm-proxy/llm-proxy/internal/config"
 	"github.com/llm-proxy/llm-proxy/internal/infrastructure/database/repositories"
 	"github.com/llm-proxy/llm-proxy/internal/infrastructure/providers"
@@ -16,6 +17,7 @@ import (
 type ProviderManagementHandler struct {
 	providerSettingsRepo *repositories.ProviderSettingsRepository
 	providerModelRepo    *repositories.ProviderModelRepository
+	providerAPIKeyRepo   *repositories.ProviderAPIKeyRepository // nil if encryption not configured
 	providerMgr          *providers.ProviderManager
 	config               *config.Config
 	logger               *logger.Logger
@@ -25,6 +27,7 @@ type ProviderManagementHandler struct {
 func NewProviderManagementHandler(
 	providerSettingsRepo *repositories.ProviderSettingsRepository,
 	providerModelRepo *repositories.ProviderModelRepository,
+	providerAPIKeyRepo *repositories.ProviderAPIKeyRepository,
 	providerMgr *providers.ProviderManager,
 	cfg *config.Config,
 	log *logger.Logger,
@@ -32,6 +35,7 @@ func NewProviderManagementHandler(
 	return &ProviderManagementHandler{
 		providerSettingsRepo: providerSettingsRepo,
 		providerModelRepo:    providerModelRepo,
+		providerAPIKeyRepo:   providerAPIKeyRepo,
 		providerMgr:          providerMgr,
 		config:               cfg,
 		logger:               log,
@@ -346,6 +350,169 @@ func (h *ProviderManagementHandler) GetProviderModels(w http.ResponseWriter, r *
 // ConfigureProviderModelsRequest represents the request to configure models
 type ConfigureProviderModelsRequest struct {
 	EnabledModels []string `json:"enabled_models"`
+}
+
+// ============================================================================
+// API KEY MANAGEMENT
+// ============================================================================
+
+// ListProviderAPIKeys returns all API keys for a provider (hints only, not decrypted).
+// GET /admin/providers/{id}/keys
+func (h *ProviderManagementHandler) ListProviderAPIKeys(w http.ResponseWriter, r *http.Request) {
+	if h.providerAPIKeyRepo == nil {
+		h.respondError(w, http.StatusNotImplemented, "encryption not configured — set ENCRYPTION_KEY env var")
+		return
+	}
+
+	providerID := chi.URLParam(r, "id")
+	h.logger.Infof("Admin: Listing API keys for provider: %s", providerID)
+
+	keys, err := h.providerAPIKeyRepo.ListByProvider(r.Context(), providerID)
+	if err != nil {
+		h.logger.Errorf(err, "Failed to list API keys for provider %s", providerID)
+		h.respondError(w, http.StatusInternalServerError, "failed to list API keys")
+		return
+	}
+
+	// Count config.yaml keys for this provider (fallback info)
+	var configKeyCount int
+	switch providerID {
+	case "claude":
+		configKeyCount = len(h.config.Providers.Claude.APIKeys)
+	case "openai":
+		configKeyCount = len(h.config.Providers.OpenAI.APIKeys)
+	}
+
+	h.respondJSON(w, http.StatusOK, map[string]interface{}{
+		"provider_id":      providerID,
+		"keys":             keys,
+		"total":            len(keys),
+		"config_key_count": configKeyCount,
+	})
+}
+
+// AddProviderAPIKeyRequest is the request body for adding a provider API key.
+type AddProviderAPIKeyRequest struct {
+	KeyName string `json:"key_name"`
+	APIKey  string `json:"api_key"`
+	Weight  int    `json:"weight"`
+	MaxRPM  int    `json:"max_rpm"`
+}
+
+// AddProviderAPIKey stores a new encrypted API key for a provider.
+// POST /admin/providers/{id}/keys
+func (h *ProviderManagementHandler) AddProviderAPIKey(w http.ResponseWriter, r *http.Request) {
+	if h.providerAPIKeyRepo == nil {
+		h.respondError(w, http.StatusNotImplemented, "encryption not configured — set ENCRYPTION_KEY env var")
+		return
+	}
+
+	providerID := chi.URLParam(r, "id")
+
+	var req AddProviderAPIKeyRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	// Validate
+	if req.KeyName == "" {
+		h.respondError(w, http.StatusBadRequest, "key_name is required")
+		return
+	}
+	if req.APIKey == "" {
+		h.respondError(w, http.StatusBadRequest, "api_key is required")
+		return
+	}
+	if req.Weight <= 0 {
+		req.Weight = 1
+	}
+	if req.MaxRPM <= 0 {
+		req.MaxRPM = 60
+	}
+
+	h.logger.Infof("Admin: Adding API key '%s' for provider: %s", req.KeyName, providerID)
+
+	key, err := h.providerAPIKeyRepo.Create(r.Context(), providerID, req.KeyName, req.APIKey, req.Weight, req.MaxRPM)
+	if err != nil {
+		h.logger.Errorf(err, "Failed to add API key for provider %s", providerID)
+		h.respondError(w, http.StatusInternalServerError, "failed to store API key")
+		return
+	}
+
+	h.respondJSON(w, http.StatusCreated, map[string]interface{}{
+		"message": "API key stored successfully. The key value will not be shown again.",
+		"key":     key,
+	})
+}
+
+// DeleteProviderAPIKey deletes an API key by ID.
+// DELETE /admin/providers/{id}/keys/{key_id}
+func (h *ProviderManagementHandler) DeleteProviderAPIKey(w http.ResponseWriter, r *http.Request) {
+	if h.providerAPIKeyRepo == nil {
+		h.respondError(w, http.StatusNotImplemented, "encryption not configured — set ENCRYPTION_KEY env var")
+		return
+	}
+
+	providerID := chi.URLParam(r, "id")
+	keyIDStr := chi.URLParam(r, "key_id")
+
+	keyID, err := uuid.Parse(keyIDStr)
+	if err != nil {
+		h.respondError(w, http.StatusBadRequest, "invalid key ID format")
+		return
+	}
+
+	h.logger.Infof("Admin: Deleting API key %s for provider: %s", keyIDStr, providerID)
+
+	if err := h.providerAPIKeyRepo.Delete(r.Context(), keyID); err != nil {
+		h.logger.Errorf(err, "Failed to delete API key %s", keyIDStr)
+		h.respondError(w, http.StatusInternalServerError, "failed to delete API key")
+		return
+	}
+
+	h.respondJSON(w, http.StatusOK, map[string]interface{}{
+		"message": "API key deleted successfully",
+	})
+}
+
+// ToggleProviderAPIKey enables or disables an API key.
+// PUT /admin/providers/{id}/keys/{key_id}/toggle
+func (h *ProviderManagementHandler) ToggleProviderAPIKey(w http.ResponseWriter, r *http.Request) {
+	if h.providerAPIKeyRepo == nil {
+		h.respondError(w, http.StatusNotImplemented, "encryption not configured — set ENCRYPTION_KEY env var")
+		return
+	}
+
+	providerID := chi.URLParam(r, "id")
+	keyIDStr := chi.URLParam(r, "key_id")
+
+	keyID, err := uuid.Parse(keyIDStr)
+	if err != nil {
+		h.respondError(w, http.StatusBadRequest, "invalid key ID format")
+		return
+	}
+
+	var req struct {
+		Enabled bool `json:"enabled"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	h.logger.Infof("Admin: Toggling API key %s for provider %s to enabled=%v", keyIDStr, providerID, req.Enabled)
+
+	if err := h.providerAPIKeyRepo.SetEnabled(r.Context(), keyID, req.Enabled); err != nil {
+		h.logger.Errorf(err, "Failed to toggle API key %s", keyIDStr)
+		h.respondError(w, http.StatusInternalServerError, "failed to toggle API key")
+		return
+	}
+
+	h.respondJSON(w, http.StatusOK, map[string]interface{}{
+		"message": "API key status updated",
+		"enabled": req.Enabled,
+	})
 }
 
 // ConfigureProviderModels updates which models are enabled for a provider

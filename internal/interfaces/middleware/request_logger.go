@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -16,16 +17,58 @@ import (
 
 // RequestLoggerMiddleware logs all API requests to the database
 type RequestLoggerMiddleware struct {
-	repo   *repositories.RequestLogRepository
-	logger *logger.Logger
+	repo         *repositories.RequestLogRepository
+	settingsRepo *repositories.SystemSettingsRepository
+	logger       *logger.Logger
+
+	// Cached setting for body capture (refreshed periodically)
+	captureBodies    bool
+	captureBodyMutex sync.RWMutex
+	lastSettingCheck time.Time
 }
 
 // NewRequestLoggerMiddleware creates a new request logger middleware
-func NewRequestLoggerMiddleware(repo *repositories.RequestLogRepository, log *logger.Logger) *RequestLoggerMiddleware {
-	return &RequestLoggerMiddleware{
-		repo:   repo,
-		logger: log,
+func NewRequestLoggerMiddleware(repo *repositories.RequestLogRepository, settingsRepo *repositories.SystemSettingsRepository, log *logger.Logger) *RequestLoggerMiddleware {
+	m := &RequestLoggerMiddleware{
+		repo:          repo,
+		settingsRepo:  settingsRepo,
+		logger:        log,
+		captureBodies: true, // Default to true
 	}
+
+	// Initial load of setting
+	go m.refreshCaptureBodySetting()
+
+	// Refresh setting every 30 seconds
+	go func() {
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+		for range ticker.C {
+			m.refreshCaptureBodySetting()
+		}
+	}()
+
+	return m
+}
+
+// refreshCaptureBodySetting refreshes the cached body capture setting from database
+func (m *RequestLoggerMiddleware) refreshCaptureBodySetting() {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	capture := m.settingsRepo.GetBool(ctx, "capture_request_response_bodies")
+
+	m.captureBodyMutex.Lock()
+	m.captureBodies = capture
+	m.lastSettingCheck = time.Now()
+	m.captureBodyMutex.Unlock()
+}
+
+// shouldCaptureBodies returns whether bodies should be captured
+func (m *RequestLoggerMiddleware) shouldCaptureBodies() bool {
+	m.captureBodyMutex.RLock()
+	defer m.captureBodyMutex.RUnlock()
+	return m.captureBodies
 }
 
 // loggingResponseWriter is a wrapper that captures status code, response size, and body
@@ -36,6 +79,7 @@ type loggingResponseWriter struct {
 	written      bool
 	body         *bytes.Buffer // Capture response body
 	headers      http.Header   // Capture response headers
+	captureBody  bool          // Whether to capture body
 }
 
 // WriteHeader captures the status code and headers
@@ -64,8 +108,8 @@ func (rw *loggingResponseWriter) Write(b []byte) (int, error) {
 		}
 	}
 
-	// Capture response body (limit to 100KB to avoid memory issues)
-	if rw.body.Len() < 100*1024 {
+	// Capture response body (limit to 100KB to avoid memory issues) - only if enabled
+	if rw.captureBody && rw.body.Len() < 100*1024 {
 		rw.body.Write(b)
 	}
 
@@ -80,9 +124,12 @@ func (m *RequestLoggerMiddleware) Middleware(next http.Handler) http.Handler {
 		// Start timer
 		start := time.Now()
 
-		// Capture request body (limit to 100KB)
+		// Check if we should capture bodies
+		captureEnabled := m.shouldCaptureBodies()
+
+		// Capture request body (limit to 100KB) - only if enabled
 		var requestBody *string
-		if r.Body != nil && r.ContentLength > 0 && r.ContentLength < 100*1024 {
+		if captureEnabled && r.Body != nil && r.ContentLength > 0 && r.ContentLength < 100*1024 {
 			bodyBytes, err := io.ReadAll(r.Body)
 			if err == nil {
 				bodyStr := string(bodyBytes)
@@ -100,6 +147,7 @@ func (m *RequestLoggerMiddleware) Middleware(next http.Handler) http.Handler {
 			ResponseWriter: w,
 			statusCode:     http.StatusOK, // Default if WriteHeader not called
 			body:           &bytes.Buffer{},
+			captureBody:    captureEnabled,
 		}
 
 		// Get or create request ID
@@ -112,7 +160,7 @@ func (m *RequestLoggerMiddleware) Middleware(next http.Handler) http.Handler {
 		ipAddress := extractIPAddress(r)
 
 		// Extract authentication info from context (set by auth middlewares)
-		authType, apiKeyName := extractAuthInfo(r.Context())
+		authType, apiKeyName, clientID := extractAuthInfo(r.Context())
 
 		// Call next handler
 		next.ServeHTTP(wrapped, r)
@@ -158,9 +206,9 @@ func (m *RequestLoggerMiddleware) Middleware(next http.Handler) http.Handler {
 			}
 		}
 
-		// Capture response body and headers
+		// Capture response body and headers - only if enabled
 		var responseBody *string
-		if wrapped.body.Len() > 0 {
+		if captureEnabled && wrapped.body.Len() > 0 {
 			bodyStr := wrapped.body.String()
 			responseBody = &bodyStr
 		}
@@ -175,6 +223,7 @@ func (m *RequestLoggerMiddleware) Middleware(next http.Handler) http.Handler {
 		userAgent := r.UserAgent()
 		logEntry := &repositories.RequestLog{
 			ID:                uuid.New(),
+			ClientID:          clientID,
 			RequestID:         requestID,
 			Method:            r.Method,
 			Path:              r.URL.Path,
@@ -244,23 +293,34 @@ func extractIPAddress(r *http.Request) string {
 	return ip
 }
 
-// extractAuthInfo extracts authentication type and key name from context
+// extractAuthInfo extracts authentication type, key name, and client ID from context
 // These values should be set by the authentication middlewares
-func extractAuthInfo(ctx context.Context) (*string, *string) {
+func extractAuthInfo(ctx context.Context) (*string, *string, *uuid.UUID) {
 	var authType, apiKeyName *string
+	var clientID *uuid.UUID
 
-	// Check for API key authentication
+	// Check for authenticated client (from new API key middleware)
+	if client, ok := GetClientFromContext(ctx); ok {
+		apiKeyName = &client.Name
+		authTypeVal := "api_key"
+		authType = &authTypeVal
+		clientID = &client.ID
+	}
+
+	// Check for legacy API key authentication
 	if keyName := ctx.Value("api_key_name"); keyName != nil {
 		if name, ok := keyName.(string); ok {
-			apiKeyName = &name
-			authTypeVal := "api_key"
-			authType = &authTypeVal
+			if apiKeyName == nil {
+				apiKeyName = &name
+				authTypeVal := "api_key"
+				authType = &authTypeVal
+			}
 		}
 	}
 
 	// Check for OAuth authentication
-	if clientID := ctx.Value("oauth_client_id"); clientID != nil {
-		if _, ok := clientID.(string); ok {
+	if oauthClientID := ctx.Value("oauth_client_id"); oauthClientID != nil {
+		if _, ok := oauthClientID.(string); ok {
 			authTypeVal := "oauth"
 			authType = &authTypeVal
 		}
@@ -280,7 +340,7 @@ func extractAuthInfo(ctx context.Context) (*string, *string) {
 		authType = &noneVal
 	}
 
-	return authType, apiKeyName
+	return authType, apiKeyName, clientID
 }
 
 // sanitizeHeaders removes or masks sensitive headers

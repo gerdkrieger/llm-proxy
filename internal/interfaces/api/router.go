@@ -37,6 +37,7 @@ func NewRouter(
 	filterHandler *ContentFilterHandler,
 	providerMgmtHandler *ProviderManagementHandler,
 	apiKeyMiddleware *customMiddleware.APIKeyMiddleware,
+	apiKeyAuthMiddleware *customMiddleware.APIKeyAuthMiddleware,
 	oauthMiddleware *customMiddleware.OAuthMiddleware,
 	adminMiddleware *customMiddleware.AdminMiddleware,
 	requestLoggerMiddleware *customMiddleware.RequestLoggerMiddleware,
@@ -87,11 +88,13 @@ func NewRouter(
 	r.Post("/oauth/token", oauthHandler.Token)
 	r.Post("/oauth/revoke", oauthHandler.Revoke)
 
-	// OpenAI-compatible API endpoints (Static API Key OR OAuth protected)
+	// OpenAI-compatible API endpoints (Static API Key OR DB API Key OR OAuth protected)
 	r.Route("/v1", func(r chi.Router) {
 		// Try static API key first (pass through if not static key)
 		r.Use(apiKeyMiddleware.Authenticate)
-		// Then OAuth (handles non-static-key tokens)
+		// Then try DB-based API key (client secrets from oauth_clients table)
+		r.Use(apiKeyAuthMiddleware.Authenticate)
+		// Finally OAuth (handles OAuth tokens)
 		r.Use(oauthMiddleware.Authenticate)
 
 		// Chat completions endpoint (requires 'write' scope)
@@ -160,6 +163,10 @@ func NewRouter(
 				r.Post("/test", filterHandler.TestFilter) // POST /admin/filters/{id}/test
 			})
 		})
+
+		// System Settings Management
+		r.Get("/settings", adminHandler.GetSettings)   // GET /admin/settings
+		r.Put("/settings", adminHandler.UpdateSetting) // PUT /admin/settings
 	})
 
 	return &Router{

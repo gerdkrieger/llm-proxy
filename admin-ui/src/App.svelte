@@ -8,6 +8,7 @@
   import Filters from './components/Filters.svelte';
   import Providers from './components/Providers.svelte';
   import LiveMonitor from './components/LiveMonitor.svelte';
+  import Settings from './components/Settings.svelte';
 
   let isAuthenticated = false;
   
@@ -58,6 +59,10 @@
                     class="w-full text-left px-4 py-2 rounded hover:bg-gray-800">
               📈 Statistics
             </button>
+            <button on:click={() => currentPage.set('settings')} 
+                    class="w-full text-left px-4 py-2 rounded hover:bg-gray-800">
+              ⚙️ Settings
+            </button>
           </nav>
           <div class="mt-8">
             <button on:click={logout} 
@@ -84,6 +89,8 @@
           <Cache />
         {:else if $currentPage === 'stats'}
           <Stats />
+        {:else if $currentPage === 'settings'}
+          <Settings />
         {/if}
       </div>
     </div>

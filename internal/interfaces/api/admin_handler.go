@@ -17,14 +17,15 @@ import (
 
 // AdminHandler handles admin API requests
 type AdminHandler struct {
-	clientRepo        *repositories.OAuthClientRepository
-	tokenRepo         *repositories.OAuthTokenRepository
-	requestLogRepo    *repositories.RequestLogRepository
-	filterMatchRepo   *repositories.FilterMatchRepository
-	providerModelRepo *repositories.ProviderModelRepository
-	cacheService      *caching.Service
-	providerMgr       *providers.ProviderManager
-	logger            *logger.Logger
+	clientRepo         *repositories.OAuthClientRepository
+	tokenRepo          *repositories.OAuthTokenRepository
+	requestLogRepo     *repositories.RequestLogRepository
+	filterMatchRepo    *repositories.FilterMatchRepository
+	providerModelRepo  *repositories.ProviderModelRepository
+	systemSettingsRepo *repositories.SystemSettingsRepository
+	cacheService       *caching.Service
+	providerMgr        *providers.ProviderManager
+	logger             *logger.Logger
 }
 
 // NewAdminHandler creates a new admin handler
@@ -34,19 +35,21 @@ func NewAdminHandler(
 	requestLogRepo *repositories.RequestLogRepository,
 	filterMatchRepo *repositories.FilterMatchRepository,
 	providerModelRepo *repositories.ProviderModelRepository,
+	systemSettingsRepo *repositories.SystemSettingsRepository,
 	cacheService *caching.Service,
 	providerMgr *providers.ProviderManager,
 	log *logger.Logger,
 ) *AdminHandler {
 	return &AdminHandler{
-		clientRepo:        clientRepo,
-		tokenRepo:         tokenRepo,
-		requestLogRepo:    requestLogRepo,
-		filterMatchRepo:   filterMatchRepo,
-		providerModelRepo: providerModelRepo,
-		cacheService:      cacheService,
-		providerMgr:       providerMgr,
-		logger:            log,
+		clientRepo:         clientRepo,
+		tokenRepo:          tokenRepo,
+		requestLogRepo:     requestLogRepo,
+		filterMatchRepo:    filterMatchRepo,
+		providerModelRepo:  providerModelRepo,
+		systemSettingsRepo: systemSettingsRepo,
+		cacheService:       cacheService,
+		providerMgr:        providerMgr,
+		logger:             log,
 	}
 }
 
@@ -671,6 +674,8 @@ func (h *AdminHandler) GetRequestLogs(w http.ResponseWriter, r *http.Request) {
 	// Convert to response format (keep structure compatible with Live Monitor)
 	type RequestLogResponse struct {
 		ID           string    `json:"id"`
+		ClientID     *string   `json:"client_id,omitempty"`
+		ClientName   *string   `json:"client_name,omitempty"`
 		CreatedAt    time.Time `json:"created_at"`
 		Method       string    `json:"method"`
 		Endpoint     string    `json:"endpoint"`
@@ -687,9 +692,18 @@ func (h *AdminHandler) GetRequestLogs(w http.ResponseWriter, r *http.Request) {
 		ErrorMessage *string   `json:"error_message,omitempty"`
 	}
 
+	// Build a client name lookup map for resolving client_id to names
+	clientNameMap := make(map[string]string)
+	clients, err := h.clientRepo.List(r.Context(), 1000, 0)
+	if err == nil {
+		for _, c := range clients {
+			clientNameMap[c.ID.String()] = c.Name
+		}
+	}
+
 	response := make([]RequestLogResponse, 0, len(logs))
 	for _, log := range logs {
-		response = append(response, RequestLogResponse{
+		entry := RequestLogResponse{
 			ID:           log.ID.String(),
 			CreatedAt:    log.CreatedAt,
 			Method:       log.Method,
@@ -705,7 +719,18 @@ func (h *AdminHandler) GetRequestLogs(w http.ResponseWriter, r *http.Request) {
 			WasFiltered:  log.WasFiltered,
 			FilterReason: log.FilterReason,
 			ErrorMessage: log.ErrorMessage,
-		})
+		}
+
+		// Resolve client_id to client_name
+		if log.ClientID != nil {
+			clientIDStr := log.ClientID.String()
+			entry.ClientID = &clientIDStr
+			if name, ok := clientNameMap[clientIDStr]; ok {
+				entry.ClientName = &name
+			}
+		}
+
+		response = append(response, entry)
 	}
 
 	// Send response
@@ -740,6 +765,8 @@ func (h *AdminHandler) GetRequestLogDetails(w http.ResponseWriter, r *http.Reque
 	// Return full log with all details including request/response bodies
 	type RequestLogDetailResponse struct {
 		ID                string                 `json:"id"`
+		ClientID          *string                `json:"client_id,omitempty"`
+		ClientName        *string                `json:"client_name,omitempty"`
 		RequestID         string                 `json:"request_id"`
 		CreatedAt         time.Time              `json:"created_at"`
 		Method            string                 `json:"method"`
@@ -794,6 +821,16 @@ func (h *AdminHandler) GetRequestLogDetails(w http.ResponseWriter, r *http.Reque
 		ResponseSizeBytes: log.ResponseSizeBytes,
 	}
 
+	// Resolve client_id to client_name
+	if log.ClientID != nil {
+		clientIDStr := log.ClientID.String()
+		response.ClientID = &clientIDStr
+		client, clientErr := h.clientRepo.GetByID(ctx, *log.ClientID)
+		if clientErr == nil && client != nil {
+			response.ClientName = &client.Name
+		}
+	}
+
 	h.respondJSON(w, http.StatusOK, response)
 }
 
@@ -804,5 +841,54 @@ func (h *AdminHandler) respondError(w http.ResponseWriter, status int, message s
 	json.NewEncoder(w).Encode(map[string]string{
 		"error":   "error",
 		"message": message,
+	})
+}
+
+// GetSettings returns all system settings
+func (h *AdminHandler) GetSettings(w http.ResponseWriter, r *http.Request) {
+	settings, err := h.systemSettingsRepo.GetAll(r.Context())
+	if err != nil {
+		h.logger.Errorf(err, "Failed to get system settings")
+		h.respondError(w, http.StatusInternalServerError, "Failed to retrieve settings")
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"settings": settings,
+	})
+}
+
+// UpdateSetting updates a single system setting
+func (h *AdminHandler) UpdateSetting(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Key   string `json:"key"`
+		Value string `json:"value"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.respondError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	if req.Key == "" {
+		h.respondError(w, http.StatusBadRequest, "Key is required")
+		return
+	}
+
+	if err := h.systemSettingsRepo.Set(r.Context(), req.Key, req.Value); err != nil {
+		h.logger.Errorf(err, "Failed to update setting: %s", req.Key)
+		h.respondError(w, http.StatusInternalServerError, "Failed to update setting")
+		return
+	}
+
+	h.logger.Infof("Setting updated: %s = %s", req.Key, req.Value)
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"message": "Setting updated successfully",
+		"key":     req.Key,
+		"value":   req.Value,
 	})
 }

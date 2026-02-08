@@ -85,6 +85,7 @@ func main() {
 	filterMatchRepo := repositories.NewFilterMatchRepository(db)
 	providerSettingsRepo := repositories.NewProviderSettingsRepository(db)
 	providerModelRepo := repositories.NewProviderModelRepository(db)
+	systemSettingsRepo := repositories.NewSystemSettingsRepository(db)
 
 	// Initialize caching service
 	log.Info("Initializing caching service...")
@@ -133,21 +134,22 @@ func main() {
 	oauthHandler := api.NewOAuthHandler(oauthService, log)
 	chatHandler := api.NewChatHandler(providerManager, requestLogRepo, filterMatchRepo, clientRepo, cacheService, filterService, attachmentService, log)
 	modelsHandler := api.NewModelsHandler(providerManager, providerModelRepo, log)
-	adminHandler := api.NewAdminHandler(clientRepo, tokenRepo, requestLogRepo, filterMatchRepo, providerModelRepo, cacheService, providerManager, log)
+	adminHandler := api.NewAdminHandler(clientRepo, tokenRepo, requestLogRepo, filterMatchRepo, providerModelRepo, systemSettingsRepo, cacheService, providerManager, log)
 	filterHandler := api.NewContentFilterHandler(contentFilterRepo, filterService, log)
 	providerMgmtHandler := api.NewProviderManagementHandler(providerSettingsRepo, providerModelRepo, providerManager, cfg, log)
 
 	// Initialize middleware
 	log.Info("Initializing middleware...")
 	apiKeyMiddleware := middleware.NewAPIKeyMiddleware(cfg, log)
+	apiKeyAuthMiddleware := middleware.NewAPIKeyAuthMiddleware(clientRepo, log)
 	oauthMiddleware := middleware.NewOAuthMiddleware(oauthService, log)
 	adminMiddleware := middleware.NewAdminMiddleware(cfg, log)
-	requestLoggerMiddleware := middleware.NewRequestLoggerMiddleware(requestLogRepo, log)
+	requestLoggerMiddleware := middleware.NewRequestLoggerMiddleware(requestLogRepo, systemSettingsRepo, log)
 	metricsMiddleware := middleware.MetricsMiddleware(metricsCollector)
 
 	// Create router with all handlers
 	log.Info("Initializing router...")
-	router := api.NewRouter(cfg, db, redis, log, oauthHandler, chatHandler, modelsHandler, adminHandler, filterHandler, providerMgmtHandler, apiKeyMiddleware, oauthMiddleware, adminMiddleware, requestLoggerMiddleware, metricsMiddleware, promhttp.Handler())
+	router := api.NewRouter(cfg, db, redis, log, oauthHandler, chatHandler, modelsHandler, adminHandler, filterHandler, providerMgmtHandler, apiKeyMiddleware, apiKeyAuthMiddleware, oauthMiddleware, adminMiddleware, requestLoggerMiddleware, metricsMiddleware, promhttp.Handler())
 
 	// Create HTTP server
 	server := &http.Server{

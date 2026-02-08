@@ -10,10 +10,7 @@
     filtered_requests: 0,
     error_rate: 0
   };
-  let connectionStatus = {
-    openwebui: { status: 'unknown', last_seen: null, total_requests: 0, failed_requests: 0 },
-    other: { status: 'unknown', last_seen: null, total_requests: 0, failed_requests: 0 }
-  };
+  let connectionStatus = {};  // Dynamic: keyed by client_name or 'unknown'
   let isLoading = true;
   let autoRefresh = true;
   let refreshInterval;
@@ -64,11 +61,8 @@
   }
   
   function analyzeConnections() {
-    // Reset
-    connectionStatus = {
-      openwebui: { status: 'unknown', last_seen: null, total_requests: 0, failed_requests: 0 },
-      other: { status: 'unknown', last_seen: null, total_requests: 0, failed_requests: 0 }
-    };
+    // Build dynamic connection status per client
+    const statusMap = {};
     
     const now = new Date();
     const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
@@ -77,50 +71,50 @@
       const logTime = new Date(log.created_at);
       const isRecent = logTime > fiveMinutesAgo;
       
-      // Identify OpenWebUI by IP (Docker network) or User-Agent
-      const isOpenWebUI = 
-        log.ip_address === '172.18.0.2' || 
-        (log.user_agent && log.user_agent.includes('Python')) ||
-        (log.user_agent && log.user_agent.includes('aiohttp'));
-      
-      if (isOpenWebUI) {
-        connectionStatus.openwebui.total_requests++;
-        if (log.status_code >= 400) {
-          connectionStatus.openwebui.failed_requests++;
-        }
-        if (isRecent) {
-          connectionStatus.openwebui.last_seen = logTime;
-          if (log.status_code === 200) {
-            connectionStatus.openwebui.status = 'connected';
-          } else if (log.status_code === 401) {
-            connectionStatus.openwebui.status = 'auth_failed';
-          } else {
-            connectionStatus.openwebui.status = 'error';
-          }
-        }
+      // Determine client key: use client_name if available, otherwise derive from context
+      let clientKey = 'Unknown';
+      if (log.client_name) {
+        clientKey = log.client_name;
+      } else if (log.api_key_name) {
+        clientKey = log.api_key_name;
+      } else if (log.auth_type === 'oauth') {
+        clientKey = 'OAuth Client';
+      } else if (log.auth_type === 'admin') {
+        clientKey = 'Admin';
       } else if (log.ip_address && !log.ip_address.startsWith('::1') && !log.ip_address.startsWith('127.')) {
-        connectionStatus.other.total_requests++;
-        if (log.status_code >= 400) {
-          connectionStatus.other.failed_requests++;
-        }
-        if (isRecent) {
-          connectionStatus.other.last_seen = logTime;
-          if (log.status_code === 200) {
-            connectionStatus.other.status = 'connected';
-          } else {
-            connectionStatus.other.status = 'error';
-          }
+        clientKey = log.ip_address;
+      }
+      
+      // Initialize if not yet tracked
+      if (!statusMap[clientKey]) {
+        statusMap[clientKey] = { status: 'unknown', last_seen: null, total_requests: 0, failed_requests: 0 };
+      }
+      
+      statusMap[clientKey].total_requests++;
+      if (log.status_code >= 400) {
+        statusMap[clientKey].failed_requests++;
+      }
+      
+      if (isRecent) {
+        statusMap[clientKey].last_seen = logTime;
+        if (log.status_code >= 200 && log.status_code < 400) {
+          statusMap[clientKey].status = 'connected';
+        } else if (log.status_code === 401) {
+          statusMap[clientKey].status = 'auth_failed';
+        } else if (statusMap[clientKey].status !== 'connected') {
+          statusMap[clientKey].status = 'error';
         }
       }
     });
     
-    // If no recent activity, set to disconnected
-    if (!connectionStatus.openwebui.last_seen) {
-      connectionStatus.openwebui.status = 'disconnected';
-    }
-    if (!connectionStatus.other.last_seen) {
-      connectionStatus.other.status = 'disconnected';
-    }
+    // Mark clients without recent activity as disconnected
+    Object.keys(statusMap).forEach(key => {
+      if (!statusMap[key].last_seen) {
+        statusMap[key].status = 'disconnected';
+      }
+    });
+    
+    connectionStatus = statusMap;
   }
   
   function analyzeActivity() {
@@ -334,66 +328,44 @@
         <h2 class="text-xl font-semibold text-gray-800">Client Connection Status</h2>
       </div>
       <div class="p-6">
-        <div class="grid grid-cols-2 gap-6">
-          <!-- OpenWebUI Status -->
-          <div class="border rounded-lg p-4 {connectionStatus.openwebui.status === 'connected' ? 'border-green-500 bg-green-50' : connectionStatus.openwebui.status === 'auth_failed' ? 'border-yellow-500 bg-yellow-50' : 'border-gray-300'}">
-            <div class="flex items-center justify-between mb-3">
-              <div class="flex items-center gap-2">
-                <span class="text-2xl">{getStatusIcon(connectionStatus.openwebui.status)}</span>
-                <span class="text-lg font-semibold">OpenWebUI</span>
-              </div>
-              <span class="{getStatusColor(connectionStatus.openwebui.status)} font-semibold">
-                {getStatusText(connectionStatus.openwebui.status)}
-              </span>
-            </div>
-            <div class="space-y-2 text-sm">
-              <div class="flex justify-between">
-                <span class="text-gray-600">Last Seen:</span>
-                <span class="font-medium">{formatTime(connectionStatus.openwebui.last_seen)}</span>
-              </div>
-              <div class="flex justify-between">
-                <span class="text-gray-600">Total Requests:</span>
-                <span class="font-medium">{connectionStatus.openwebui.total_requests}</span>
-              </div>
-              <div class="flex justify-between">
-                <span class="text-gray-600">Failed Requests:</span>
-                <span class="font-medium text-red-600">{connectionStatus.openwebui.failed_requests}</span>
-              </div>
-              {#if connectionStatus.openwebui.status === 'auth_failed'}
-                <div class="mt-3 p-2 bg-yellow-100 border border-yellow-300 rounded text-xs">
-                  ⚠️ API Key authentication failing. Check OpenWebUI configuration.
+        {#if Object.keys(connectionStatus).length === 0}
+          <div class="text-center text-gray-500 py-4">No client activity detected yet.</div>
+        {:else}
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {#each Object.entries(connectionStatus) as [clientName, status]}
+              <div class="border rounded-lg p-4 {status.status === 'connected' ? 'border-green-500 bg-green-50' : status.status === 'auth_failed' ? 'border-yellow-500 bg-yellow-50' : status.status === 'error' ? 'border-red-500 bg-red-50' : 'border-gray-300'}">
+                <div class="flex items-center justify-between mb-3">
+                  <div class="flex items-center gap-2">
+                    <span class="text-2xl">{getStatusIcon(status.status)}</span>
+                    <span class="text-lg font-semibold truncate" title={clientName}>{clientName}</span>
+                  </div>
+                  <span class="{getStatusColor(status.status)} font-semibold text-sm">
+                    {getStatusText(status.status)}
+                  </span>
                 </div>
-              {/if}
-            </div>
+                <div class="space-y-2 text-sm">
+                  <div class="flex justify-between">
+                    <span class="text-gray-600">Last Seen:</span>
+                    <span class="font-medium">{formatTime(status.last_seen)}</span>
+                  </div>
+                  <div class="flex justify-between">
+                    <span class="text-gray-600">Total Requests:</span>
+                    <span class="font-medium">{status.total_requests}</span>
+                  </div>
+                  <div class="flex justify-between">
+                    <span class="text-gray-600">Failed Requests:</span>
+                    <span class="font-medium text-red-600">{status.failed_requests}</span>
+                  </div>
+                  {#if status.status === 'auth_failed'}
+                    <div class="mt-3 p-2 bg-yellow-100 border border-yellow-300 rounded text-xs">
+                      API Key authentication failing. Check client configuration.
+                    </div>
+                  {/if}
+                </div>
+              </div>
+            {/each}
           </div>
-
-          <!-- Other Clients Status -->
-          <div class="border rounded-lg p-4 {connectionStatus.other.status === 'connected' ? 'border-green-500 bg-green-50' : 'border-gray-300'}">
-            <div class="flex items-center justify-between mb-3">
-              <div class="flex items-center gap-2">
-                <span class="text-2xl">{getStatusIcon(connectionStatus.other.status)}</span>
-                <span class="text-lg font-semibold">Other Clients</span>
-              </div>
-              <span class="{getStatusColor(connectionStatus.other.status)} font-semibold">
-                {getStatusText(connectionStatus.other.status)}
-              </span>
-            </div>
-            <div class="space-y-2 text-sm">
-              <div class="flex justify-between">
-                <span class="text-gray-600">Last Seen:</span>
-                <span class="font-medium">{formatTime(connectionStatus.other.last_seen)}</span>
-              </div>
-              <div class="flex justify-between">
-                <span class="text-gray-600">Total Requests:</span>
-                <span class="font-medium">{connectionStatus.other.total_requests}</span>
-              </div>
-              <div class="flex justify-between">
-                <span class="text-gray-600">Failed Requests:</span>
-                <span class="font-medium text-red-600">{connectionStatus.other.failed_requests}</span>
-              </div>
-            </div>
-          </div>
-        </div>
+        {/if}
       </div>
     </div>
 
@@ -432,17 +404,25 @@
                   {log.endpoint}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm">
-                  {#if log.ip_address === '172.18.0.2' || (log.user_agent && log.user_agent.includes('Python'))}
-                    <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium">
-                      OpenWebUI
+                  {#if log.client_name}
+                    <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium" title="Client ID: {log.client_id}">
+                      {log.client_name}
                     </span>
-                  {:else if log.ip_address && !log.ip_address.startsWith('::1')}
+                  {:else if log.api_key_name}
+                    <span class="px-2 py-1 bg-purple-100 text-purple-800 rounded text-xs font-medium">
+                      {log.api_key_name}
+                    </span>
+                  {:else if log.auth_type === 'oauth'}
+                    <span class="px-2 py-1 bg-green-100 text-green-800 rounded text-xs font-medium">
+                      OAuth
+                    </span>
+                  {:else if log.ip_address && !log.ip_address.startsWith('::1') && !log.ip_address.startsWith('127.')}
                     <span class="px-2 py-1 bg-gray-100 text-gray-800 rounded text-xs font-medium">
                       {log.ip_address}
                     </span>
                   {:else}
                     <span class="px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs">
-                      Internal
+                      Unknown
                     </span>
                   {/if}
                 </td>
@@ -511,6 +491,12 @@
                   <div class="text-sm font-medium text-gray-500">Auth Type</div>
                   <div class="text-sm text-gray-900">{selectedRequest.auth_type || 'none'}</div>
                 </div>
+                {#if selectedRequest.client_name}
+                  <div>
+                    <div class="text-sm font-medium text-gray-500">Client</div>
+                    <div class="text-sm text-gray-900">{selectedRequest.client_name}</div>
+                  </div>
+                {/if}
                 {#if selectedRequest.api_key_name}
                   <div>
                     <div class="text-sm font-medium text-gray-500">API Key Name</div>

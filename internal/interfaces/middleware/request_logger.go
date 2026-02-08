@@ -4,6 +4,7 @@ package middleware
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"io"
 	"net/http"
 	"strings"
@@ -71,7 +72,8 @@ func (m *RequestLoggerMiddleware) shouldCaptureBodies() bool {
 	return m.captureBodies
 }
 
-// loggingResponseWriter is a wrapper that captures status code, response size, and body
+// loggingResponseWriter is a wrapper that captures status code, response size, and body.
+// It also implements http.Flusher so SSE streaming works correctly through this middleware.
 type loggingResponseWriter struct {
 	http.ResponseWriter
 	statusCode   int
@@ -118,6 +120,43 @@ func (rw *loggingResponseWriter) Write(b []byte) (int, error) {
 	return n, err
 }
 
+// Flush implements http.Flusher so SSE streaming works through this middleware
+func (rw *loggingResponseWriter) Flush() {
+	if f, ok := rw.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
+}
+
+// Unwrap returns the underlying ResponseWriter (for http.ResponseController support)
+func (rw *loggingResponseWriter) Unwrap() http.ResponseWriter {
+	return rw.ResponseWriter
+}
+
+// authInfoKey is the context key for the mutable AuthInfo struct
+type authInfoKeyType struct{}
+
+var authInfoKey = authInfoKeyType{}
+
+// AuthInfo is a mutable struct stored in the context by the request logger middleware.
+// Auth middlewares can update it so the logger can read auth info after the handler chain completes.
+// This solves the problem where auth middlewares use r.WithContext() creating a new request
+// that the outer logging middleware never sees.
+type AuthInfo struct {
+	AuthType   *string
+	APIKeyName *string
+	ClientID   *uuid.UUID
+}
+
+// SetAuthInfo stores auth info in the AuthInfo struct found in the request context.
+// Auth middlewares should call this to make auth data available to the request logger.
+func SetAuthInfo(ctx context.Context, authType string, apiKeyName string, clientID *uuid.UUID) {
+	if info, ok := ctx.Value(authInfoKey).(*AuthInfo); ok {
+		info.AuthType = &authType
+		info.APIKeyName = &apiKeyName
+		info.ClientID = clientID
+	}
+}
+
 // Middleware logs the request to the database
 func (m *RequestLoggerMiddleware) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -128,14 +167,26 @@ func (m *RequestLoggerMiddleware) Middleware(next http.Handler) http.Handler {
 		captureEnabled := m.shouldCaptureBodies()
 
 		// Capture request body (limit to 100KB) - only if enabled
+		// ContentLength can be -1 for chunked requests, so also handle that case
 		var requestBody *string
-		if captureEnabled && r.Body != nil && r.ContentLength > 0 && r.ContentLength < 100*1024 {
-			bodyBytes, err := io.ReadAll(r.Body)
-			if err == nil {
+		if captureEnabled && r.Body != nil && (r.ContentLength > 0 && r.ContentLength < 100*1024 || r.ContentLength == -1) {
+			bodyBytes, err := io.ReadAll(io.LimitReader(r.Body, 100*1024))
+			if err == nil && len(bodyBytes) > 0 {
 				bodyStr := string(bodyBytes)
 				requestBody = &bodyStr
 				// Restore the body for the next handler
 				r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+			}
+		}
+
+		// Extract model from request body (for /v1/chat/completions requests)
+		var requestModel string
+		if requestBody != nil && strings.HasPrefix(r.URL.Path, "/v1/") {
+			var bodyObj struct {
+				Model string `json:"model"`
+			}
+			if err := json.Unmarshal([]byte(*requestBody), &bodyObj); err == nil && bodyObj.Model != "" {
+				requestModel = bodyObj.Model
 			}
 		}
 
@@ -159,11 +210,28 @@ func (m *RequestLoggerMiddleware) Middleware(next http.Handler) http.Handler {
 		// Extract IP address
 		ipAddress := extractIPAddress(r)
 
-		// Extract authentication info from context (set by auth middlewares)
-		authType, apiKeyName, clientID := extractAuthInfo(r.Context())
+		// Store a mutable AuthInfo struct in the context. Auth middlewares downstream
+		// can update this struct via SetAuthInfo(), and we read it back after the
+		// handler chain completes. This avoids the r.WithContext() problem where auth
+		// middlewares create a new request the outer middleware never sees.
+		authInfo := &AuthInfo{}
+		ctx := context.WithValue(r.Context(), authInfoKey, authInfo)
+		r = r.WithContext(ctx)
 
 		// Call next handler
 		next.ServeHTTP(wrapped, r)
+
+		// Read auth info that was set by auth middlewares via SetAuthInfo()
+		var authType, apiKeyName *string
+		var clientID *uuid.UUID
+		if authInfo.AuthType != nil {
+			authType = authInfo.AuthType
+			apiKeyName = authInfo.APIKeyName
+			clientID = authInfo.ClientID
+		} else {
+			// Fallback: try extracting from the original context
+			authType, apiKeyName, clientID = extractAuthInfo(r.Context())
+		}
 
 		// Calculate duration
 		duration := time.Since(start)
@@ -179,16 +247,27 @@ func (m *RequestLoggerMiddleware) Middleware(next http.Handler) http.Handler {
 			}
 		}
 
-		// Extract model and provider info from context (if available)
-		var model, provider string
-		if modelCtx := r.Context().Value("model"); modelCtx != nil {
-			if m, ok := modelCtx.(string); ok {
-				model = m
+		// Use model from request body if available, otherwise try context
+		model := requestModel
+		var provider string
+		if model == "" {
+			if modelCtx := r.Context().Value("model"); modelCtx != nil {
+				if m, ok := modelCtx.(string); ok {
+					model = m
+				}
 			}
 		}
 		if providerCtx := r.Context().Value("provider"); providerCtx != nil {
 			if p, ok := providerCtx.(string); ok {
 				provider = p
+			}
+		}
+		// Determine provider from model name if not set from context
+		if provider == "" && model != "" {
+			if strings.HasPrefix(model, "gpt") || strings.HasPrefix(model, "o1") || strings.HasPrefix(model, "o3") || strings.HasPrefix(model, "o4") {
+				provider = "openai"
+			} else if strings.HasPrefix(model, "claude") {
+				provider = "claude"
 			}
 		}
 

@@ -17,6 +17,7 @@ import (
 	"github.com/llm-proxy/llm-proxy/internal/infrastructure/database/repositories"
 	"github.com/llm-proxy/llm-proxy/internal/infrastructure/providers"
 	"github.com/llm-proxy/llm-proxy/internal/infrastructure/providers/claude"
+	openaiProvider "github.com/llm-proxy/llm-proxy/internal/infrastructure/providers/openai"
 	mw "github.com/llm-proxy/llm-proxy/internal/interfaces/middleware"
 	"github.com/llm-proxy/llm-proxy/pkg/logger"
 )
@@ -242,11 +243,14 @@ func (h *ChatHandler) logRequest(
 		UserAgent:        userAgentPtr,
 	}
 
-	// Get client UUID from client_id string
+	// Get client UUID and auth info from client_id string
 	if clientID != "" {
 		client, err := h.clientRepo.GetByClientID(ctx, clientID)
 		if err == nil {
 			log.ClientID = &client.ID
+			authType := "api_key"
+			log.AuthType = &authType
+			log.APIKeyName = &client.Name
 		}
 	}
 
@@ -387,21 +391,6 @@ func (h *ChatHandler) handleStreamingCompletion(
 
 	h.logger.Debugf("Starting streaming request to Claude API: model=%s", claudeReq.Model)
 
-	// Set up SSE headers
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-	w.Header().Set("X-Accel-Buffering", "no") // Disable buffering in nginx
-
-	// Write status header immediately to start streaming
-	w.WriteHeader(http.StatusOK)
-
-	// Create a safe flusher that works with Chi's middleware
-	// We'll try to flush and ignore if it doesn't work
-	flusher := &safeFlusher{w: w}
-
-	h.logger.Infof("Starting streaming with flusher support: %v (type: %T)", flusher.canFlush(), w)
-
 	// Get Claude client for streaming
 	claudeClient := h.providerManager.GetClaudeClient()
 	if claudeClient == nil {
@@ -409,13 +398,27 @@ func (h *ChatHandler) handleStreamingCompletion(
 		return
 	}
 
-	// Start streaming
+	// Start streaming BEFORE writing SSE headers.
+	// This way, if the upstream returns an error, we can send a proper HTTP error
+	// response instead of a broken SSE stream that confuses clients like OpenWebUI.
 	eventChan, err := claudeClient.CreateMessageStream(ctx, claudeReq)
 	if err != nil {
 		h.logger.Errorf(err, "Failed to start stream")
-		h.writeSSEError(w, flusher, "Failed to start stream: "+err.Error())
+		h.logRequest(ctx, r, clientID, requestID, model,
+			http.StatusBadGateway, 0, 0, time.Since(startTime).Milliseconds(), startTime, err)
+		h.respondError(w, http.StatusBadGateway, "upstream_error", "Failed to start stream: "+err.Error())
 		return
 	}
+
+	// Upstream connection succeeded - now commit to SSE response
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no") // Disable buffering in nginx
+	w.WriteHeader(http.StatusOK)
+
+	flusher := &safeFlusher{w: w}
+	h.logger.Debugf("Streaming with flusher support: %v", flusher.canFlush())
 
 	// Create stream mapper
 	mapper := claude.NewStreamMapper(requestID, model)
@@ -646,10 +649,9 @@ func (h *ChatHandler) handleOpenAICompletion(
 		return
 	}
 
-	// Handle streaming requests (not implemented yet for OpenAI)
+	// Handle streaming requests
 	if openAIReq.Stream {
-		h.logRequest(ctx, r, clientID, requestID, openAIReq.Model, http.StatusNotImplemented, 0, 0, 0, startTime, nil)
-		h.respondError(w, http.StatusNotImplemented, "not_implemented", "Streaming not yet implemented for OpenAI")
+		h.handleOpenAIStreamingCompletion(w, r, clientID, requestID, openAIReq, openaiClient, startTime)
 		return
 	}
 
@@ -702,6 +704,81 @@ func (h *ChatHandler) handleOpenAICompletion(
 	w.Header().Set("X-Cache", "MISS")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(openAIResp)
+}
+
+// handleOpenAIStreamingCompletion handles streaming chat completion requests for OpenAI models.
+// Since OpenAI already returns SSE in OpenAI format, we pipe the chunks through directly.
+func (h *ChatHandler) handleOpenAIStreamingCompletion(
+	w http.ResponseWriter,
+	r *http.Request,
+	clientID string,
+	requestID string,
+	openAIReq *models.OpenAIRequest,
+	openaiClient *openaiProvider.Client,
+	startTime time.Time,
+) {
+	ctx := r.Context()
+
+	h.logger.Debugf("Starting streaming request to OpenAI API: model=%s", openAIReq.Model)
+
+	// Start streaming from OpenAI BEFORE writing SSE headers.
+	// This way, if the upstream returns an error (e.g. 400 bad request),
+	// we can still send a proper HTTP error response instead of a broken SSE stream
+	// that confuses clients like OpenWebUI.
+	eventChan, err := openaiClient.CreateMessageStream(ctx, openAIReq)
+	if err != nil {
+		h.logger.Errorf(err, "Failed to start OpenAI stream")
+		h.logRequest(ctx, r, clientID, requestID, openAIReq.Model,
+			http.StatusBadGateway, 0, 0, time.Since(startTime).Milliseconds(), startTime, err)
+		h.respondError(w, http.StatusBadGateway, "upstream_error", "Failed to start stream: "+err.Error())
+		return
+	}
+
+	// Upstream connection succeeded - now commit to SSE response
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no")
+
+	w.WriteHeader(http.StatusOK)
+	flusher := &safeFlusher{w: w}
+
+	// Track usage from the stream
+	var promptTokens, completionTokens int
+
+	// Process streaming events - pipe through directly since format is already OpenAI
+	for event := range eventChan {
+		if event.Error != nil {
+			h.logger.Errorf(event.Error, "OpenAI stream error")
+			h.writeSSEError(w, flusher, "Stream error: "+event.Error.Error())
+			return
+		}
+
+		if event.Data == "[DONE]" {
+			h.writeSSEData(w, flusher, "[DONE]")
+			break
+		}
+
+		// Try to extract usage info from the chunk (OpenAI includes it in the last chunk)
+		var chunk models.OpenAIStreamResponse
+		if err := json.Unmarshal([]byte(event.Data), &chunk); err == nil {
+			if chunk.Usage != nil {
+				promptTokens = chunk.Usage.PromptTokens
+				completionTokens = chunk.Usage.CompletionTokens
+			}
+		}
+
+		// Forward the chunk as-is (already in OpenAI format)
+		h.writeSSEData(w, flusher, event.Data)
+	}
+
+	// Log request
+	duration := time.Since(startTime)
+	h.logRequest(ctx, r, clientID, requestID, openAIReq.Model,
+		http.StatusOK, promptTokens, completionTokens, duration.Milliseconds(), startTime, nil)
+
+	h.logger.Infof("OpenAI streaming completion successful: prompt=%d, completion=%d, duration=%v",
+		promptTokens, completionTokens, duration)
 }
 
 // safeFlusher wraps a ResponseWriter and provides safe flushing

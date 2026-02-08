@@ -65,6 +65,8 @@ func (m *AdminMiddleware) Authenticate(next http.Handler) http.Handler {
 
 		// Add admin auth info to context for RequestLoggerMiddleware
 		ctx := context.WithValue(r.Context(), "admin_authenticated", true)
+		// Update the mutable AuthInfo struct so the request logger middleware can read it
+		SetAuthInfo(r.Context(), "admin", "admin", nil)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

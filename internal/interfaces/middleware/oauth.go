@@ -42,9 +42,8 @@ func (m *OAuthMiddleware) Authenticate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Check if already authenticated by API key middleware
 		clientID := GetClientID(r.Context())
-		m.logger.Infof("OAuth middleware: checking context, clientID='%s'", clientID)
 		if clientID != "" {
-			m.logger.Infof("Request already authenticated by API key middleware: %s", clientID)
+			m.logger.Debugf("Request already authenticated by API key middleware: %s", clientID)
 			next.ServeHTTP(w, r)
 			return
 		}

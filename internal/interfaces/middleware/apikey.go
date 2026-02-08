@@ -49,12 +49,7 @@ func (m *APIKeyMiddleware) Authenticate(next http.Handler) http.Handler {
 
 		// Check if this is a static API key (starts with "sk-llm-proxy-")
 		if !strings.HasPrefix(token, "sk-llm-proxy-") {
-			// Not a static API key - pass through to OAuth middleware
-			tokenPrefix := token
-			if len(tokenPrefix) > 20 {
-				tokenPrefix = token[:20]
-			}
-			m.logger.Infof("Token does not have static API key prefix, passing to OAuth: %s...", tokenPrefix)
+			// Not a static API key - pass through to next middleware
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -63,7 +58,7 @@ func (m *APIKeyMiddleware) Authenticate(next http.Handler) http.Handler {
 		if len(tokenPrefix) > 20 {
 			tokenPrefix = token[:20]
 		}
-		m.logger.Infof("Detected static API key format, validating: %s...", tokenPrefix)
+		m.logger.Debugf("Detected static API key format, validating: %s...", tokenPrefix)
 
 		// Validate static API key
 		clientConfig := m.validateAPIKey(token)
@@ -88,6 +83,10 @@ func (m *APIKeyMiddleware) Authenticate(next http.Handler) http.Handler {
 		ctx = context.WithValue(ctx, "api_key_name", clientConfig.Name)
 
 		m.logger.Infof("Static API key authenticated successfully: %s", clientConfig.Name)
+
+		// Update the mutable AuthInfo struct (set by RequestLoggerMiddleware) so the
+		// request logger can read auth info even though we create a new request via WithContext.
+		SetAuthInfo(r.Context(), "static_api_key", clientConfig.Name, nil)
 
 		// Call next handler with enriched context
 		next.ServeHTTP(w, r.WithContext(ctx))

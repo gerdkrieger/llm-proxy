@@ -5,21 +5,28 @@ package models
 
 // OpenAIRequest represents an OpenAI chat completion request
 type OpenAIRequest struct {
-	Model            string                `json:"model"`
-	Messages         []OpenAIMessage       `json:"messages"`
-	Temperature      *float64              `json:"temperature,omitempty"`
-	TopP             *float64              `json:"top_p,omitempty"`
-	N                *int                  `json:"n,omitempty"`
-	Stream           bool                  `json:"stream,omitempty"`
-	Stop             interface{}           `json:"stop,omitempty"` // string or []string
-	MaxTokens        *int                  `json:"max_tokens,omitempty"`
-	PresencePenalty  *float64              `json:"presence_penalty,omitempty"`
-	FrequencyPenalty *float64              `json:"frequency_penalty,omitempty"`
-	LogitBias        map[string]float64    `json:"logit_bias,omitempty"`
-	User             string                `json:"user,omitempty"`
-	ResponseFormat   *OpenAIResponseFormat `json:"response_format,omitempty"`
-	Tools            []OpenAITool          `json:"tools,omitempty"`
-	ToolChoice       interface{}           `json:"tool_choice,omitempty"`
+	Model               string                `json:"model"`
+	Messages            []OpenAIMessage       `json:"messages"`
+	Temperature         *float64              `json:"temperature,omitempty"`
+	TopP                *float64              `json:"top_p,omitempty"`
+	N                   *int                  `json:"n,omitempty"`
+	Stream              bool                  `json:"stream,omitempty"`
+	StreamOptions       *OpenAIStreamOptions  `json:"stream_options,omitempty"`
+	Stop                interface{}           `json:"stop,omitempty"` // string or []string
+	MaxTokens           *int                  `json:"max_tokens,omitempty"`
+	MaxCompletionTokens *int                  `json:"max_completion_tokens,omitempty"`
+	PresencePenalty     *float64              `json:"presence_penalty,omitempty"`
+	FrequencyPenalty    *float64              `json:"frequency_penalty,omitempty"`
+	LogitBias           map[string]float64    `json:"logit_bias,omitempty"`
+	User                string                `json:"user,omitempty"`
+	ResponseFormat      *OpenAIResponseFormat `json:"response_format,omitempty"`
+	Tools               []OpenAITool          `json:"tools,omitempty"`
+	ToolChoice          interface{}           `json:"tool_choice,omitempty"`
+}
+
+// OpenAIStreamOptions configures streaming behavior
+type OpenAIStreamOptions struct {
+	IncludeUsage bool `json:"include_usage"`
 }
 
 // OpenAIMessage represents a message in OpenAI format
@@ -108,6 +115,7 @@ type OpenAIStreamResponse struct {
 	Created           int64                `json:"created"`
 	Model             string               `json:"model"`
 	Choices           []OpenAIStreamChoice `json:"choices"`
+	Usage             *OpenAIUsage         `json:"usage,omitempty"` // Present in final chunk when stream_options.include_usage is true
 	SystemFingerprint string               `json:"system_fingerprint,omitempty"`
 }
 

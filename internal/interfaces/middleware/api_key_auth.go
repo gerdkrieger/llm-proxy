@@ -73,9 +73,11 @@ func (m *APIKeyAuthMiddleware) Authenticate(next http.Handler) http.Handler {
 		}
 
 		// Try to find client by validating API key against all enabled clients
+		m.logger.Debugf("APIKeyAuth: Attempting DB-based key validation for key prefix: %s...", apiKey[:min(20, len(apiKey))])
+
 		clients, err := m.clientRepo.ListWithSecrets(r.Context())
 		if err != nil {
-			m.logger.Error(err, "Failed to list clients for authentication")
+			m.logger.Error(err, "APIKeyAuth: Failed to list clients for authentication")
 			http.Error(w, `{"error":"internal_error","message":"Authentication service unavailable"}`, http.StatusInternalServerError)
 			return
 		}
@@ -90,16 +92,26 @@ func (m *APIKeyAuthMiddleware) Authenticate(next http.Handler) http.Handler {
 		}
 
 		if authenticatedClient == nil {
+			m.logger.Debugf("APIKeyAuth: No matching client found for key prefix: %s..., passing to next middleware", apiKey[:min(20, len(apiKey))])
 			// No matching client found - pass through to OAuth middleware
 			// (might be a valid OAuth token)
 			next.ServeHTTP(w, r)
 			return
 		}
 
-		// Store client in context for downstream handlers
-		ctx := context.WithValue(r.Context(), ClientContextKey, authenticatedClient)
+		m.logger.Infof("APIKeyAuth: Authenticated client: %s (%s)", authenticatedClient.ClientID, authenticatedClient.Name)
 
-		m.logger.Debugf("Authenticated client: %s (%s)", authenticatedClient.ClientID, authenticatedClient.Name)
+		// Store client in context using the SAME keys as static APIKeyMiddleware
+		// so the OAuth middleware recognizes the request as already authenticated.
+		ctx := r.Context()
+		ctx = context.WithValue(ctx, ClientIDKey, authenticatedClient.ClientID)
+		ctx = context.WithValue(ctx, ScopeKey, authenticatedClient.DefaultScope)
+		// Also store the full client object for downstream handlers (e.g., request logger)
+		ctx = context.WithValue(ctx, ClientContextKey, authenticatedClient)
+
+		// Update the mutable AuthInfo struct (set by RequestLoggerMiddleware) so the
+		// request logger can read auth info even though we create a new request via WithContext.
+		SetAuthInfo(r.Context(), "api_key", authenticatedClient.Name, &authenticatedClient.ID)
 
 		// Continue with authenticated request
 		next.ServeHTTP(w, r.WithContext(ctx))

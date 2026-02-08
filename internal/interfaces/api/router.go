@@ -63,7 +63,14 @@ func NewRouter(
 
 	// CORS middleware
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"http://localhost:5173", "http://localhost:3005", "http://localhost:3000"},
+		AllowedOrigins: []string{
+			"http://localhost:5173",
+			"http://localhost:3005",
+			"http://localhost:3000",
+			"https://llmproxy.aitrail.ch",
+			"https://llmproxy.aitrail.ch:3005",
+			"https://chat.aitrail.ch",
+		},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-Request-ID", "X-Admin-API-Key"},
 		ExposedHeaders:   []string{"X-Request-ID"},

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -134,7 +135,9 @@ func (r *OAuthClientRepository) GetByClientID(ctx context.Context, clientID stri
 
 // ValidateSecret validates the client secret against the stored hash
 func (r *OAuthClientRepository) ValidateSecret(client *OAuthClient, secret string) bool {
-	err := bcrypt.CompareHashAndPassword([]byte(client.ClientSecret), []byte(secret))
+	hash := strings.TrimSpace(client.ClientSecret)
+	key := strings.TrimSpace(secret)
+	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(key))
 	return err == nil
 }
 

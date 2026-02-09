@@ -163,7 +163,7 @@ func main() {
 	// Initialize handlers
 	log.Info("Initializing API handlers...")
 	oauthHandler := api.NewOAuthHandler(oauthService, log)
-	chatHandler := api.NewChatHandler(providerManager, requestLogRepo, filterMatchRepo, clientRepo, cacheService, filterService, attachmentService, log)
+	chatHandler := api.NewChatHandler(providerManager, requestLogRepo, filterMatchRepo, clientRepo, cacheService, filterService, attachmentService, metricsCollector, log)
 	modelsHandler := api.NewModelsHandler(providerManager, providerModelRepo, log)
 	adminHandler := api.NewAdminHandler(clientRepo, tokenRepo, requestLogRepo, filterMatchRepo, providerModelRepo, systemSettingsRepo, cacheService, providerManager, log)
 	filterHandler := api.NewContentFilterHandler(contentFilterRepo, filterService, log)
@@ -206,6 +206,28 @@ func main() {
 					int(stats.TotalConns()),
 					int(stats.IdleConns()),
 				)
+
+				// Update provider health metrics
+				healthCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+				if err := providerManager.Health(healthCtx); err != nil {
+					metricsCollector.UpdateProviderHealth("claude", "config", false)
+					metricsCollector.UpdateProviderHealth("openai", "config", false)
+				} else {
+					// Check individual providers based on available models
+					models := providerManager.GetAvailableModels()
+					hasClaude, hasOpenAI := false, false
+					for _, m := range models {
+						if len(m) >= 6 && m[:6] == "claude" {
+							hasClaude = true
+						}
+						if len(m) >= 3 && m[:3] == "gpt" {
+							hasOpenAI = true
+						}
+					}
+					metricsCollector.UpdateProviderHealth("claude", "config", hasClaude)
+					metricsCollector.UpdateProviderHealth("openai", "config", hasOpenAI)
+				}
+				cancel()
 			case <-stopMetrics:
 				return
 			}

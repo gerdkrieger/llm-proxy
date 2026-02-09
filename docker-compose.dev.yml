@@ -104,7 +104,7 @@ services:
     
     ports:
       - "8080:8080"   # Backend API
-      - "9090:9090"   # Metrics
+      - "9091:9090"   # Metrics (9091 to avoid conflict with local Prometheus on 9090)
       - "2345:2345"   # Delve debugger (optional)
     
     volumes:
@@ -119,6 +119,13 @@ services:
       # Go module cache (for faster rebuilds)
       - go_mod_cache:/go/pkg/mod
       - go_build_cache:/root/.cache/go-build
+    
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--tries=1", "-O", "-", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     
     depends_on:
       postgres:
@@ -144,7 +151,7 @@ services:
     # This means it works on any domain without configuration
     
     ports:
-      - "${ADMIN_UI_PORT:-3005}:5173"  # Vite dev server
+      - "${ADMIN_UI_PORT:-3005}:80"  # nginx serves built admin UI
     
     volumes:
       # Mount source code for hot-reload

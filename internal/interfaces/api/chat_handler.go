@@ -20,6 +20,7 @@ import (
 	openaiProvider "github.com/llm-proxy/llm-proxy/internal/infrastructure/providers/openai"
 	mw "github.com/llm-proxy/llm-proxy/internal/interfaces/middleware"
 	"github.com/llm-proxy/llm-proxy/pkg/logger"
+	"github.com/llm-proxy/llm-proxy/pkg/metrics"
 )
 
 // ChatHandler handles chat completion requests
@@ -31,6 +32,7 @@ type ChatHandler struct {
 	cacheService      *caching.Service
 	filterService     *filtering.Service
 	attachmentService *attachment.Service
+	metrics           *metrics.Metrics
 	logger            *logger.Logger
 }
 
@@ -43,6 +45,7 @@ func NewChatHandler(
 	cacheService *caching.Service,
 	filterService *filtering.Service,
 	attachmentService *attachment.Service,
+	metricsCollector *metrics.Metrics,
 	log *logger.Logger,
 ) *ChatHandler {
 	return &ChatHandler{
@@ -53,6 +56,7 @@ func NewChatHandler(
 		cacheService:      cacheService,
 		filterService:     filterService,
 		attachmentService: attachmentService,
+		metrics:           metricsCollector,
 		logger:            log,
 	}
 }
@@ -162,6 +166,9 @@ func (h *ChatHandler) CreateCompletion(w http.ResponseWriter, r *http.Request) {
 		cacheKey = h.cacheService.GenerateCacheKey(&openAIReq)
 		if cachedResp, found := h.cacheService.Get(ctx, cacheKey); found {
 			h.logger.Infof("Cache hit for request: %s", requestID)
+			if h.metrics != nil {
+				h.metrics.RecordCacheHit(time.Since(startTime))
+			}
 
 			// Update request ID
 			cachedResp.ID = requestID
@@ -188,6 +195,8 @@ func (h *ChatHandler) CreateCompletion(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
 			json.NewEncoder(w).Encode(cachedResp)
 			return
+		} else if h.metrics != nil {
+			h.metrics.RecordCacheMiss(time.Since(startTime))
 		}
 	}
 
@@ -476,6 +485,13 @@ func (h *ChatHandler) handleStreamingCompletion(
 		nil,
 	)
 
+	// Record LLM metrics for streaming
+	if h.metrics != nil {
+		cost := claude.CalculateCost(model, usage.PromptTokens, usage.CompletionTokens)
+		h.metrics.RecordLLMRequest(model, "claude", "success", duration,
+			usage.PromptTokens, usage.CompletionTokens, cost, clientID)
+	}
+
 	h.logger.Infof("Streaming completion successful: tokens=%d, duration=%v",
 		usage.TotalTokens, duration)
 }
@@ -584,6 +600,9 @@ func (h *ChatHandler) handleClaudeCompletion(
 		}
 
 		h.logRequest(ctx, r, clientID, requestID, openAIReq.Model, statusCode, 0, 0, 0, startTime, err)
+		if h.metrics != nil {
+			h.metrics.RecordLLMError(openAIReq.Model, "claude", errorType)
+		}
 		h.respondError(w, statusCode, errorType, "Provider error: "+err.Error())
 		return
 	}
@@ -622,6 +641,12 @@ func (h *ChatHandler) handleClaudeCompletion(
 
 	h.logger.Infof("Chat completion successful: tokens=%d, cost=$%.6f, duration=%v",
 		claudeResp.Usage.InputTokens+claudeResp.Usage.OutputTokens, cost, duration)
+
+	// Record LLM metrics
+	if h.metrics != nil {
+		h.metrics.RecordLLMRequest(openAIReq.Model, "claude", "success", duration,
+			claudeResp.Usage.InputTokens, claudeResp.Usage.OutputTokens, cost, clientID)
+	}
 
 	// Send response
 	w.Header().Set("Content-Type", "application/json")
@@ -664,6 +689,9 @@ func (h *ChatHandler) handleOpenAICompletion(
 		errorType := "api_error"
 
 		h.logRequest(ctx, r, clientID, requestID, openAIReq.Model, statusCode, 0, 0, 0, startTime, err)
+		if h.metrics != nil {
+			h.metrics.RecordLLMError(openAIReq.Model, "openai", errorType)
+		}
 		h.respondError(w, statusCode, errorType, "Provider error: "+err.Error())
 		return
 	}
@@ -698,6 +726,12 @@ func (h *ChatHandler) handleOpenAICompletion(
 
 	h.logger.Infof("Chat completion successful: tokens=%d, duration=%v",
 		openAIResp.Usage.TotalTokens, duration)
+
+	// Record LLM metrics
+	if h.metrics != nil {
+		h.metrics.RecordLLMRequest(openAIReq.Model, "openai", "success", duration,
+			openAIResp.Usage.PromptTokens, openAIResp.Usage.CompletionTokens, 0, clientID)
+	}
 
 	// Send response
 	w.Header().Set("Content-Type", "application/json")
@@ -776,6 +810,12 @@ func (h *ChatHandler) handleOpenAIStreamingCompletion(
 	duration := time.Since(startTime)
 	h.logRequest(ctx, r, clientID, requestID, openAIReq.Model,
 		http.StatusOK, promptTokens, completionTokens, duration.Milliseconds(), startTime, nil)
+
+	// Record LLM metrics for streaming
+	if h.metrics != nil {
+		h.metrics.RecordLLMRequest(openAIReq.Model, "openai", "success", duration,
+			promptTokens, completionTokens, 0, clientID)
+	}
 
 	h.logger.Infof("OpenAI streaming completion successful: prompt=%d, completion=%d, duration=%v",
 		promptTokens, completionTokens, duration)

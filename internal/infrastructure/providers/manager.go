@@ -31,6 +31,7 @@ type ProviderManager struct {
 	logger        *logger.Logger
 	retryConfig   config.RetryConfig
 	config        config.ProvidersConfig
+	dbKeyProvider DBKeyProvider // Store reference for hot-reload
 }
 
 // DBKeyProvider provides decrypted API keys from the database.
@@ -56,6 +57,7 @@ func NewProviderManager(cfg config.ProvidersConfig, log *logger.Logger, dbKeyPro
 		logger:        log,
 		retryConfig:   cfg.Claude.Retry,
 		config:        cfg,
+		dbKeyProvider: dbKeyProvider, // Store for hot-reload
 	}
 
 	ctx := context.Background()
@@ -362,4 +364,65 @@ func (pm *ProviderManager) DetermineProvider(model string) string {
 
 	// Default to Claude if uncertain
 	return "claude"
+}
+
+// ReloadKeys reloads API keys from the database and reinitializes provider clients.
+// This allows hot-reloading of keys without restarting the backend.
+func (pm *ProviderManager) ReloadKeys(ctx context.Context) error {
+	pm.mu.Lock()
+	defer pm.mu.Unlock()
+
+	pm.logger.Info("Reloading provider API keys from database...")
+
+	// Clear existing providers
+	pm.providers = make([]Provider, 0)
+	pm.openaiClients = make([]*openai.Client, 0)
+	pm.currentIndex = 0
+
+	// Reload Claude providers (DB keys first, fallback to config)
+	if pm.config.Claude.Enabled {
+		dbKeys := loadDBKeys(ctx, pm.dbKeyProvider, "claude", pm.logger)
+		if len(dbKeys) > 0 {
+			for i, k := range dbKeys {
+				client := claude.NewClient(k.APIKey, pm.config.Claude, pm.logger)
+				pm.providers = append(pm.providers, client)
+				pm.logger.Infof("Reloaded Claude provider %d from DB with key: %s", i+1, client.GetAPIKey())
+			}
+		} else {
+			for i, apiKeyConfig := range pm.config.Claude.APIKeys {
+				client := claude.NewClient(apiKeyConfig.Key, pm.config.Claude, pm.logger)
+				pm.providers = append(pm.providers, client)
+				pm.logger.Infof("Reloaded Claude provider %d from config with key: %s", i+1, client.GetAPIKey())
+			}
+		}
+	}
+
+	// Reload OpenAI providers (DB keys first, fallback to config)
+	if pm.config.OpenAI.Enabled {
+		dbKeys := loadDBKeys(ctx, pm.dbKeyProvider, "openai", pm.logger)
+		if len(dbKeys) > 0 {
+			for i, k := range dbKeys {
+				client := openai.NewClient(k.APIKey, pm.logger)
+				pm.openaiClients = append(pm.openaiClients, client)
+				pm.logger.Infof("Reloaded OpenAI provider %d from DB with key: %s", i+1, client.GetAPIKey())
+			}
+		} else {
+			for i, apiKeyConfig := range pm.config.OpenAI.APIKeys {
+				client := openai.NewClient(apiKeyConfig.Key, pm.logger)
+				pm.openaiClients = append(pm.openaiClients, client)
+				pm.logger.Infof("Reloaded OpenAI provider %d from config with key: %s", i+1, client.GetAPIKey())
+			}
+		}
+	}
+
+	totalProviders := len(pm.providers) + len(pm.openaiClients)
+	if totalProviders == 0 {
+		pm.logger.Warn("No providers initialized after reload!")
+		return fmt.Errorf("no providers available after reload")
+	}
+
+	pm.logger.Infof("Provider keys reloaded: %d provider(s) (Claude: %d, OpenAI: %d)",
+		totalProviders, len(pm.providers), len(pm.openaiClients))
+
+	return nil
 }

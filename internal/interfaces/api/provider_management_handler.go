@@ -440,6 +440,12 @@ func (h *ProviderManagementHandler) AddProviderAPIKey(w http.ResponseWriter, r *
 		return
 	}
 
+	// Hot-reload provider keys immediately
+	if err := h.providerMgr.ReloadKeys(r.Context()); err != nil {
+		h.logger.Warnf("Failed to reload provider keys after adding key: %v", err)
+		// Don't fail the request - key is stored, just needs manual restart
+	}
+
 	h.respondJSON(w, http.StatusCreated, map[string]interface{}{
 		"message": "API key stored successfully. The key value will not be shown again.",
 		"key":     key,
@@ -469,6 +475,12 @@ func (h *ProviderManagementHandler) DeleteProviderAPIKey(w http.ResponseWriter, 
 		h.logger.Errorf(err, "Failed to delete API key %s", keyIDStr)
 		h.respondError(w, http.StatusInternalServerError, "failed to delete API key")
 		return
+	}
+
+	// Hot-reload provider keys immediately
+	if err := h.providerMgr.ReloadKeys(r.Context()); err != nil {
+		h.logger.Warnf("Failed to reload provider keys after deleting key: %v", err)
+		// Don't fail the request - key is deleted, just needs manual restart
 	}
 
 	h.respondJSON(w, http.StatusOK, map[string]interface{}{
@@ -507,6 +519,12 @@ func (h *ProviderManagementHandler) ToggleProviderAPIKey(w http.ResponseWriter, 
 		h.logger.Errorf(err, "Failed to toggle API key %s", keyIDStr)
 		h.respondError(w, http.StatusInternalServerError, "failed to toggle API key")
 		return
+	}
+
+	// Hot-reload provider keys immediately
+	if err := h.providerMgr.ReloadKeys(r.Context()); err != nil {
+		h.logger.Warnf("Failed to reload provider keys after toggling key: %v", err)
+		// Don't fail the request - key is toggled, just needs manual restart
 	}
 
 	h.respondJSON(w, http.StatusOK, map[string]interface{}{

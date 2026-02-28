@@ -143,15 +143,19 @@ func NewRouter(
 		r.Get("/requests/{id}", adminHandler.GetRequestLogDetails)
 
 		// Provider Management
-		r.Get("/providers/status", adminHandler.GetProviderStatus)
-		r.Get("/providers", adminHandler.GetProviderDetails)
-		r.Post("/providers/sync-models", providerMgmtHandler.SyncProviderModels) // POST /admin/providers/sync-models
+		r.Post("/providers/sync-models", providerMgmtHandler.SyncProviderModels) // POST /admin/providers/sync-models (must be before /{id})
+		r.Get("/providers/status", adminHandler.GetProviderStatus)               // GET /admin/providers/status
+		r.Get("/providers", adminHandler.GetProviderDetails)                     // GET /admin/providers
+		r.Post("/providers", providerMgmtHandler.CreateProvider)                 // POST /admin/providers
 
 		r.Route("/providers/{id}", func(r chi.Router) {
+			r.Put("/", providerMgmtHandler.UpdateProvider)                           // PUT /admin/providers/{id}
+			r.Delete("/", providerMgmtHandler.DeleteProvider)                        // DELETE /admin/providers/{id}
 			r.Get("/config", providerMgmtHandler.GetProviderConfig)                  // GET /admin/providers/{id}/config
 			r.Post("/test", providerMgmtHandler.TestProvider)                        // POST /admin/providers/{id}/test
 			r.Put("/toggle", providerMgmtHandler.ToggleProvider)                     // PUT /admin/providers/{id}/toggle
 			r.Get("/models", providerMgmtHandler.GetProviderModels)                  // GET /admin/providers/{id}/models
+			r.Post("/models/import", providerMgmtHandler.ImportProviderModels)       // POST /admin/providers/{id}/models/import
 			r.Post("/models/configure", providerMgmtHandler.ConfigureProviderModels) // POST /admin/providers/{id}/models/configure
 
 			// Provider API Key Management

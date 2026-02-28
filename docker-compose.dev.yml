@@ -101,6 +101,7 @@ services:
       REDIS_PORT: 6379
       ENVIRONMENT: development
       LOG_LEVEL: debug
+      ENCRYPTION_KEY: e5a6c2183015ccd4f3d9c832eccb01c1a932f8f082f31fc0f3b72fe0c60f0de9
     
     ports:
       - "8080:8080"   # Backend API
@@ -151,7 +152,7 @@ services:
     # This means it works on any domain without configuration
     
     ports:
-      - "${ADMIN_UI_PORT:-3005}:80"  # nginx serves built admin UI
+      - "${ADMIN_UI_PORT:-3005}:5173"  # Vite dev server
     
     volumes:
       # Mount source code for hot-reload

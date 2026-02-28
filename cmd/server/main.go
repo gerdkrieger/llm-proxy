@@ -14,6 +14,7 @@ import (
 	"github.com/llm-proxy/llm-proxy/internal/application/attachment"
 	"github.com/llm-proxy/llm-proxy/internal/application/caching"
 	"github.com/llm-proxy/llm-proxy/internal/application/filtering"
+	"github.com/llm-proxy/llm-proxy/internal/application/health"
 	"github.com/llm-proxy/llm-proxy/internal/application/oauth"
 	modelsync "github.com/llm-proxy/llm-proxy/internal/application/providers"
 	"github.com/llm-proxy/llm-proxy/internal/config"
@@ -86,6 +87,7 @@ func main() {
 	contentFilterRepo := repositories.NewContentFilterRepository(db)
 	filterMatchRepo := repositories.NewFilterMatchRepository(db)
 	providerSettingsRepo := repositories.NewProviderSettingsRepository(db)
+	providerConfigRepo := repositories.NewProviderConfigRepository(db)
 	providerModelRepo := repositories.NewProviderModelRepository(db)
 	systemSettingsRepo := repositories.NewSystemSettingsRepository(db)
 
@@ -160,14 +162,24 @@ func main() {
 		log.Warnf("Model sync warning: %v", err)
 	}
 
+	// Initialize provider health checker (checks custom providers every 5 minutes)
+	log.Info("Initializing provider health checker...")
+	healthChecker := health.NewProviderHealthChecker(
+		providerConfigRepo,
+		providerAPIKeyRepo,
+		5*time.Minute, // Check every 5 minutes
+		log,
+	)
+	healthChecker.Start()
+
 	// Initialize handlers
 	log.Info("Initializing API handlers...")
 	oauthHandler := api.NewOAuthHandler(oauthService, log)
 	chatHandler := api.NewChatHandler(providerManager, requestLogRepo, filterMatchRepo, clientRepo, cacheService, filterService, attachmentService, metricsCollector, log)
 	modelsHandler := api.NewModelsHandler(providerManager, providerModelRepo, log)
-	adminHandler := api.NewAdminHandler(clientRepo, tokenRepo, requestLogRepo, filterMatchRepo, providerModelRepo, systemSettingsRepo, cacheService, providerManager, log)
+	adminHandler := api.NewAdminHandler(clientRepo, tokenRepo, requestLogRepo, filterMatchRepo, providerModelRepo, providerConfigRepo, providerAPIKeyRepo, systemSettingsRepo, cacheService, providerManager, log)
 	filterHandler := api.NewContentFilterHandler(contentFilterRepo, filterService, log)
-	providerMgmtHandler := api.NewProviderManagementHandler(providerSettingsRepo, providerModelRepo, providerAPIKeyRepo, providerManager, cfg, log)
+	providerMgmtHandler := api.NewProviderManagementHandler(providerSettingsRepo, providerConfigRepo, providerModelRepo, providerAPIKeyRepo, providerManager, cfg, log)
 
 	// Initialize middleware
 	log.Info("Initializing middleware...")
@@ -252,6 +264,9 @@ func main() {
 
 	log.Infof("Received signal: %v", sig)
 	log.Info("Initiating graceful shutdown...")
+
+	// Stop health checker
+	healthChecker.Stop()
 
 	// Stop metrics updater
 	close(stopMetrics)

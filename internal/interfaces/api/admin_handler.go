@@ -23,6 +23,8 @@ type AdminHandler struct {
 	requestLogRepo     *repositories.RequestLogRepository
 	filterMatchRepo    *repositories.FilterMatchRepository
 	providerModelRepo  *repositories.ProviderModelRepository
+	providerConfigRepo *repositories.ProviderConfigRepository
+	providerAPIKeyRepo *repositories.ProviderAPIKeyRepository
 	systemSettingsRepo *repositories.SystemSettingsRepository
 	cacheService       *caching.Service
 	providerMgr        *providers.ProviderManager
@@ -36,6 +38,8 @@ func NewAdminHandler(
 	requestLogRepo *repositories.RequestLogRepository,
 	filterMatchRepo *repositories.FilterMatchRepository,
 	providerModelRepo *repositories.ProviderModelRepository,
+	providerConfigRepo *repositories.ProviderConfigRepository,
+	providerAPIKeyRepo *repositories.ProviderAPIKeyRepository,
 	systemSettingsRepo *repositories.SystemSettingsRepository,
 	cacheService *caching.Service,
 	providerMgr *providers.ProviderManager,
@@ -47,6 +51,8 @@ func NewAdminHandler(
 		requestLogRepo:     requestLogRepo,
 		filterMatchRepo:    filterMatchRepo,
 		providerModelRepo:  providerModelRepo,
+		providerConfigRepo: providerConfigRepo,
+		providerAPIKeyRepo: providerAPIKeyRepo,
 		systemSettingsRepo: systemSettingsRepo,
 		cacheService:       cacheService,
 		providerMgr:        providerMgr,
@@ -529,73 +535,78 @@ func (h *AdminHandler) GetProviderDetails(w http.ResponseWriter, r *http.Request
 	ctx := r.Context()
 	providers := make([]map[string]interface{}, 0)
 
-	// Get active provider IDs
+	// Get active provider IDs from ProviderManager
 	activeProviders := h.providerMgr.GetActiveProviderIDs()
 	activeProviderMap := make(map[string]bool)
 	for _, pid := range activeProviders {
 		activeProviderMap[pid] = true
 	}
 
-	// Claude Provider Info
-	if activeProviderMap["claude"] {
-		claudeInfo := map[string]interface{}{
-			"id":       "claude",
-			"name":     "Anthropic Claude",
-			"type":     "claude",
-			"enabled":  true,
-			"status":   "unknown",
-			"models":   []string{},
-			"api_keys": 1,
-		}
-
-		// Get ENABLED models from database
-		enabledModels, err := h.providerModelRepo.GetEnabledByProvider(ctx, "claude")
-		if err != nil {
-			h.logger.Warnf("Failed to get enabled Claude models: %v", err)
-		} else {
-			modelIDs := make([]string, len(enabledModels))
-			for i, model := range enabledModels {
-				modelIDs[i] = model.ModelID
-			}
-			claudeInfo["models"] = modelIDs
-		}
-
-		// Test Claude health
-		if err := h.providerMgr.Health(ctx); err == nil {
-			claudeInfo["status"] = "healthy"
-		} else {
-			claudeInfo["status"] = "unhealthy"
-			claudeInfo["error"] = err.Error()
-		}
-
-		providers = append(providers, claudeInfo)
+	// Get ALL providers from database (includes custom providers)
+	dbProviders, err := h.providerConfigRepo.ListAll(ctx)
+	if err != nil {
+		h.logger.Errorf(err, "Failed to list providers from database")
+		h.respondError(w, http.StatusInternalServerError, "failed to retrieve providers")
+		return
 	}
 
-	// OpenAI Provider Info
-	if activeProviderMap["openai"] {
-		openaiInfo := map[string]interface{}{
-			"id":       "openai",
-			"name":     "OpenAI",
-			"type":     "openai",
-			"enabled":  true,
-			"status":   "healthy",
+	// Build provider info for each provider in database
+	for _, dbProvider := range dbProviders {
+		providerInfo := map[string]interface{}{
+			"id":       dbProvider.ProviderID,
+			"name":     dbProvider.ProviderName,
+			"type":     dbProvider.ProviderType,
+			"enabled":  dbProvider.Enabled,
+			"status":   "unknown",
 			"models":   []string{},
-			"api_keys": 1,
+			"api_keys": 0,
+		}
+
+		// Count API keys for this provider
+		apiKeyCount, err := h.providerAPIKeyRepo.CountByProvider(ctx, dbProvider.ProviderID)
+		if err != nil {
+			h.logger.Warnf("Failed to count API keys for %s: %v", dbProvider.ProviderID, err)
+		} else {
+			providerInfo["api_keys"] = apiKeyCount
+		}
+
+		// Check if provider is active in ProviderManager
+		if activeProviderMap[dbProvider.ProviderID] {
+			providerInfo["status"] = "healthy"
+		} else {
+			// For custom providers, use the health_status from database
+			if dbProvider.ProviderType != "claude" && dbProvider.ProviderType != "openai" {
+				// Use database health status, or default to "unknown" if not set
+				if dbProvider.HealthStatus != "" {
+					providerInfo["status"] = dbProvider.HealthStatus
+				} else {
+					providerInfo["status"] = "unknown"
+				}
+			} else {
+				providerInfo["status"] = "unhealthy"
+			}
 		}
 
 		// Get ENABLED models from database
-		enabledModels, err := h.providerModelRepo.GetEnabledByProvider(ctx, "openai")
+		enabledModels, err := h.providerModelRepo.GetEnabledByProvider(ctx, dbProvider.ProviderID)
 		if err != nil {
-			h.logger.Warnf("Failed to get enabled OpenAI models: %v", err)
+			h.logger.Warnf("Failed to get enabled models for %s: %v", dbProvider.ProviderID, err)
 		} else {
 			modelIDs := make([]string, len(enabledModels))
 			for i, model := range enabledModels {
 				modelIDs[i] = model.ModelID
 			}
-			openaiInfo["models"] = modelIDs
+			providerInfo["models"] = modelIDs
 		}
 
-		providers = append(providers, openaiInfo)
+		// Add config info for custom providers
+		if dbProvider.Config != nil {
+			if baseURL, ok := dbProvider.Config["base_url"].(string); ok {
+				providerInfo["base_url"] = baseURL
+			}
+		}
+
+		providers = append(providers, providerInfo)
 	}
 
 	h.respondJSON(w, http.StatusOK, map[string]interface{}{

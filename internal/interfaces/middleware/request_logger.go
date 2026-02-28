@@ -288,8 +288,11 @@ func (m *RequestLoggerMiddleware) Middleware(next http.Handler) http.Handler {
 		// Capture response body and headers - only if enabled
 		var responseBody *string
 		if captureEnabled && wrapped.body.Len() > 0 {
-			bodyStr := wrapped.body.String()
-			responseBody = &bodyStr
+			// Only capture if it's likely text (not binary/compressed)
+			if isTextResponse(wrapped.headers) {
+				bodyStr := wrapped.body.String()
+				responseBody = &bodyStr
+			}
 		}
 
 		// Sanitize response headers
@@ -420,6 +423,42 @@ func extractAuthInfo(ctx context.Context) (*string, *string, *uuid.UUID) {
 	}
 
 	return authType, apiKeyName, clientID
+}
+
+// isTextResponse checks if the response is likely text (not binary/compressed)
+func isTextResponse(headers http.Header) bool {
+	// Don't capture if response is compressed
+	if encoding := headers.Get("Content-Encoding"); encoding != "" {
+		// gzip, deflate, br, etc. are binary
+		return false
+	}
+
+	// Check Content-Type
+	contentType := headers.Get("Content-Type")
+	if contentType == "" {
+		// No content type, assume text for backwards compatibility
+		return true
+	}
+
+	// List of text-based content types
+	textTypes := []string{
+		"text/",
+		"application/json",
+		"application/xml",
+		"application/javascript",
+		"application/x-www-form-urlencoded",
+		"application/ld+json",
+		"application/graphql",
+	}
+
+	for _, textType := range textTypes {
+		if strings.Contains(contentType, textType) {
+			return true
+		}
+	}
+
+	// Default to false for unknown types (images, videos, etc.)
+	return false
 }
 
 // sanitizeHeaders removes or masks sensitive headers

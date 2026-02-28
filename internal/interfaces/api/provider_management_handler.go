@@ -2,8 +2,12 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -17,6 +21,7 @@ import (
 // ProviderManagementHandler handles provider management requests
 type ProviderManagementHandler struct {
 	providerSettingsRepo *repositories.ProviderSettingsRepository
+	providerConfigRepo   *repositories.ProviderConfigRepository
 	providerModelRepo    *repositories.ProviderModelRepository
 	providerAPIKeyRepo   *repositories.ProviderAPIKeyRepository // nil if encryption not configured
 	providerMgr          *providersInfra.ProviderManager
@@ -27,6 +32,7 @@ type ProviderManagementHandler struct {
 // NewProviderManagementHandler creates a new provider management handler
 func NewProviderManagementHandler(
 	providerSettingsRepo *repositories.ProviderSettingsRepository,
+	providerConfigRepo *repositories.ProviderConfigRepository,
 	providerModelRepo *repositories.ProviderModelRepository,
 	providerAPIKeyRepo *repositories.ProviderAPIKeyRepository,
 	providerMgr *providersInfra.ProviderManager,
@@ -35,6 +41,7 @@ func NewProviderManagementHandler(
 ) *ProviderManagementHandler {
 	return &ProviderManagementHandler{
 		providerSettingsRepo: providerSettingsRepo,
+		providerConfigRepo:   providerConfigRepo,
 		providerModelRepo:    providerModelRepo,
 		providerAPIKeyRepo:   providerAPIKeyRepo,
 		providerMgr:          providerMgr,
@@ -47,10 +54,12 @@ func NewProviderManagementHandler(
 // GET /admin/providers/{id}/config
 func (h *ProviderManagementHandler) GetProviderConfig(w http.ResponseWriter, r *http.Request) {
 	providerID := chi.URLParam(r, "id")
+	ctx := r.Context()
 	h.logger.Infof("Admin: Getting config for provider: %s", providerID)
 
 	var config map[string]interface{}
 
+	// First check if it's a built-in provider
 	switch providerID {
 	case "claude":
 		config = map[string]interface{}{
@@ -73,8 +82,35 @@ func (h *ProviderManagementHandler) GetProviderConfig(w http.ResponseWriter, r *
 		}
 
 	default:
-		h.respondError(w, http.StatusNotFound, "provider not found")
-		return
+		// Check if it's a custom provider in the database
+		providerConfig, err := h.providerConfigRepo.GetByProviderID(ctx, providerID)
+		if err != nil {
+			h.logger.Warnf("Provider %s not found in database: %v", providerID, err)
+			h.respondError(w, http.StatusNotFound, "provider not found")
+			return
+		}
+
+		// Count API keys for this provider
+		apiKeys, _ := h.providerAPIKeyRepo.ListByProvider(ctx, providerID)
+
+		// Get enabled models count
+		models, _ := h.providerModelRepo.GetByProvider(ctx, providerID)
+		enabledModels := []string{}
+		for _, model := range models {
+			if model.Enabled {
+				enabledModels = append(enabledModels, model.ModelID)
+			}
+		}
+
+		config = map[string]interface{}{
+			"provider_id":   providerConfig.ProviderID,
+			"provider_name": providerConfig.ProviderName,
+			"provider_type": providerConfig.ProviderType,
+			"enabled":       providerConfig.Enabled,
+			"api_keys":      len(apiKeys),
+			"models":        enabledModels,
+			"config":        providerConfig.Config,
+		}
 	}
 
 	h.respondJSON(w, http.StatusOK, config)
@@ -88,7 +124,45 @@ func (h *ProviderManagementHandler) TestProvider(w http.ResponseWriter, r *http.
 
 	h.logger.Infof("Admin: Testing connection for provider: %s", providerID)
 
-	// Test provider health
+	// Get provider config from database
+	providerConfig, err := h.providerConfigRepo.GetByProviderID(ctx, providerID)
+	if err != nil {
+		h.logger.Errorf(err, "Failed to get provider config for %s", providerID)
+		h.respondError(w, http.StatusNotFound, "provider not found")
+		return
+	}
+
+	// Test based on provider type
+	var testResult map[string]interface{}
+
+	switch providerConfig.ProviderType {
+	case "claude", "openai":
+		// Test built-in providers via ProviderManager
+		testResult = h.testBuiltInProvider(ctx, providerID)
+	case "gemini":
+		testResult = h.testGeminiProvider(providerConfig)
+	case "openrouter":
+		testResult = h.testOpenRouterProvider(providerConfig)
+	case "ollama", "openai-compatible":
+		testResult = h.testOpenAICompatibleProvider(providerConfig)
+	default:
+		testResult = map[string]interface{}{
+			"status": "failed",
+			"error":  fmt.Sprintf("unsupported provider type: %s", providerConfig.ProviderType),
+			"models": []string{},
+		}
+	}
+
+	statusCode := http.StatusOK
+	if testResult["status"] == "failed" {
+		statusCode = http.StatusServiceUnavailable
+	}
+
+	h.respondJSON(w, statusCode, testResult)
+}
+
+// testBuiltInProvider tests Claude/OpenAI via ProviderManager
+func (h *ProviderManagementHandler) testBuiltInProvider(ctx context.Context, providerID string) map[string]interface{} {
 	err := h.providerMgr.Health(ctx)
 
 	var status string
@@ -101,12 +175,12 @@ func (h *ProviderManagementHandler) TestProvider(w http.ResponseWriter, r *http.
 		status = "success"
 	}
 
-	// Get models to verify connection
+	// Get models from ProviderManager
 	models := h.providerMgr.GetAvailableModels()
 	providerModels := []string{}
 
 	for _, model := range models {
-		if providerID == "claude" && (model[:6] == "claude" || len(model) > 6 && model[:6] == "claude") {
+		if providerID == "claude" && len(model) >= 6 && model[:6] == "claude" {
 			providerModels = append(providerModels, model)
 		} else if providerID == "openai" && len(model) >= 3 && model[:3] == "gpt" {
 			providerModels = append(providerModels, model)
@@ -122,12 +196,296 @@ func (h *ProviderManagementHandler) TestProvider(w http.ResponseWriter, r *http.
 		response["error"] = *errorMsg
 	}
 
-	statusCode := http.StatusOK
-	if status == "failed" {
-		statusCode = http.StatusServiceUnavailable
+	return response
+}
+
+// testGeminiProvider tests Google Gemini API
+func (h *ProviderManagementHandler) testGeminiProvider(config *repositories.ProviderConfig) map[string]interface{} {
+	ctx := context.Background()
+
+	// Try to get API key from provider_api_keys table first
+	apiKey := ""
+	if h.providerAPIKeyRepo != nil {
+		decryptedKeys, err := h.providerAPIKeyRepo.GetDecryptedKeysByProvider(ctx, config.ProviderID)
+		if err == nil && len(decryptedKeys) > 0 {
+			// Use the first enabled key
+			for _, key := range decryptedKeys {
+				apiKey = key.APIKey
+				h.logger.Debugf("Using API key from database for %s", config.ProviderID)
+				break
+			}
+		}
 	}
 
-	h.respondJSON(w, statusCode, response)
+	// Fallback to config if no key in database
+	if apiKey == "" {
+		if key, ok := config.Config["api_key"].(string); ok && key != "" {
+			apiKey = key
+			h.logger.Debugf("Using API key from config for %s", config.ProviderID)
+		}
+	}
+
+	if apiKey == "" {
+		return map[string]interface{}{
+			"status": "failed",
+			"error":  "API key not configured. Please add an API key via 'Manage API Keys'.",
+			"models": []string{},
+		}
+	}
+
+	// Test Gemini API by listing models
+	url := "https://generativelanguage.googleapis.com/v1beta/models?key=" + apiKey
+
+	h.logger.Infof("Testing Gemini API: %s", url)
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Get(url)
+	if err != nil {
+		h.logger.Errorf(err, "Gemini API request failed")
+		return map[string]interface{}{
+			"status": "failed",
+			"error":  fmt.Sprintf("Connection failed: %v", err),
+			"models": []string{},
+		}
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+	h.logger.Infof("Gemini API response status: %d, body: %s", resp.StatusCode, string(body))
+
+	if resp.StatusCode != http.StatusOK {
+		return map[string]interface{}{
+			"status":        "failed",
+			"error":         fmt.Sprintf("API returned status %d: %s", resp.StatusCode, string(body)),
+			"models":        []string{},
+			"status_code":   resp.StatusCode,
+			"response_body": string(body),
+		}
+	}
+
+	// Parse models from response
+	var result struct {
+		Models []struct {
+			Name string `json:"name"`
+		} `json:"models"`
+	}
+
+	if err := json.Unmarshal(body, &result); err != nil {
+		h.logger.Errorf(err, "Failed to parse Gemini models response")
+		return map[string]interface{}{
+			"status": "failed",
+			"error":  fmt.Sprintf("Failed to parse response: %v", err),
+			"models": []string{},
+		}
+	}
+
+	models := make([]string, 0)
+	for _, model := range result.Models {
+		// Extract model ID from name (e.g. "models/gemini-pro" -> "gemini-pro")
+		if len(model.Name) > 7 && model.Name[:7] == "models/" {
+			models = append(models, model.Name[7:])
+		} else {
+			models = append(models, model.Name)
+		}
+	}
+
+	return map[string]interface{}{
+		"status": "success",
+		"models": models,
+		"count":  len(models),
+	}
+}
+
+// testOpenRouterProvider tests OpenRouter API
+func (h *ProviderManagementHandler) testOpenRouterProvider(config *repositories.ProviderConfig) map[string]interface{} {
+	ctx := context.Background()
+
+	// Try to get API key from provider_api_keys table first
+	apiKey := ""
+	if h.providerAPIKeyRepo != nil {
+		decryptedKeys, err := h.providerAPIKeyRepo.GetDecryptedKeysByProvider(ctx, config.ProviderID)
+		if err == nil && len(decryptedKeys) > 0 {
+			for _, key := range decryptedKeys {
+				apiKey = key.APIKey
+				h.logger.Debugf("Using API key from database for %s", config.ProviderID)
+				break
+			}
+		}
+	}
+
+	// Fallback to config
+	if apiKey == "" {
+		if key, ok := config.Config["api_key"].(string); ok && key != "" {
+			apiKey = key
+			h.logger.Debugf("Using API key from config for %s", config.ProviderID)
+		}
+	}
+
+	if apiKey == "" {
+		return map[string]interface{}{
+			"status": "failed",
+			"error":  "API key not configured. Please add an API key via 'Manage API Keys'.",
+			"models": []string{},
+		}
+	}
+
+	// Test OpenRouter API by listing models
+	url := "https://openrouter.ai/api/v1/models"
+
+	h.logger.Infof("Testing OpenRouter API: %s", url)
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return map[string]interface{}{
+			"status": "failed",
+			"error":  fmt.Sprintf("Failed to create request: %v", err),
+			"models": []string{},
+		}
+	}
+
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		h.logger.Errorf(err, "OpenRouter API request failed")
+		return map[string]interface{}{
+			"status": "failed",
+			"error":  fmt.Sprintf("Connection failed: %v", err),
+			"models": []string{},
+		}
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+	h.logger.Infof("OpenRouter API response status: %d", resp.StatusCode)
+
+	if resp.StatusCode != http.StatusOK {
+		return map[string]interface{}{
+			"status":        "failed",
+			"error":         fmt.Sprintf("API returned status %d: %s", resp.StatusCode, string(body)),
+			"models":        []string{},
+			"status_code":   resp.StatusCode,
+			"response_body": string(body),
+		}
+	}
+
+	// Parse models from response
+	var result struct {
+		Data []struct {
+			ID string `json:"id"`
+		} `json:"data"`
+	}
+
+	if err := json.Unmarshal(body, &result); err != nil {
+		h.logger.Errorf(err, "Failed to parse OpenRouter models response")
+		return map[string]interface{}{
+			"status": "failed",
+			"error":  fmt.Sprintf("Failed to parse response: %v", err),
+			"models": []string{},
+		}
+	}
+
+	models := make([]string, len(result.Data))
+	for i, model := range result.Data {
+		models[i] = model.ID
+	}
+
+	return map[string]interface{}{
+		"status": "success",
+		"models": models[:min(10, len(models))], // Show first 10 models
+		"count":  len(models),
+	}
+}
+
+// testOpenAICompatibleProvider tests Ollama or other OpenAI-compatible APIs
+func (h *ProviderManagementHandler) testOpenAICompatibleProvider(config *repositories.ProviderConfig) map[string]interface{} {
+	baseURL, ok := config.Config["base_url"].(string)
+	if !ok || baseURL == "" {
+		return map[string]interface{}{
+			"status": "failed",
+			"error":  "Base URL not configured",
+			"models": []string{},
+		}
+	}
+
+	// Test by calling /v1/models endpoint
+	url := baseURL + "/models"
+
+	h.logger.Infof("Testing OpenAI-compatible API: %s", url)
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return map[string]interface{}{
+			"status": "failed",
+			"error":  fmt.Sprintf("Failed to create request: %v", err),
+			"models": []string{},
+		}
+	}
+
+	// Add API key if configured
+	if apiKey, ok := config.Config["api_key"].(string); ok && apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+apiKey)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		h.logger.Errorf(err, "API request failed")
+		return map[string]interface{}{
+			"status": "failed",
+			"error":  fmt.Sprintf("Connection failed: %v. Make sure the service is running at %s", err, baseURL),
+			"models": []string{},
+		}
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+	h.logger.Infof("API response status: %d", resp.StatusCode)
+
+	if resp.StatusCode != http.StatusOK {
+		return map[string]interface{}{
+			"status":        "failed",
+			"error":         fmt.Sprintf("API returned status %d: %s", resp.StatusCode, string(body)),
+			"models":        []string{},
+			"status_code":   resp.StatusCode,
+			"response_body": string(body),
+		}
+	}
+
+	// Parse models from OpenAI-compatible response
+	var result struct {
+		Data []struct {
+			ID string `json:"id"`
+		} `json:"data"`
+	}
+
+	if err := json.Unmarshal(body, &result); err != nil {
+		h.logger.Errorf(err, "Failed to parse models response")
+		return map[string]interface{}{
+			"status": "failed",
+			"error":  fmt.Sprintf("Failed to parse response: %v", err),
+			"models": []string{},
+		}
+	}
+
+	models := make([]string, len(result.Data))
+	for i, model := range result.Data {
+		models[i] = model.ID
+	}
+
+	return map[string]interface{}{
+		"status": "success",
+		"models": models,
+		"count":  len(models),
+	}
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 // ToggleProvider enables or disables a provider
@@ -368,35 +726,58 @@ func (h *ProviderManagementHandler) GetProviderModels(w http.ResponseWriter, r *
 	providerID := chi.URLParam(r, "id")
 	h.logger.Infof("Admin: Getting models for provider: %s", providerID)
 
-	// Get available models for this provider
-	availableModels, ok := providerModels[providerID]
-	if !ok {
-		h.respondError(w, http.StatusNotFound, "Provider not found")
+	// Get models from database first
+	dbModels, err := h.providerModelRepo.GetByProvider(r.Context(), providerID)
+	if err != nil {
+		h.logger.Errorf(err, "Failed to get models from DB for provider %s", providerID)
+		h.respondError(w, http.StatusInternalServerError, "Failed to retrieve models")
 		return
 	}
 
-	// Get enabled models from database
-	dbModels, err := h.providerModelRepo.GetByProvider(r.Context(), providerID)
-	if err != nil {
-		h.logger.Warnf("Failed to get models from DB: %v, using defaults", err)
-	}
-
-	// Create a map of model ID -> enabled status
-	enabledMap := make(map[string]bool)
-	for _, dbModel := range dbModels {
-		enabledMap[dbModel.ModelID] = dbModel.Enabled
-	}
-
-	// Combine available models with status
-	modelsWithStatus := make([]ModelWithStatus, len(availableModels))
-	for i, model := range availableModels {
-		enabled, exists := enabledMap[model.ID]
-		if !exists {
-			enabled = true // Default to enabled if not in DB
+	// If no models in DB, check if we have hardcoded models for built-in providers
+	if len(dbModels) == 0 {
+		availableModels, ok := providerModels[providerID]
+		if !ok {
+			h.respondError(w, http.StatusNotFound, "No models found for provider. Import models first.")
+			return
 		}
+
+		// Use hardcoded models with default enabled status
+		modelsWithStatus := make([]ModelWithStatus, len(availableModels))
+		for i, model := range availableModels {
+			modelsWithStatus[i] = ModelWithStatus{
+				ModelInfo: model,
+				Enabled:   true, // Default to enabled
+			}
+		}
+
+		h.respondJSON(w, http.StatusOK, map[string]interface{}{
+			"provider_id": providerID,
+			"models":      modelsWithStatus,
+			"total":       len(modelsWithStatus),
+		})
+		return
+	}
+
+	// Convert DB models to ModelWithStatus format
+	modelsWithStatus := make([]ModelWithStatus, len(dbModels))
+	for i, dbModel := range dbModels {
+		capabilities := []string{}
+		if caps, ok := dbModel.Capabilities["features"].([]interface{}); ok {
+			for _, cap := range caps {
+				if capStr, ok := cap.(string); ok {
+					capabilities = append(capabilities, capStr)
+				}
+			}
+		}
+
 		modelsWithStatus[i] = ModelWithStatus{
-			ModelInfo: model,
-			Enabled:   enabled,
+			ModelInfo: ModelInfo{
+				ID:           dbModel.ModelID,
+				Name:         dbModel.ModelName,
+				Capabilities: capabilities,
+			},
+			Enabled: dbModel.Enabled,
 		}
 	}
 
@@ -678,4 +1059,326 @@ func (h *ProviderManagementHandler) ConfigureProviderModels(w http.ResponseWrite
 		"disabled_count": len(disabledModelIDs),
 		"total_count":    len(allModels),
 	})
+}
+
+// ImportProviderModels imports models discovered from provider test into database
+// POST /admin/providers/{id}/models/import
+func (h *ProviderManagementHandler) ImportProviderModels(w http.ResponseWriter, r *http.Request) {
+	providerID := chi.URLParam(r, "id")
+	ctx := r.Context()
+
+	h.logger.Infof("Admin: Importing models for provider: %s", providerID)
+
+	// Get provider config
+	providerConfig, err := h.providerConfigRepo.GetByProviderID(ctx, providerID)
+	if err != nil {
+		h.logger.Errorf(err, "Failed to get provider config")
+		h.respondError(w, http.StatusNotFound, "provider not found")
+		return
+	}
+
+	// Test provider to get available models
+	var testResult map[string]interface{}
+	switch providerConfig.ProviderType {
+	case "gemini":
+		testResult = h.testGeminiProvider(providerConfig)
+	case "openrouter":
+		testResult = h.testOpenRouterProvider(providerConfig)
+	case "ollama", "openai-compatible":
+		testResult = h.testOpenAICompatibleProvider(providerConfig)
+	default:
+		h.respondError(w, http.StatusBadRequest, fmt.Sprintf("model import not supported for provider type: %s", providerConfig.ProviderType))
+		return
+	}
+
+	// Check if test was successful
+	if testResult["status"] != "success" {
+		h.respondError(w, http.StatusServiceUnavailable, fmt.Sprintf("provider test failed: %v", testResult["error"]))
+		return
+	}
+
+	// Get models from test result
+	modelsInterface, ok := testResult["models"].([]string)
+	if !ok {
+		h.respondError(w, http.StatusInternalServerError, "failed to get models from test result")
+		return
+	}
+
+	// Import each model into database
+	importedCount := 0
+	skippedCount := 0
+	errorCount := 0
+
+	for _, modelID := range modelsInterface {
+		// Check if model already exists
+		existing, err := h.providerModelRepo.GetByProviderAndModel(ctx, providerID, modelID)
+		if err == nil && existing != nil {
+			h.logger.Debugf("Model %s already exists for provider %s, skipping", modelID, providerID)
+			skippedCount++
+			continue
+		}
+
+		// Create new model entry
+		dbModel := &repositories.ProviderModel{
+			ID:          uuid.New(),
+			ProviderID:  providerID,
+			ModelID:     modelID,
+			ModelName:   modelID, // Use model ID as name by default
+			Enabled:     true,    // Enable by default
+			Description: nil,
+			Capabilities: map[string]interface{}{
+				"features": []string{}, // No capabilities info available yet
+			},
+			Pricing: map[string]interface{}{},
+		}
+
+		if err := h.providerModelRepo.Create(ctx, dbModel); err != nil {
+			h.logger.Warnf("Failed to import model %s: %v", modelID, err)
+			errorCount++
+			continue
+		}
+
+		h.logger.Debugf("Imported model: %s for provider %s", modelID, providerID)
+		importedCount++
+	}
+
+	h.logger.Infof("Model import completed for %s: %d imported, %d skipped, %d errors",
+		providerID, importedCount, skippedCount, errorCount)
+
+	h.respondJSON(w, http.StatusOK, map[string]interface{}{
+		"success":        true,
+		"message":        "Models imported successfully",
+		"imported_count": importedCount,
+		"skipped_count":  skippedCount,
+		"error_count":    errorCount,
+		"total_models":   len(modelsInterface),
+	})
+}
+
+// ============================================================================
+// PROVIDER CRUD OPERATIONS
+// ============================================================================
+
+// CreateProviderRequest represents the request to create a new provider
+type CreateProviderRequest struct {
+	ProviderID   string                 `json:"provider_id"`
+	ProviderName string                 `json:"provider_name"`
+	ProviderType string                 `json:"provider_type"` // "ollama", "openai-compatible", "openrouter", "claude", "openai"
+	Config       map[string]interface{} `json:"config"`        // Flexible config for different provider types
+	Enabled      bool                   `json:"enabled"`
+}
+
+// CreateProvider creates a new provider configuration
+// POST /admin/providers
+func (h *ProviderManagementHandler) CreateProvider(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	var req CreateProviderRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	// Validate required fields
+	if req.ProviderID == "" {
+		h.respondError(w, http.StatusBadRequest, "provider_id is required")
+		return
+	}
+	if req.ProviderName == "" {
+		h.respondError(w, http.StatusBadRequest, "provider_name is required")
+		return
+	}
+	if req.ProviderType == "" {
+		h.respondError(w, http.StatusBadRequest, "provider_type is required")
+		return
+	}
+
+	// Validate provider type
+	validTypes := map[string]bool{
+		"ollama":            true,
+		"openai-compatible": true,
+		"openrouter":        true,
+		"gemini":            true,
+		"claude":            true,
+		"openai":            true,
+	}
+	if !validTypes[req.ProviderType] {
+		h.respondError(w, http.StatusBadRequest, "invalid provider_type. Must be one of: ollama, openai-compatible, openrouter, gemini, claude, openai")
+		return
+	}
+
+	// Validate config based on provider type
+	if err := h.validateProviderConfig(req.ProviderType, req.Config); err != nil {
+		h.respondError(w, http.StatusBadRequest, fmt.Sprintf("invalid config: %v", err))
+		return
+	}
+
+	h.logger.Infof("Admin: Creating new provider: %s (%s)", req.ProviderName, req.ProviderType)
+
+	// Extract API key from config if present
+	var apiKey string
+	if key, ok := req.Config["api_key"].(string); ok && key != "" {
+		apiKey = key
+		// Remove API key from config (will be stored encrypted separately)
+		delete(req.Config, "api_key")
+	}
+
+	// Create provider config in database
+	providerConfig := &repositories.ProviderConfig{
+		ProviderID:   req.ProviderID,
+		ProviderName: req.ProviderName,
+		ProviderType: req.ProviderType,
+		Config:       req.Config,
+		Enabled:      req.Enabled,
+		HealthStatus: "unknown",
+	}
+
+	if err := h.providerConfigRepo.Create(ctx, providerConfig); err != nil {
+		h.logger.Errorf(err, "Failed to create provider config")
+		h.respondError(w, http.StatusInternalServerError, "failed to create provider")
+		return
+	}
+
+	// If API key was provided and encryption is enabled, store it encrypted
+	if apiKey != "" && h.providerAPIKeyRepo != nil {
+		h.logger.Infof("Storing encrypted API key for provider %s", req.ProviderID)
+
+		keyName := req.ProviderName + " API Key"
+		_, err := h.providerAPIKeyRepo.Create(ctx, req.ProviderID, keyName, apiKey, 1, 60)
+		if err != nil {
+			h.logger.Errorf(err, "Failed to store API key for provider %s", req.ProviderID)
+			// Don't fail the whole request, provider was created
+			h.logger.Warnf("Provider %s created but API key storage failed", req.ProviderID)
+		} else {
+			h.logger.Infof("API key stored successfully for provider %s", req.ProviderID)
+		}
+	}
+
+	h.logger.Infof("Provider %s created successfully", req.ProviderID)
+
+	h.respondJSON(w, http.StatusCreated, map[string]interface{}{
+		"success": true,
+		"message": "Provider created successfully" + func() string {
+			if apiKey != "" && h.providerAPIKeyRepo != nil {
+				return " with encrypted API key"
+			}
+			return ""
+		}(),
+		"provider": providerConfig,
+	})
+}
+
+// UpdateProviderRequest represents the request to update a provider
+type UpdateProviderRequest struct {
+	ProviderName string                 `json:"provider_name"`
+	Config       map[string]interface{} `json:"config"`
+	Enabled      *bool                  `json:"enabled,omitempty"`
+}
+
+// UpdateProvider updates an existing provider configuration
+// PUT /admin/providers/{id}
+func (h *ProviderManagementHandler) UpdateProvider(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	providerID := chi.URLParam(r, "id")
+
+	var req UpdateProviderRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	h.logger.Infof("Admin: Updating provider: %s", providerID)
+
+	// Get existing provider
+	existing, err := h.providerConfigRepo.GetByProviderID(ctx, providerID)
+	if err != nil {
+		h.logger.Errorf(err, "Failed to get provider %s", providerID)
+		h.respondError(w, http.StatusNotFound, "provider not found")
+		return
+	}
+
+	// Update fields
+	if req.ProviderName != "" {
+		existing.ProviderName = req.ProviderName
+	}
+	if req.Config != nil {
+		// Validate config
+		if err := h.validateProviderConfig(existing.ProviderType, req.Config); err != nil {
+			h.respondError(w, http.StatusBadRequest, fmt.Sprintf("invalid config: %v", err))
+			return
+		}
+		existing.Config = req.Config
+	}
+	if req.Enabled != nil {
+		existing.Enabled = *req.Enabled
+	}
+
+	// Update in database
+	if err := h.providerConfigRepo.Update(ctx, existing); err != nil {
+		h.logger.Errorf(err, "Failed to update provider")
+		h.respondError(w, http.StatusInternalServerError, "failed to update provider")
+		return
+	}
+
+	h.respondJSON(w, http.StatusOK, map[string]interface{}{
+		"success":  true,
+		"message":  "Provider updated successfully",
+		"provider": existing,
+	})
+}
+
+// DeleteProvider deletes a provider configuration
+// DELETE /admin/providers/{id}
+func (h *ProviderManagementHandler) DeleteProvider(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	providerID := chi.URLParam(r, "id")
+
+	h.logger.Infof("Admin: Deleting provider: %s", providerID)
+
+	// Prevent deletion of built-in providers
+	if providerID == "claude" || providerID == "openai" {
+		h.respondError(w, http.StatusForbidden, "cannot delete built-in provider")
+		return
+	}
+
+	// Delete from database
+	if err := h.providerConfigRepo.Delete(ctx, providerID); err != nil {
+		h.logger.Errorf(err, "Failed to delete provider")
+		h.respondError(w, http.StatusInternalServerError, "failed to delete provider")
+		return
+	}
+
+	h.respondJSON(w, http.StatusOK, map[string]interface{}{
+		"success": true,
+		"message": "Provider deleted successfully",
+	})
+}
+
+// validateProviderConfig validates provider configuration based on type
+func (h *ProviderManagementHandler) validateProviderConfig(providerType string, config map[string]interface{}) error {
+	switch providerType {
+	case "ollama", "openai-compatible":
+		// Require base_url
+		if _, ok := config["base_url"]; !ok {
+			return fmt.Errorf("base_url is required for %s", providerType)
+		}
+		// api_key is optional for ollama
+	case "openrouter":
+		// Require api_key
+		if _, ok := config["api_key"]; !ok {
+			return fmt.Errorf("api_key is required for openrouter")
+		}
+	case "gemini":
+		// Require api_key for Google Gemini
+		if _, ok := config["api_key"]; !ok {
+			return fmt.Errorf("api_key is required for gemini")
+		}
+		// Optional: project_id for enterprise usage
+	case "claude", "openai":
+		// api_key handled separately via provider_api_keys table
+		// No specific validation here
+	default:
+		return fmt.Errorf("unknown provider type: %s", providerType)
+	}
+	return nil
 }

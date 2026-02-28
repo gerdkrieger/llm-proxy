@@ -33,6 +33,17 @@
   
   // Model sync state
   let syncingModels = false;
+  let importingModels = false;
+  
+  // Add Provider Modal state
+  let showAddProviderModal = false;
+  let addingProvider = false;
+  let newProviderType = '';
+  let newProviderID = '';
+  let newProviderName = '';
+  let newProviderBaseURL = '';
+  let newProviderAPIKey = '';
+  let newProviderEnabled = true;
   
   async function loadProviderStatus() {
     loading = true;
@@ -271,6 +282,125 @@
       alert('Failed to sync models: ' + err.message);
     } finally {
       syncingModels = false;
+    }
+  }
+
+  // Import Models for Provider
+  async function importModels(provider) {
+    if (!confirm(`Import models for ${provider.name}? This will discover and import all available models from the provider API.`)) return;
+    
+    importingModels = true;
+    const api = new AdminAPI($apiKey);
+    try {
+      const result = await api.importProviderModels(provider.id);
+      alert(`Models imported successfully!\n\n✓ ${result.imported_count} new models imported\n✓ ${result.skipped_count} models already existed\n✗ ${result.error_count} errors\n\nTotal: ${result.total_models} models`);
+      await refreshStatus();
+    } catch (err) {
+      alert('Failed to import models: ' + err.message);
+    } finally {
+      importingModels = false;
+    }
+  }
+
+  // Add Provider Functions
+  function openAddProviderModal() {
+    resetAddProviderForm();
+    showAddProviderModal = true;
+  }
+
+  function resetAddProviderForm() {
+    newProviderType = '';
+    newProviderID = '';
+    newProviderName = '';
+    newProviderBaseURL = '';
+    newProviderAPIKey = '';
+    newProviderEnabled = true;
+  }
+
+  function generateProviderID() {
+    if (newProviderName && !newProviderID) {
+      newProviderID = newProviderName.toLowerCase().replace(/[^a-z0-9]/g, '-');
+    }
+  }
+
+  async function addProvider() {
+    // Validation
+    if (!newProviderType) {
+      alert('Please select a provider type');
+      return;
+    }
+    if (!newProviderID) {
+      alert('Please enter a provider ID');
+      return;
+    }
+    if (!newProviderName) {
+      alert('Please enter a provider name');
+      return;
+    }
+
+    // Build config based on provider type
+    const config = {};
+    if (newProviderType === 'ollama' || newProviderType === 'openai-compatible') {
+      if (!newProviderBaseURL) {
+        alert('Base URL is required for this provider type');
+        return;
+      }
+      config.base_url = newProviderBaseURL;
+      if (newProviderAPIKey) {
+        config.api_key = newProviderAPIKey;
+      }
+    } else if (newProviderType === 'openrouter') {
+      if (!newProviderAPIKey) {
+        alert('API Key is required for OpenRouter');
+        return;
+      }
+      config.api_key = newProviderAPIKey;
+      config.base_url = 'https://openrouter.ai/api/v1';
+    } else if (newProviderType === 'gemini') {
+      if (!newProviderAPIKey) {
+        alert('API Key is required for Google Gemini');
+        return;
+      }
+      config.api_key = newProviderAPIKey;
+      config.base_url = 'https://generativelanguage.googleapis.com/v1beta';
+    }
+
+    addingProvider = true;
+    const api = new AdminAPI($apiKey);
+    try {
+      await api.createProvider({
+        provider_id: newProviderID,
+        provider_name: newProviderName,
+        provider_type: newProviderType,
+        config: config,
+        enabled: newProviderEnabled,
+      });
+      
+      alert(`Provider "${newProviderName}" added successfully!`);
+      showAddProviderModal = false;
+      await refreshStatus();
+    } catch (err) {
+      alert('Failed to add provider: ' + err.message);
+    } finally {
+      addingProvider = false;
+    }
+  }
+
+  async function deleteProvider(provider) {
+    if (provider.id === 'claude' || provider.id === 'openai') {
+      alert('Cannot delete built-in providers');
+      return;
+    }
+
+    if (!confirm(`Delete provider "${provider.name}"? This cannot be undone.`)) return;
+
+    const api = new AdminAPI($apiKey);
+    try {
+      await api.deleteProvider(provider.id);
+      alert(`Provider "${provider.name}" deleted successfully`);
+      await refreshStatus();
+    } catch (err) {
+      alert('Failed to delete provider: ' + err.message);
     }
   }
   
@@ -515,19 +645,30 @@
                   >
                     {provider.enabled ? 'Disable' : 'Enable'}
                   </button>
+                  {#if provider.id !== 'claude' && provider.id !== 'openai'}
+                    <button 
+                      on:click={() => deleteProvider(provider)}
+                      class="px-3 py-1.5 text-sm bg-gray-600 text-white rounded hover:bg-gray-700"
+                    >
+                      Delete
+                    </button>
+                  {/if}
                 </div>
               </div>
             {/each}
             
-            <!-- Add More Providers Placeholder -->
+            <!-- Add More Providers -->
             <div class="border border-dashed border-gray-300 rounded-lg p-6 text-center bg-gray-50">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto text-gray-400 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
               </svg>
               <h4 class="text-gray-700 font-medium mb-1">Add More Providers</h4>
-              <p class="text-sm text-gray-500 mb-3">Connect additional LLM providers like Google Gemini, Cohere, or Ollama</p>
-              <button class="px-4 py-2 bg-gray-300 text-gray-500 rounded cursor-not-allowed" disabled title="Feature coming soon">
-                Add Provider (Coming Soon)
+              <p class="text-sm text-gray-500 mb-3">Connect additional LLM providers like Ollama, OpenRouter, or custom OpenAI-compatible APIs</p>
+              <button 
+                on:click={openAddProviderModal}
+                class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              >
+                Add Provider
               </button>
             </div>
           {:else}
@@ -541,9 +682,141 @@
             </div>
           {/if}
         </div>
+    </div>
+  </div>
+{/if}
+
+<!-- Add Provider Modal -->
+{#if showAddProviderModal}
+  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto m-4">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-xl font-semibold">Add New Provider</h3>
+        <button on:click={() => showAddProviderModal = false} class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+      </div>
+
+      <div class="space-y-4">
+        <!-- Provider Type Selection -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Provider Type *</label>
+          <select
+            bind:value={newProviderType}
+            class="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="">Select provider type...</option>
+            <option value="ollama">Ollama (Local)</option>
+            <option value="openai-compatible">OpenAI-Compatible API</option>
+            <option value="openrouter">OpenRouter</option>
+            <option value="gemini">Google Gemini</option>
+          </select>
+          <p class="text-xs text-gray-500 mt-1">
+            {#if newProviderType === 'ollama'}
+              For local Ollama instances. Requires base URL.
+            {:else if newProviderType === 'openai-compatible'}
+              For any OpenAI-compatible API (LM Studio, vLLM, LocalAI, etc.)
+            {:else if newProviderType === 'openrouter'}
+              Access 200+ models through OpenRouter.ai
+            {:else if newProviderType === 'gemini'}
+              Google's Gemini AI models (Gemini Pro, Ultra, Flash)
+            {:else}
+              Choose the type of LLM provider you want to add
+            {/if}
+          </p>
+        </div>
+
+        <!-- Provider Name -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Provider Name *</label>
+          <input
+            type="text"
+            bind:value={newProviderName}
+            on:input={generateProviderID}
+            placeholder="e.g. My Ollama Server"
+            class="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-blue-500 focus:border-blue-500"
+          />
+        </div>
+
+        <!-- Provider ID (auto-generated) -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Provider ID *</label>
+          <input
+            type="text"
+            bind:value={newProviderID}
+            placeholder="Auto-generated from name"
+            class="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-blue-500 focus:border-blue-500 font-mono"
+          />
+          <p class="text-xs text-gray-500 mt-1">Unique identifier (lowercase, no spaces)</p>
+        </div>
+
+        <!-- Base URL (for ollama and openai-compatible) -->
+        {#if newProviderType === 'ollama' || newProviderType === 'openai-compatible'}
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Base URL *</label>
+            <input
+              type="text"
+              bind:value={newProviderBaseURL}
+              placeholder={newProviderType === 'ollama' ? 'http://localhost:11434/v1' : 'http://localhost:1234/v1'}
+              class="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-blue-500 focus:border-blue-500 font-mono"
+            />
+            <p class="text-xs text-gray-500 mt-1">
+              {newProviderType === 'ollama' ? 'Default: http://localhost:11434/v1' : 'The base URL of your OpenAI-compatible API'}
+            </p>
+          </div>
+        {/if}
+
+        <!-- API Key -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">
+            API Key {newProviderType === 'ollama' ? '(Optional)' : (newProviderType === 'openrouter' || newProviderType === 'gemini') ? '*' : ''}
+          </label>
+          <input
+            type="password"
+            bind:value={newProviderAPIKey}
+            placeholder={newProviderType === 'ollama' ? 'Optional for Ollama' : 'Enter API key'}
+            class="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-blue-500 focus:border-blue-500 font-mono"
+          />
+          {#if newProviderType === 'openrouter'}
+            <p class="text-xs text-gray-500 mt-1">Get your API key from <a href="https://openrouter.ai/keys" target="_blank" class="text-blue-600 hover:underline">openrouter.ai/keys</a></p>
+          {:else if newProviderType === 'gemini'}
+            <p class="text-xs text-gray-500 mt-1">Get your API key from <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-blue-600 hover:underline">Google AI Studio</a></p>
+          {/if}
+        </div>
+
+        <!-- Enabled Checkbox -->
+        <div class="flex items-center">
+          <input
+            type="checkbox"
+            bind:checked={newProviderEnabled}
+            id="provider-enabled"
+            class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+          />
+          <label for="provider-enabled" class="ml-2 block text-sm text-gray-700">
+            Enable provider immediately
+          </label>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="flex justify-end space-x-3 pt-4 border-t">
+          <button
+            on:click={() => showAddProviderModal = false}
+            class="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+            disabled={addingProvider}
+          >
+            Cancel
+          </button>
+          <button
+            on:click={addProvider}
+            class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+            disabled={addingProvider}
+          >
+            {addingProvider ? 'Adding...' : 'Add Provider'}
+          </button>
+        </div>
       </div>
     </div>
-  {/if}
+  </div>
+{/if}
+
 </div>
 
 <!-- Config Modal -->
@@ -623,38 +896,79 @@
               <span class="text-lg font-semibold">Status:</span>
               {#if testResult.status === 'success'}
                 <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
-                  ✓ Success
+                  ✓ Connected Successfully
                 </span>
               {:else}
                 <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800">
-                  ✗ Failed
+                  ✗ Connection Failed
                 </span>
               {/if}
             </div>
             
-            {#if testResult.models}
+            {#if testResult.models && testResult.models.length > 0}
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Available Models ({testResult.models.length})</label>
-                <div class="space-y-2">
+                <div class="flex items-center justify-between mb-2">
+                  <label class="block text-sm font-medium text-gray-700">
+                    Available Models
+                    {#if testResult.count}
+                      <span class="text-gray-500">({testResult.count} total)</span>
+                    {:else}
+                      <span class="text-gray-500">({testResult.models.length})</span>
+                    {/if}
+                  </label>
+                </div>
+                <div class="space-y-2 max-h-64 overflow-y-auto border rounded p-2">
                   {#each testResult.models as model}
-                    <div class="px-3 py-2 bg-green-50 rounded border border-green-200">
+                    <div class="px-3 py-2 bg-green-50 rounded border border-green-200 text-sm font-mono">
                       {model}
                     </div>
                   {/each}
                 </div>
               </div>
+            {:else if testResult.status === 'success'}
+              <div class="p-3 bg-yellow-50 border border-yellow-200 rounded">
+                <p class="text-sm text-yellow-800">✓ Connection successful, but no models found</p>
+              </div>
             {/if}
             
             {#if testResult.error}
               <div class="mt-4 p-4 bg-red-50 border border-red-200 rounded">
-                <p class="text-sm text-red-800">{testResult.error}</p>
+                <h4 class="font-semibold text-red-900 mb-2">Error Details:</h4>
+                <p class="text-sm text-red-800 whitespace-pre-wrap">{testResult.error}</p>
+                
+                {#if testResult.status_code}
+                  <div class="mt-2 text-xs text-red-700">
+                    <strong>HTTP Status:</strong> {testResult.status_code}
+                  </div>
+                {/if}
+                
+                {#if testResult.response_body}
+                  <details class="mt-2">
+                    <summary class="text-xs text-red-700 cursor-pointer hover:text-red-900">Show raw response</summary>
+                    <pre class="mt-2 p-2 bg-red-100 rounded text-xs overflow-x-auto">{testResult.response_body}</pre>
+                  </details>
+                {/if}
               </div>
             {/if}
           </div>
         {/if}
       </div>
       
-      <div class="p-6 border-t border-gray-200 flex justify-end">
+      <div class="p-6 border-t border-gray-200 flex justify-between items-center">
+        <div>
+          {#if testResult && testResult.status === 'success' && testResult.models && testResult.models.length > 0}
+            <button 
+              on:click={() => { importModels(selectedProvider); showTestModal = false; }}
+              class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 flex items-center gap-2"
+              disabled={importingModels}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd" />
+              </svg>
+              Import Models to Database
+            </button>
+          {/if}
+        </div>
         <button 
           on:click={() => showTestModal = false}
           class="px-6 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"

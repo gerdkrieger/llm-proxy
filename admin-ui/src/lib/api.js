@@ -233,9 +233,36 @@ class AdminAPI {
     });
   }
 
+  async importProviderModels(providerId) {
+    return this.request(`/admin/providers/${providerId}/models/import`, {
+      method: 'POST',
+    });
+  }
+
   async syncProviderModels() {
     return this.request('/admin/providers/sync-models', {
       method: 'POST',
+    });
+  }
+
+  // Provider CRUD Operations
+  async createProvider(providerData) {
+    return this.request('/admin/providers', {
+      method: 'POST',
+      body: JSON.stringify(providerData),
+    });
+  }
+
+  async updateProvider(providerId, updates) {
+    return this.request(`/admin/providers/${providerId}`, {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    });
+  }
+
+  async deleteProvider(providerId) {
+    return this.request(`/admin/providers/${providerId}`, {
+      method: 'DELETE',
     });
   }
 }

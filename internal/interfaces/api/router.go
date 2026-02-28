@@ -145,6 +145,7 @@ func NewRouter(
 		// Provider Management
 		r.Get("/providers/status", adminHandler.GetProviderStatus)
 		r.Get("/providers", adminHandler.GetProviderDetails)
+		r.Post("/providers/sync-models", providerMgmtHandler.SyncProviderModels) // POST /admin/providers/sync-models
 
 		r.Route("/providers/{id}", func(r chi.Router) {
 			r.Get("/config", providerMgmtHandler.GetProviderConfig)                  // GET /admin/providers/{id}/config

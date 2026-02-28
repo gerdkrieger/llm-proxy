@@ -232,6 +232,12 @@ class AdminAPI {
       body: JSON.stringify({ enabled_models: enabledModels }),
     });
   }
+
+  async syncProviderModels() {
+    return this.request('/admin/providers/sync-models', {
+      method: 'POST',
+    });
+  }
 }
 
 export default AdminAPI;

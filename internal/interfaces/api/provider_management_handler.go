@@ -7,9 +7,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/llm-proxy/llm-proxy/internal/application/providers"
 	"github.com/llm-proxy/llm-proxy/internal/config"
 	"github.com/llm-proxy/llm-proxy/internal/infrastructure/database/repositories"
-	"github.com/llm-proxy/llm-proxy/internal/infrastructure/providers"
+	providersInfra "github.com/llm-proxy/llm-proxy/internal/infrastructure/providers"
 	"github.com/llm-proxy/llm-proxy/pkg/logger"
 )
 
@@ -18,7 +19,7 @@ type ProviderManagementHandler struct {
 	providerSettingsRepo *repositories.ProviderSettingsRepository
 	providerModelRepo    *repositories.ProviderModelRepository
 	providerAPIKeyRepo   *repositories.ProviderAPIKeyRepository // nil if encryption not configured
-	providerMgr          *providers.ProviderManager
+	providerMgr          *providersInfra.ProviderManager
 	config               *config.Config
 	logger               *logger.Logger
 }
@@ -28,7 +29,7 @@ func NewProviderManagementHandler(
 	providerSettingsRepo *repositories.ProviderSettingsRepository,
 	providerModelRepo *repositories.ProviderModelRepository,
 	providerAPIKeyRepo *repositories.ProviderAPIKeyRepository,
-	providerMgr *providers.ProviderManager,
+	providerMgr *providersInfra.ProviderManager,
 	cfg *config.Config,
 	log *logger.Logger,
 ) *ProviderManagementHandler {
@@ -204,6 +205,65 @@ func getProviderName(providerID string) string {
 	default:
 		return providerID
 	}
+}
+
+// SyncProviderModels triggers a manual model synchronization to database
+// POST /admin/providers/sync-models
+func (h *ProviderManagementHandler) SyncProviderModels(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	h.logger.Info("Admin: Triggering manual model sync to database...")
+
+	// Import the model sync service to get all known models
+	allModels := providers.GetAllKnownModels()
+	syncedCount := 0
+	errorCount := 0
+	skippedCount := 0
+
+	for _, model := range allModels {
+		// Check if model already exists
+		existing, err := h.providerModelRepo.GetByProviderAndModel(ctx, model.ProviderID, model.ID)
+
+		if err != nil || existing == nil {
+			// Model doesn't exist, create it as enabled by default
+			desc := model.Description
+			dbModel := &repositories.ProviderModel{
+				ID:          uuid.New(),
+				ProviderID:  model.ProviderID,
+				ModelID:     model.ID,
+				ModelName:   model.Name,
+				Enabled:     true, // Default: enabled
+				Description: &desc,
+				Capabilities: map[string]interface{}{
+					"features": model.Capabilities,
+				},
+				Pricing: map[string]interface{}{},
+			}
+
+			if err := h.providerModelRepo.Create(ctx, dbModel); err != nil {
+				h.logger.Warnf("Failed to sync model %s: %v", model.ID, err)
+				errorCount++
+				continue
+			}
+
+			h.logger.Debugf("Synced new model: %s (%s)", model.Name, model.ID)
+			syncedCount++
+		} else {
+			h.logger.Debugf("Model already exists: %s (skipped)", model.ID)
+			skippedCount++
+		}
+	}
+
+	h.logger.Infof("Model sync completed: %d new models synced, %d skipped (already exist), %d errors, %d total models",
+		syncedCount, skippedCount, errorCount, len(allModels))
+
+	h.respondJSON(w, http.StatusOK, map[string]interface{}{
+		"success":       true,
+		"message":       "Model synchronization completed",
+		"synced_count":  syncedCount,
+		"skipped_count": skippedCount,
+		"error_count":   errorCount,
+		"total_models":  len(allModels),
+	})
 }
 
 // ============================================================================

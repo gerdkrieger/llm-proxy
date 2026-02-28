@@ -31,6 +31,9 @@
   let newKeyWeight = 1;
   let newKeyMaxRPM = 60;
   
+  // Model sync state
+  let syncingModels = false;
+  
   async function loadProviderStatus() {
     loading = true;
     error = null;
@@ -253,6 +256,23 @@
       alert('Failed to toggle API key: ' + err.message);
     }
   }
+
+  // Sync Provider Models
+  async function syncModels() {
+    if (!confirm('Sync all provider models from the official API documentation? This will add any new models to the database.')) return;
+    
+    syncingModels = true;
+    const api = new AdminAPI($apiKey);
+    try {
+      const result = await api.syncProviderModels();
+      alert(`Model sync completed!\n\n✓ ${result.synced_count} new models added\n✓ ${result.skipped_count} models already existed\n✗ ${result.error_count} errors\n\nTotal models: ${result.total_models}`);
+      await refreshStatus();
+    } catch (err) {
+      alert('Failed to sync models: ' + err.message);
+    } finally {
+      syncingModels = false;
+    }
+  }
   
   onMount(loadProviderStatus);
   
@@ -270,12 +290,24 @@
       <h1 class="text-3xl font-bold text-gray-900">LLM Providers</h1>
       <p class="text-gray-600 mt-1">Manage and monitor connected LLM providers</p>
     </div>
-    <button on:click={refreshStatus} class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 flex items-center gap-2">
-      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-        <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd" />
-      </svg>
-      Refresh
-    </button>
+    <div class="flex gap-2">
+      <button 
+        on:click={syncModels} 
+        disabled={syncingModels}
+        class="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 {syncingModels ? 'animate-spin' : ''}" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd" />
+        </svg>
+        {syncingModels ? 'Syncing...' : 'Sync Models'}
+      </button>
+      <button on:click={refreshStatus} class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 flex items-center gap-2">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd" />
+        </svg>
+        Refresh
+      </button>
+    </div>
   </div>
 
   {#if error}

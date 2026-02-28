@@ -1,7 +1,10 @@
 // Admin API Client
 // PRODUCTION FIX: Use window.location.origin to always use the current domain
 // This prevents localhost:8080 issues when deploying from registry
-const API_BASE_URL = window.location.origin;
+// DEVELOPMENT: Use environment variable or localhost:8080 for local development
+const API_BASE_URL = import.meta.env.DEV 
+  ? (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080')
+  : window.location.origin;
 
 class AdminAPI {
   constructor(apiKey) {

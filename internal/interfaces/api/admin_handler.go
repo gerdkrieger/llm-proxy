@@ -970,3 +970,142 @@ func (h *AdminHandler) UpdateSetting(w http.ResponseWriter, r *http.Request) {
 		"value":   req.Value,
 	})
 }
+
+// ============================================================================
+// DASHBOARD DATA
+// ============================================================================
+
+// GetDashboardData returns comprehensive dashboard statistics in a single API call
+// GET /admin/dashboard
+func (h *AdminHandler) GetDashboardData(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	h.logger.Info("Admin: Getting comprehensive dashboard data")
+
+	// Initialize response
+	response := make(map[string]interface{})
+
+	// 1. Usage Statistics
+	stats, err := h.requestLogRepo.GetStatistics(ctx, "", "", time.Time{}, time.Time{})
+	if err != nil {
+		h.logger.Warnf("Failed to get usage statistics: %v", err)
+		stats = &repositories.RequestLogStats{
+			TotalRequests: 0,
+			TotalTokens:   0,
+			TotalCost:     0,
+		}
+	}
+	response["usage"] = map[string]interface{}{
+		"total_requests":  stats.TotalRequests,
+		"total_tokens":    stats.TotalTokens,
+		"total_cost":      stats.TotalCost,
+		"avg_duration_ms": stats.AvgDuration,
+		"cached_requests": stats.CachedRequests,
+		"error_requests":  stats.ErrorRequests,
+		"cache_hit_rate":  stats.CacheHitRate,
+	}
+
+	// 2. Cache Statistics
+	cacheStats := h.cacheService.GetStats()
+	response["cache"] = cacheStats
+
+	// 3. Provider Status with detailed model counts
+	providerStatus := make(map[string]interface{})
+	providerErr := h.providerMgr.Health(ctx)
+	providerStatus["healthy"] = providerErr == nil
+	providerStatus["provider_count"] = h.providerMgr.GetProviderCount()
+
+	// Get all providers with model counts (including custom providers from DB)
+	providers := []map[string]interface{}{}
+
+	// Built-in providers
+	for _, providerID := range []string{"claude", "openai"} {
+		allModels, _ := h.providerModelRepo.GetByProvider(ctx, providerID)
+		enabledModels, _ := h.providerModelRepo.GetEnabledByProvider(ctx, providerID)
+
+		providers = append(providers, map[string]interface{}{
+			"id":             providerID,
+			"total_models":   len(allModels),
+			"enabled_models": len(enabledModels),
+		})
+	}
+
+	// Custom providers from database
+	if h.providerConfigRepo != nil {
+		customProviders, err := h.providerConfigRepo.ListAll(ctx)
+		if err == nil {
+			for _, cp := range customProviders {
+				if cp.ProviderID != "claude" && cp.ProviderID != "openai" {
+					allModels, _ := h.providerModelRepo.GetByProvider(ctx, cp.ProviderID)
+					enabledModels, _ := h.providerModelRepo.GetEnabledByProvider(ctx, cp.ProviderID)
+
+					providers = append(providers, map[string]interface{}{
+						"id":             cp.ProviderID,
+						"name":           cp.ProviderName,
+						"type":           cp.ProviderType,
+						"total_models":   len(allModels),
+						"enabled_models": len(enabledModels),
+						"health_status":  cp.HealthStatus,
+					})
+				}
+			}
+		}
+	}
+
+	providerStatus["providers"] = providers
+	response["providers"] = providerStatus
+
+	// 4. Content Filter Statistics
+	totalMatches, err := h.filterMatchRepo.GetTotalMatches(ctx)
+	if err != nil {
+		h.logger.Warnf("Failed to get total filter matches: %v", err)
+		totalMatches = 0
+	}
+
+	response["filters"] = map[string]interface{}{
+		"total_matches": totalMatches,
+	}
+
+	// 5. Recent Activity (last 10 requests)
+	recentLogs, err := h.requestLogRepo.List(ctx, repositories.RequestLogFilters{Limit: 10})
+	if err != nil {
+		h.logger.Warnf("Failed to get recent requests: %v", err)
+		recentLogs = []*repositories.RequestLog{}
+	}
+
+	// Convert to simplified format
+	recentActivity := make([]map[string]interface{}, 0, len(recentLogs))
+	for _, log := range recentLogs {
+		activity := map[string]interface{}{
+			"id":        log.ID.String(),
+			"timestamp": log.CreatedAt,
+			"model":     log.Model,
+			"provider":  log.Provider,
+			"status":    log.StatusCode,
+			"duration":  log.DurationMS,
+			"tokens":    log.TotalTokens,
+			"cost":      log.CostUSD,
+			"cached":    log.Cached,
+			"filtered":  log.WasFiltered,
+			"error":     log.ErrorMessage != nil,
+		}
+		recentActivity = append(recentActivity, activity)
+	}
+	response["recent_activity"] = recentActivity
+
+	// 6. Error Rate
+	errorRate := 0.0
+	if stats.TotalRequests > 0 {
+		errorRate = (float64(stats.ErrorRequests) / float64(stats.TotalRequests)) * 100
+	}
+	response["error_rate"] = errorRate
+
+	// 7. Client Count
+	clients, err := h.clientRepo.List(ctx, 10000, 0)
+	if err == nil {
+		response["client_count"] = len(clients)
+	} else {
+		response["client_count"] = 0
+	}
+
+	h.respondJSON(w, http.StatusOK, response)
+}

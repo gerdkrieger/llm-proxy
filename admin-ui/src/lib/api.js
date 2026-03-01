@@ -105,6 +105,11 @@ class AdminAPI {
     });
   }
 
+  // Dashboard (comprehensive stats in one call)
+  async getDashboardData() {
+    return this.request('/admin/dashboard');
+  }
+
   // Usage Statistics
   async getUsageStats(params = {}) {
     const query = new URLSearchParams(params).toString();

@@ -135,6 +135,9 @@ func NewRouter(
 		r.Post("/cache/clear", adminHandler.ClearCache)
 		r.Post("/cache/invalidate/{model}", adminHandler.InvalidateCacheByModel)
 
+		// Dashboard
+		r.Get("/dashboard", adminHandler.GetDashboardData)
+
 		// Usage Statistics
 		r.Get("/stats/usage", adminHandler.GetUsageStats)
 

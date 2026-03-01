@@ -91,7 +91,10 @@ func (h *ProviderManagementHandler) GetProviderConfig(w http.ResponseWriter, r *
 		}
 
 		// Count API keys for this provider
-		apiKeys, _ := h.providerAPIKeyRepo.ListByProvider(ctx, providerID)
+		var apiKeys []*repositories.ProviderAPIKey
+		if h.providerAPIKeyRepo != nil {
+			apiKeys, _ = h.providerAPIKeyRepo.ListByProvider(ctx, providerID)
+		}
 
 		// Get enabled models count
 		models, _ := h.providerModelRepo.GetByProvider(ctx, providerID)

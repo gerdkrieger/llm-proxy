@@ -562,12 +562,14 @@ func (h *AdminHandler) GetProviderDetails(w http.ResponseWriter, r *http.Request
 			"api_keys": 0,
 		}
 
-		// Count API keys for this provider
-		apiKeyCount, err := h.providerAPIKeyRepo.CountByProvider(ctx, dbProvider.ProviderID)
-		if err != nil {
-			h.logger.Warnf("Failed to count API keys for %s: %v", dbProvider.ProviderID, err)
-		} else {
-			providerInfo["api_keys"] = apiKeyCount
+		// Count API keys for this provider (only if repo is initialized)
+		if h.providerAPIKeyRepo != nil {
+			apiKeyCount, err := h.providerAPIKeyRepo.CountByProvider(ctx, dbProvider.ProviderID)
+			if err != nil {
+				h.logger.Warnf("Failed to count API keys for %s: %v", dbProvider.ProviderID, err)
+			} else {
+				providerInfo["api_keys"] = apiKeyCount
+			}
 		}
 
 		// Check if provider is active in ProviderManager

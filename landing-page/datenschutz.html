@@ -161,9 +161,14 @@
             border-color: var(--primary);
         }
 
-        [lang="en"] .de-only,
-        [lang="de"] .en-only {
-            display: none;
+        html[lang="en"] .de-only,
+        html[lang="de"] .en-only {
+            display: none !important;
+        }
+        
+        html[lang="de"] .de-only,
+        html[lang="en"] .en-only {
+            display: inline !important;
         }
 
         @media (max-width: 768px) {

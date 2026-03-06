@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -333,7 +333,7 @@
         }
 
         document.addEventListener('DOMContentLoaded', () => {
-            let targetLang = 'de';
+            let targetLang = 'en';
             
             const urlParams = new URLSearchParams(window.location.search);
             const urlLang = urlParams.get('lang');
@@ -348,7 +348,7 @@
                 }
             }
 
-            document.body.setAttribute('lang', targetLang);
+            document.documentElement.setAttribute('lang', targetLang);
             localStorage.setItem('lang', targetLang);
         });
     </script>

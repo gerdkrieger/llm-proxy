@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -1153,7 +1153,7 @@
 
         // Initialize language on page load
         document.addEventListener('DOMContentLoaded', () => {
-            let targetLang = 'de'; // Default
+            let targetLang = 'en'; // Default
 
             // 1. Check URL parameter (highest priority)
             const urlParams = new URLSearchParams(window.location.search);
@@ -1181,8 +1181,8 @@
                 }
             }
 
-            // Apply language
-            document.body.setAttribute('lang', targetLang);
+            // Apply language to <html> tag (best practice)
+            document.documentElement.setAttribute('lang', targetLang);
             localStorage.setItem('lang', targetLang);
             
             // Update URL if not already set

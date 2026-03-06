@@ -321,10 +321,10 @@
 
     <script>
         function toggleLanguage() {
-            const body = document.body;
-            const currentLang = body.getAttribute('lang');
+            const html = document.documentElement;
+            const currentLang = html.getAttribute('lang');
             const newLang = currentLang === 'de' ? 'en' : 'de';
-            body.setAttribute('lang', newLang);
+            html.setAttribute('lang', newLang);
             localStorage.setItem('lang', newLang);
             
             const url = new URL(window.location);

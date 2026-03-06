@@ -1,0 +1,15 @@
+# robots.txt for LLM-Proxy Landing Page
+# https://landing.llmproxy.aitrail.ch/
+
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://landing.llmproxy.aitrail.ch/sitemap.xml
+
+# Crawl-delay (optional, for polite crawlers)
+Crawl-delay: 1
+
+# Disallow admin/private areas (if any in future)
+# Disallow: /admin/
+# Disallow: /api/

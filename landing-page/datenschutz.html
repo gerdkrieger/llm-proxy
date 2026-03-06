@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Datenschutzerklärung - LLM-Proxy</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1e40af;
+            --dark: #1e293b;
+            --darker: #0f172a;
+            --light: #f8fafc;
+            --gray: #64748b;
+            --border: #e2e8f0;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: var(--dark);
+            background: var(--light);
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            background: white;
+            border-bottom: 1px solid var(--border);
+            padding: 1.5rem 0;
+            margin-bottom: 3rem;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--primary);
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--primary), #10b981);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+
+        .content {
+            background: white;
+            padding: 3rem;
+            border-radius: 15px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 2rem;
+            color: var(--darker);
+        }
+
+        h2 {
+            font-size: 1.5rem;
+            margin-top: 2.5rem;
+            margin-bottom: 1rem;
+            color: var(--dark);
+            border-bottom: 2px solid var(--primary);
+            padding-bottom: 0.5rem;
+        }
+
+        h3 {
+            font-size: 1.2rem;
+            margin-top: 1.5rem;
+            margin-bottom: 0.75rem;
+            color: var(--dark);
+        }
+
+        p, li {
+            margin-bottom: 1rem;
+            color: var(--dark);
+        }
+
+        ul, ol {
+            margin-left: 2rem;
+            margin-bottom: 1.5rem;
+        }
+
+        a {
+            color: var(--primary);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .info-box {
+            background: #eff6ff;
+            border-left: 4px solid var(--primary);
+            padding: 1.5rem;
+            margin: 2rem 0;
+            border-radius: 8px;
+        }
+
+        .info-box strong {
+            color: var(--primary);
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-top: 2rem;
+            padding: 0.75rem 1.5rem;
+            background: var(--primary);
+            color: white;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .back-link:hover {
+            background: var(--primary-dark);
+            text-decoration: none;
+            transform: translateY(-2px);
+        }
+
+        .lang-switch {
+            float: right;
+            background: var(--light);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .lang-switch:hover {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        [lang="en"] .de-only,
+        [lang="de"] .en-only {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .content {
+                padding: 1.5rem;
+            }
+
+            h1 {
+                font-size: 2rem;
+            }
+
+            .lang-switch {
+                float: none;
+                display: block;
+                margin-bottom: 1rem;
+            }
+        }
+    </style>
+</head>
+<body lang="de">
+    <header>
+        <div class="container">
+            <button class="lang-switch" onclick="toggleLanguage()">
+                <span class="de-only">🇬🇧 EN</span>
+                <span class="en-only">🇩🇪 DE</span>
+            </button>
+            <a href="/" class="logo">
+                <div class="logo-icon">🛡️</div>
+                <span>LLM-Proxy</span>
+            </a>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="content">
+            <h1>
+                <span class="de-only">Datenschutzerklärung</span>
+                <span class="en-only">Privacy Policy</span>
+            </h1>
+
+            <p class="de-only">
+                Wir freuen uns über Ihr Interesse an unserer Website. Der Schutz Ihrer personenbezogenen Daten ist uns ein 
+                wichtiges Anliegen. Nachfolgend informieren wir Sie über die Verarbeitung personenbezogener Daten bei der 
+                Nutzung dieser Website gemäß Art. 13 DSGVO (EU-Datenschutz-Grundverordnung) und dem Schweizer Datenschutzgesetz (DSG).
+            </p>
+            <p class="en-only">
+                We are pleased about your interest in our website. The protection of your personal data is very important to us. 
+                Below we inform you about the processing of personal data when using this website in accordance with Art. 13 GDPR 
+                (EU General Data Protection Regulation) and the Swiss Data Protection Act (DSG).
+            </p>
+
+            <h2>
+                <span class="de-only">1. Verantwortlicher</span>
+                <span class="en-only">1. Controller</span>
+            </h2>
+            <p class="de-only">
+                Verantwortlich für die Datenverarbeitung auf dieser Website im Sinne der DSGVO ist:
+            </p>
+            <p class="en-only">
+                The controller responsible for data processing on this website within the meaning of the GDPR is:
+            </p>
+            <div class="info-box">
+                <p>
+                    <strong>Gerd Krieger</strong><br>
+                    Sophienstrasse 9<br>
+                    8032 Zürich<br>
+                    <span class="de-only">Schweiz</span>
+                    <span class="en-only">Switzerland</span><br>
+                    E-Mail: <a href="mailto:service@aitrail.ch">service@aitrail.ch</a>
+                </p>
+            </div>
+
+            <h2>
+                <span class="de-only">2. Hosting</span>
+                <span class="en-only">2. Hosting</span>
+            </h2>
+            <p class="de-only">
+                Diese Website wird gehostet bei DigitalOcean LLC, 101 Avenue of the Americas, 10th Floor, New York, NY 10013, USA. 
+                Beim Aufruf unserer Website erfasst der Hosting-Provider automatisch Informationen in sogenannten Server-Log-Dateien.
+            </p>
+            <p class="en-only">
+                This website is hosted by DigitalOcean LLC, 101 Avenue of the Americas, 10th Floor, New York, NY 10013, USA. 
+                When you access our website, the hosting provider automatically collects information in so-called server log files.
+            </p>
+
+            <h2>
+                <span class="de-only">3. Automatische Datenerfassung</span>
+                <span class="en-only">3. Automatic Data Collection</span>
+            </h2>
+
+            <h3>
+                <span class="de-only">Server-Log-Dateien</span>
+                <span class="en-only">Server Log Files</span>
+            </h3>
+            <p class="de-only">
+                Beim Besuch dieser Website werden automatisch folgende Informationen erfasst:
+            </p>
+            <p class="en-only">
+                When visiting this website, the following information is automatically collected:
+            </p>
+            <ul>
+                <li class="de-only">IP-Adresse des anfragenden Rechners</li>
+                <li class="de-only">Datum und Uhrzeit des Zugriffs</li>
+                <li class="de-only">Name und URL der abgerufenen Datei</li>
+                <li class="de-only">Übertragene Datenmenge</li>
+                <li class="de-only">Meldung über erfolgreichen Abruf (HTTP Status Code)</li>
+                <li class="de-only">Browsertyp und Browserversion</li>
+                <li class="de-only">Betriebssystem</li>
+                <li class="de-only">Referrer URL (zuvor besuchte Seite)</li>
+                
+                <li class="en-only">IP address of the requesting computer</li>
+                <li class="en-only">Date and time of access</li>
+                <li class="en-only">Name and URL of the retrieved file</li>
+                <li class="en-only">Amount of data transferred</li>
+                <li class="en-only">Notification of successful retrieval (HTTP status code)</li>
+                <li class="en-only">Browser type and version</li>
+                <li class="en-only">Operating system</li>
+                <li class="en-only">Referrer URL (previously visited page)</li>
+            </ul>
+
+            <p class="de-only">
+                Die Verarbeitung dieser Daten erfolgt auf Grundlage von Art. 6 Abs. 1 lit. f DSGVO zur Gewährleistung eines 
+                stabilen und sicheren Betriebs unserer Website. Die Daten werden automatisch nach 7 Tagen gelöscht.
+            </p>
+            <p class="en-only">
+                This data is processed on the basis of Art. 6 para. 1 lit. f GDPR to ensure stable and secure operation 
+                of our website. The data is automatically deleted after 7 days.
+            </p>
+
+            <h2>
+                <span class="de-only">4. SSL/TLS-Verschlüsselung</span>
+                <span class="en-only">4. SSL/TLS Encryption</span>
+            </h2>
+            <p class="de-only">
+                Diese Seite nutzt aus Sicherheitsgründen und zum Schutz der Übertragung vertraulicher Inhalte eine 
+                SSL/TLS-Verschlüsselung. Eine verschlüsselte Verbindung erkennen Sie daran, dass die Adresszeile des 
+                Browsers von "http://" auf "https://" wechselt und an dem Schloss-Symbol in Ihrer Browserzeile.
+            </p>
+            <p class="en-only">
+                For security reasons and to protect the transmission of confidential content, this site uses SSL/TLS encryption. 
+                You can recognize an encrypted connection by the fact that the address line of the browser changes from "http://" 
+                to "https://" and by the lock symbol in your browser line.
+            </p>
+
+            <h2>
+                <span class="de-only">5. Cookies und LocalStorage</span>
+                <span class="en-only">5. Cookies and LocalStorage</span>
+            </h2>
+            <p class="de-only">
+                Diese Website verwendet <strong>keine Tracking-Cookies</strong> und keine Analyse-Tools wie Google Analytics.
+            </p>
+            <p class="en-only">
+                This website uses <strong>no tracking cookies</strong> and no analytics tools like Google Analytics.
+            </p>
+            
+            <div class="info-box">
+                <p class="de-only">
+                    <strong>LocalStorage für Spracheinstellung:</strong><br>
+                    Wir speichern Ihre gewählte Sprache (Deutsch/Englisch) lokal in Ihrem Browser (LocalStorage), 
+                    damit Sie beim nächsten Besuch nicht erneut wählen müssen. Diese Information verlässt niemals 
+                    Ihren Browser und wird nicht an uns übertragen.
+                </p>
+                <p class="en-only">
+                    <strong>LocalStorage for Language Settings:</strong><br>
+                    We store your chosen language (German/English) locally in your browser (LocalStorage) so you don't 
+                    have to choose again on your next visit. This information never leaves your browser and is not 
+                    transmitted to us.
+                </p>
+            </div>
+
+            <h2>
+                <span class="de-only">6. Kontaktaufnahme</span>
+                <span class="en-only">6. Contact</span>
+            </h2>
+            <p class="de-only">
+                Bei einer Kontaktaufnahme per E-Mail werden die von Ihnen mitgeteilten Daten (E-Mail-Adresse, ggf. Name 
+                und Telefonnummer) von uns gespeichert, um Ihre Anfrage zu bearbeiten. Die Daten werden gelöscht, sobald 
+                sie für die Erreichung des Zweckes ihrer Erhebung nicht mehr erforderlich sind. Dies ist dann der Fall, 
+                wenn die jeweilige Konversation beendet ist. Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO.
+            </p>
+            <p class="en-only">
+                If you contact us by email, the data you provide (email address, name and telephone number if applicable) 
+                will be stored by us in order to process your request. The data will be deleted as soon as it is no longer 
+                necessary to achieve the purpose for which it was collected. This is the case when the respective conversation 
+                has ended. Legal basis is Art. 6 para. 1 lit. f GDPR.
+            </p>
+
+            <h2>
+                <span class="de-only">7. Externe Links</span>
+                <span class="en-only">7. External Links</span>
+            </h2>
+            <p class="de-only">
+                Diese Website enthält Links zu externen Websites Dritter (z.B. GitHub). Auf den Inhalt dieser verlinkten 
+                Websites haben wir keinen Einfluss. Für die Inhalte der verlinkten Seiten ist stets der jeweilige Anbieter 
+                oder Betreiber der Seiten verantwortlich. Die verlinkten Seiten wurden zum Zeitpunkt der Verlinkung auf 
+                mögliche Rechtsverstöße überprüft. Rechtswidrige Inhalte waren zum Zeitpunkt der Verlinkung nicht erkennbar.
+            </p>
+            <p class="en-only">
+                This website contains links to external third-party websites (e.g. GitHub). We have no influence on the content 
+                of these linked websites. The respective provider or operator of the pages is always responsible for the content 
+                of the linked pages. The linked pages were checked for possible legal violations at the time of linking. Illegal 
+                content was not recognizable at the time of linking.
+            </p>
+
+            <h2>
+                <span class="de-only">8. Ihre Rechte</span>
+                <span class="en-only">8. Your Rights</span>
+            </h2>
+            <p class="de-only">
+                Sie haben folgende Rechte bezüglich Ihrer personenbezogenen Daten:
+            </p>
+            <p class="en-only">
+                You have the following rights regarding your personal data:
+            </p>
+            <ul>
+                <li class="de-only"><strong>Auskunftsrecht:</strong> Sie können Auskunft über Ihre gespeicherten Daten verlangen (Art. 15 DSGVO)</li>
+                <li class="de-only"><strong>Berichtigungsrecht:</strong> Sie können die Berichtigung unrichtiger Daten verlangen (Art. 16 DSGVO)</li>
+                <li class="de-only"><strong>Löschungsrecht:</strong> Sie können die Löschung Ihrer Daten verlangen (Art. 17 DSGVO)</li>
+                <li class="de-only"><strong>Einschränkungsrecht:</strong> Sie können die Einschränkung der Verarbeitung verlangen (Art. 18 DSGVO)</li>
+                <li class="de-only"><strong>Widerspruchsrecht:</strong> Sie können der Verarbeitung Ihrer Daten widersprechen (Art. 21 DSGVO)</li>
+                <li class="de-only"><strong>Datenübertragbarkeit:</strong> Sie können die Übertragung Ihrer Daten verlangen (Art. 20 DSGVO)</li>
+                <li class="de-only"><strong>Beschwerderecht:</strong> Sie können sich bei einer Aufsichtsbehörde beschweren (Art. 77 DSGVO)</li>
+
+                <li class="en-only"><strong>Right to information:</strong> You can request information about your stored data (Art. 15 GDPR)</li>
+                <li class="en-only"><strong>Right to rectification:</strong> You can request the correction of incorrect data (Art. 16 GDPR)</li>
+                <li class="en-only"><strong>Right to deletion:</strong> You can request the deletion of your data (Art. 17 GDPR)</li>
+                <li class="en-only"><strong>Right to restriction:</strong> You can request the restriction of processing (Art. 18 GDPR)</li>
+                <li class="en-only"><strong>Right to object:</strong> You can object to the processing of your data (Art. 21 GDPR)</li>
+                <li class="en-only"><strong>Data portability:</strong> You can request the transfer of your data (Art. 20 GDPR)</li>
+                <li class="en-only"><strong>Right to complain:</strong> You can complain to a supervisory authority (Art. 77 GDPR)</li>
+            </ul>
+
+            <p class="de-only">
+                Zur Ausübung Ihrer Rechte wenden Sie sich bitte an: <a href="mailto:service@aitrail.ch">service@aitrail.ch</a>
+            </p>
+            <p class="en-only">
+                To exercise your rights, please contact: <a href="mailto:service@aitrail.ch">service@aitrail.ch</a>
+            </p>
+
+            <h2>
+                <span class="de-only">9. Aufsichtsbehörde</span>
+                <span class="en-only">9. Supervisory Authority</span>
+            </h2>
+            <p class="de-only">
+                Für die Schweiz zuständig:<br>
+                <strong>Eidgenössischer Datenschutz- und Öffentlichkeitsbeauftragter (EDÖB)</strong><br>
+                Feldeggweg 1<br>
+                3003 Bern<br>
+                Schweiz<br>
+                Website: <a href="https://www.edoeb.admin.ch" target="_blank">www.edoeb.admin.ch</a>
+            </p>
+            <p class="en-only">
+                Responsible for Switzerland:<br>
+                <strong>Federal Data Protection and Information Commissioner (FDPIC)</strong><br>
+                Feldeggweg 1<br>
+                3003 Bern<br>
+                Switzerland<br>
+                Website: <a href="https://www.edoeb.admin.ch" target="_blank">www.edoeb.admin.ch</a>
+            </p>
+
+            <h2>
+                <span class="de-only">10. Änderungen dieser Datenschutzerklärung</span>
+                <span class="en-only">10. Changes to this Privacy Policy</span>
+            </h2>
+            <p class="de-only">
+                Wir behalten uns vor, diese Datenschutzerklärung anzupassen, damit sie stets den aktuellen rechtlichen 
+                Anforderungen entspricht oder um Änderungen unserer Leistungen in der Datenschutzerklärung umzusetzen. 
+                Für Ihren erneuten Besuch gilt dann die neue Datenschutzerklärung.
+            </p>
+            <p class="en-only">
+                We reserve the right to adapt this privacy policy so that it always complies with current legal requirements 
+                or to implement changes to our services in the privacy policy. The new privacy policy will then apply to your next visit.
+            </p>
+
+            <h2>
+                <span class="de-only">11. Zusammenfassung: Was wir NICHT tun</span>
+                <span class="en-only">11. Summary: What We DO NOT Do</span>
+            </h2>
+            <div class="info-box">
+                <ul>
+                    <li class="de-only">✓ Keine Tracking-Cookies</li>
+                    <li class="de-only">✓ Keine Analyse-Tools (Google Analytics, etc.)</li>
+                    <li class="de-only">✓ Keine Weitergabe von Daten an Dritte</li>
+                    <li class="de-only">✓ Keine Werbung oder Retargeting</li>
+                    <li class="de-only">✓ Keine Profiling-Aktivitäten</li>
+                    <li class="de-only">✓ Nur notwendige Server-Logs für Sicherheit und Stabilität</li>
+
+                    <li class="en-only">✓ No tracking cookies</li>
+                    <li class="en-only">✓ No analytics tools (Google Analytics, etc.)</li>
+                    <li class="en-only">✓ No sharing of data with third parties</li>
+                    <li class="en-only">✓ No advertising or retargeting</li>
+                    <li class="en-only">✓ No profiling activities</li>
+                    <li class="en-only">✓ Only necessary server logs for security and stability</li>
+                </ul>
+            </div>
+
+            <p style="margin-top: 2rem; font-size: 0.9rem; color: var(--gray);">
+                <span class="de-only">Stand: März 2026</span>
+                <span class="en-only">Last updated: March 2026</span>
+            </p>
+
+            <a href="/" class="back-link">
+                <span class="de-only">← Zurück zur Startseite</span>
+                <span class="en-only">← Back to Home</span>
+            </a>
+        </div>
+    </div>
+
+    <script>
+        function toggleLanguage() {
+            const body = document.body;
+            const currentLang = body.getAttribute('lang');
+            const newLang = currentLang === 'de' ? 'en' : 'de';
+            body.setAttribute('lang', newLang);
+            localStorage.setItem('lang', newLang);
+            
+            const url = new URL(window.location);
+            url.searchParams.set('lang', newLang);
+            window.history.pushState({}, '', url);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            let targetLang = 'de';
+            
+            const urlParams = new URLSearchParams(window.location.search);
+            const urlLang = urlParams.get('lang');
+            if (urlLang === 'en' || urlLang === 'de') {
+                targetLang = urlLang;
+            } else if (localStorage.getItem('lang')) {
+                targetLang = localStorage.getItem('lang');
+            } else {
+                const browserLang = navigator.language || navigator.userLanguage;
+                if (browserLang.startsWith('en')) {
+                    targetLang = 'en';
+                }
+            }
+
+            document.body.setAttribute('lang', targetLang);
+            localStorage.setItem('lang', targetLang);
+        });
+    </script>
+</body>
+</html>

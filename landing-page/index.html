@@ -1144,13 +1144,52 @@
             const newLang = currentLang === 'de' ? 'en' : 'de';
             body.setAttribute('lang', newLang);
             localStorage.setItem('lang', newLang);
+            
+            // Update URL without reload
+            const url = new URL(window.location);
+            url.searchParams.set('lang', newLang);
+            window.history.pushState({}, '', url);
         }
 
-        // Load saved language preference
+        // Initialize language on page load
         document.addEventListener('DOMContentLoaded', () => {
-            const savedLang = localStorage.getItem('lang');
-            if (savedLang) {
-                document.body.setAttribute('lang', savedLang);
+            let targetLang = 'de'; // Default
+
+            // 1. Check URL parameter (highest priority)
+            const urlParams = new URLSearchParams(window.location.search);
+            const urlLang = urlParams.get('lang');
+            if (urlLang === 'en' || urlLang === 'de') {
+                targetLang = urlLang;
+            }
+            // 2. Check localStorage (saved preference)
+            else if (localStorage.getItem('lang')) {
+                targetLang = localStorage.getItem('lang');
+            }
+            // 3. Detect browser language
+            else {
+                const browserLang = navigator.language || navigator.userLanguage;
+                if (browserLang.startsWith('en')) {
+                    targetLang = 'en';
+                }
+                // German speakers: de, de-DE, de-CH, de-AT
+                else if (browserLang.startsWith('de')) {
+                    targetLang = 'de';
+                }
+                // Default to English for international audience
+                else {
+                    targetLang = 'en';
+                }
+            }
+
+            // Apply language
+            document.body.setAttribute('lang', targetLang);
+            localStorage.setItem('lang', targetLang);
+            
+            // Update URL if not already set
+            if (!urlLang) {
+                const url = new URL(window.location);
+                url.searchParams.set('lang', targetLang);
+                window.history.replaceState({}, '', url);
             }
         });
 

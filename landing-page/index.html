@@ -1,0 +1,1172 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="LLM-Proxy - Sichere KI-Integration für Unternehmen. Schützen Sie vertrauliche Daten mit Content-Filtering, Multi-Provider-Support und vollständiger Kontrolle.">
+    <meta name="keywords" content="LLM, AI Proxy, Content Filtering, Enterprise AI, KI Sicherheit, Data Protection, DSGVO">
+    <title>LLM-Proxy - Enterprise AI Gateway mit Content-Filtering</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1e40af;
+            --secondary: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --dark: #1e293b;
+            --darker: #0f172a;
+            --light: #f8fafc;
+            --gray: #64748b;
+            --border: #e2e8f0;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: var(--dark);
+            background: #fff;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        /* Header / Navigation */
+        header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem 0;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            align-items: center;
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: var(--dark);
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+
+        .nav-links a:hover {
+            color: var(--primary);
+        }
+
+        .lang-switch {
+            background: var(--light);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .lang-switch:hover {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        /* Hero Section */
+        .hero {
+            background: linear-gradient(135deg, var(--darker) 0%, var(--dark) 100%);
+            color: white;
+            padding: 6rem 0;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 600"><rect fill="%232563eb" fill-opacity="0.05" width="1200" height="600"/><circle cx="100" cy="100" r="300" fill="%2310b981" fill-opacity="0.03"/><circle cx="1100" cy="500" r="400" fill="%232563eb" fill-opacity="0.03"/></svg>') no-repeat center;
+            background-size: cover;
+        }
+
+        .hero-content {
+            position: relative;
+            z-index: 1;
+            max-width: 800px;
+            margin: 0 auto;
+            text-align: center;
+        }
+
+        .hero h1 {
+            font-size: 3.5rem;
+            font-weight: 800;
+            line-height: 1.2;
+            margin-bottom: 1.5rem;
+        }
+
+        .hero .subtitle {
+            font-size: 1.5rem;
+            color: rgba(255, 255, 255, 0.9);
+            margin-bottom: 2rem;
+            font-weight: 300;
+        }
+
+        .hero-description {
+            font-size: 1.1rem;
+            color: rgba(255, 255, 255, 0.8);
+            margin-bottom: 3rem;
+            line-height: 1.8;
+        }
+
+        .cta-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 1rem 2rem;
+            border-radius: 10px;
+            font-weight: 600;
+            text-decoration: none;
+            display: inline-block;
+            transition: all 0.3s;
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4);
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(37, 99, 235, 0.6);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            backdrop-filter: blur(10px);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.5);
+        }
+
+        /* Trust Badges */
+        .trust-badges {
+            display: flex;
+            justify-content: center;
+            gap: 3rem;
+            margin-top: 3rem;
+            flex-wrap: wrap;
+        }
+
+        .trust-badge {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.9rem;
+        }
+
+        .trust-badge svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        /* Problem Section */
+        .problem-section {
+            padding: 5rem 0;
+            background: #fff;
+        }
+
+        .problem-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4rem;
+            align-items: center;
+        }
+
+        .problem-content h2 {
+            font-size: 2.5rem;
+            margin-bottom: 1.5rem;
+            color: var(--danger);
+        }
+
+        .problem-list {
+            list-style: none;
+            margin-top: 2rem;
+        }
+
+        .problem-list li {
+            padding: 1rem 0;
+            padding-left: 2.5rem;
+            position: relative;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .problem-list li:before {
+            content: '⚠️';
+            position: absolute;
+            left: 0;
+            font-size: 1.2rem;
+        }
+
+        .solution-box {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            padding: 3rem;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(37, 99, 235, 0.2);
+        }
+
+        .solution-box h3 {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+        }
+
+        /* Features Section */
+        .features-section {
+            padding: 5rem 0;
+            background: var(--light);
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 4rem;
+        }
+
+        .section-header h2 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .section-header p {
+            font-size: 1.2rem;
+            color: var(--gray);
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+        }
+
+        .feature-card {
+            background: white;
+            padding: 2rem;
+            border-radius: 15px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+        }
+
+        .feature-icon {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .feature-card h3 {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .feature-card p {
+            color: var(--gray);
+            line-height: 1.8;
+        }
+
+        /* Tech Stack */
+        .tech-section {
+            padding: 5rem 0;
+            background: var(--darker);
+            color: white;
+        }
+
+        .tech-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2rem;
+            margin-top: 3rem;
+        }
+
+        .tech-item {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 2rem;
+            border-radius: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .tech-item h4 {
+            font-size: 1.2rem;
+            margin-bottom: 0.5rem;
+            color: var(--secondary);
+        }
+
+        /* Use Cases */
+        .use-cases-section {
+            padding: 5rem 0;
+        }
+
+        .use-cases-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 2rem;
+            margin-top: 3rem;
+        }
+
+        .use-case-card {
+            background: white;
+            padding: 2rem;
+            border-radius: 15px;
+            border: 2px solid var(--border);
+            transition: all 0.3s;
+        }
+
+        .use-case-card:hover {
+            border-color: var(--primary);
+            box-shadow: 0 10px 40px rgba(37, 99, 235, 0.1);
+        }
+
+        .use-case-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        /* CTA Section */
+        .cta-section {
+            padding: 5rem 0;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            text-align: center;
+        }
+
+        .cta-section h2 {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .cta-section p {
+            font-size: 1.3rem;
+            margin-bottom: 2rem;
+            opacity: 0.9;
+        }
+
+        /* Footer */
+        footer {
+            background: var(--darker);
+            color: rgba(255, 255, 255, 0.7);
+            padding: 3rem 0 1.5rem;
+        }
+
+        .footer-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr;
+            gap: 3rem;
+            margin-bottom: 2rem;
+        }
+
+        .footer-column h4 {
+            color: white;
+            margin-bottom: 1rem;
+        }
+
+        .footer-column ul {
+            list-style: none;
+        }
+
+        .footer-column ul li {
+            margin-bottom: 0.5rem;
+        }
+
+        .footer-column a {
+            color: rgba(255, 255, 255, 0.7);
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .footer-column a:hover {
+            color: white;
+        }
+
+        .footer-bottom {
+            text-align: center;
+            padding-top: 2rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            font-size: 0.9rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 2.5rem;
+            }
+
+            .hero .subtitle {
+                font-size: 1.2rem;
+            }
+
+            .problem-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .footer-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .nav-links {
+                display: none;
+            }
+        }
+
+        /* Language Toggle */
+        [lang="en"] .de-only,
+        [lang="de"] .en-only {
+            display: none;
+        }
+
+        /* Stats */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 2rem;
+            margin: 3rem 0;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 3rem;
+            font-weight: 800;
+            color: var(--primary);
+            display: block;
+        }
+
+        .stat-label {
+            color: var(--gray);
+            margin-top: 0.5rem;
+        }
+
+        @media (max-width: 768px) {
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body lang="de">
+    <!-- Header -->
+    <header>
+        <nav class="container">
+            <div class="logo">
+                <div class="logo-icon">🛡️</div>
+                <span>LLM-Proxy</span>
+            </div>
+            <div class="nav-links">
+                <a href="#features"><span class="de-only">Features</span><span class="en-only">Features</span></a>
+                <a href="#use-cases"><span class="de-only">Anwendungsfälle</span><span class="en-only">Use Cases</span></a>
+                <a href="#tech"><span class="de-only">Technologie</span><span class="en-only">Technology</span></a>
+                <a href="#contact"><span class="de-only">Kontakt</span><span class="en-only">Contact</span></a>
+                <button class="lang-switch" onclick="toggleLanguage()">
+                    <span class="de-only">🇬🇧 EN</span>
+                    <span class="en-only">🇩🇪 DE</span>
+                </button>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="container">
+            <div class="hero-content">
+                <h1>
+                    <span class="de-only">KI sicher nutzen.<br/>Daten schützen.<br/>Kontrolle behalten.</span>
+                    <span class="en-only">Use AI securely.<br/>Protect data.<br/>Stay in control.</span>
+                </h1>
+                <p class="subtitle">
+                    <span class="de-only">Enterprise AI Gateway mit Content-Filtering & Multi-Provider-Support</span>
+                    <span class="en-only">Enterprise AI Gateway with Content Filtering & Multi-Provider Support</span>
+                </p>
+                <p class="hero-description">
+                    <span class="de-only">
+                        LLM-Proxy schützt Ihr Unternehmen vor Datenlecks durch KI-Nutzung. Filter vertrauliche Informationen automatisch, 
+                        bevor sie an Claude, OpenAI oder andere LLM-Provider gesendet werden. DSGVO-konform, selbst gehostet, vollständige Kontrolle.
+                    </span>
+                    <span class="en-only">
+                        LLM-Proxy protects your company from data leaks through AI usage. Automatically filter confidential information 
+                        before it's sent to Claude, OpenAI, or other LLM providers. GDPR compliant, self-hosted, full control.
+                    </span>
+                </p>
+                <div class="cta-buttons">
+                    <a href="#contact" class="btn btn-primary">
+                        <span class="de-only">🚀 Jetzt Demo anfragen</span>
+                        <span class="en-only">🚀 Request Demo Now</span>
+                    </a>
+                    <a href="https://github.com/krieger-engineering/llm-proxy" class="btn btn-secondary" target="_blank">
+                        <span class="de-only">⭐ GitHub ansehen</span>
+                        <span class="en-only">⭐ View on GitHub</span>
+                    </a>
+                </div>
+
+                <div class="trust-badges">
+                    <div class="trust-badge">
+                        <svg fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z"></path></svg>
+                        <span class="de-only">100% Self-Hosted</span>
+                        <span class="en-only">100% Self-Hosted</span>
+                    </div>
+                    <div class="trust-badge">
+                        <svg fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"></path></svg>
+                        <span class="de-only">DSGVO-konform</span>
+                        <span class="en-only">GDPR Compliant</span>
+                    </div>
+                    <div class="trust-badge">
+                        <svg fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"></path></svg>
+                        <span class="de-only">Open Source</span>
+                        <span class="en-only">Open Source</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Problem Section -->
+    <section class="problem-section">
+        <div class="container">
+            <div class="problem-grid">
+                <div class="problem-content">
+                    <h2>
+                        <span class="de-only">Das Problem kennen Sie:</span>
+                        <span class="en-only">You know the problem:</span>
+                    </h2>
+                    <p>
+                        <span class="de-only">
+                            Ihre Mitarbeiter nutzen ChatGPT & Co. für die tägliche Arbeit – aber Sie haben keine Kontrolle darüber, 
+                            welche vertraulichen Daten dabei nach außen gelangen.
+                        </span>
+                        <span class="en-only">
+                            Your employees use ChatGPT & Co. for daily work – but you have no control over 
+                            what confidential data is being shared externally.
+                        </span>
+                    </p>
+                    <ul class="problem-list">
+                        <li>
+                            <span class="de-only"><strong>Datenlecks:</strong> Mitarbeiter kopieren versehentlich Kundendaten, Geschäftsgeheimnisse oder Sourcecode in KI-Chats</span>
+                            <span class="en-only"><strong>Data leaks:</strong> Employees accidentally paste customer data, trade secrets, or source code into AI chats</span>
+                        </li>
+                        <li>
+                            <span class="de-only"><strong>Compliance-Risiken:</strong> DSGVO-Verstöße durch unkontrollierte Datenverarbeitung bei US-Anbietern</span>
+                            <span class="en-only"><strong>Compliance risks:</strong> GDPR violations through uncontrolled data processing with US providers</span>
+                        </li>
+                        <li>
+                            <span class="de-only"><strong>Keine Transparenz:</strong> Sie wissen nicht, wer wann welche KI nutzt und welche Daten verarbeitet werden</span>
+                            <span class="en-only"><strong>No transparency:</strong> You don't know who uses which AI when and what data is being processed</span>
+                        </li>
+                        <li>
+                            <span class="de-only"><strong>Hohe Kosten:</strong> Jeder Mitarbeiter hat eigene Accounts bei verschiedenen Anbietern</span>
+                            <span class="en-only"><strong>High costs:</strong> Each employee has separate accounts with different providers</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="solution-box">
+                    <h3>
+                        <span class="de-only">✅ Die Lösung: LLM-Proxy</span>
+                        <span class="en-only">✅ The Solution: LLM-Proxy</span>
+                    </h3>
+                    <p>
+                        <span class="de-only">
+                            <strong>Ein zentraler Gateway</strong> zwischen Ihren Mitarbeitern und allen LLM-Providern. 
+                            Filtert automatisch vertrauliche Daten, protokolliert alle Anfragen und gibt Ihnen die volle Kontrolle zurück.
+                        </strong>
+                        <span class="en-only">
+                            <strong>One central gateway</strong> between your employees and all LLM providers. 
+                            Automatically filters confidential data, logs all requests, and gives you back full control.
+                        </span>
+                    </p>
+                    <div class="stats-grid" style="margin-top: 2rem; color: white;">
+                        <div class="stat-item">
+                            <span class="stat-number" style="color: white;">100%</span>
+                            <span class="stat-label" style="color: rgba(255,255,255,0.8);">
+                                <span class="de-only">Self-Hosted</span>
+                                <span class="en-only">Self-Hosted</span>
+                            </span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-number" style="color: white;">5+</span>
+                            <span class="stat-label" style="color: rgba(255,255,255,0.8);">
+                                <span class="de-only">LLM Provider</span>
+                                <span class="en-only">LLM Providers</span>
+                            </span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-number" style="color: white;">∞</span>
+                            <span class="stat-label" style="color: rgba(255,255,255,0.8);">
+                                <span class="de-only">Filter-Regeln</span>
+                                <span class="en-only">Filter Rules</span>
+                            </span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-number" style="color: white;">24/7</span>
+                            <span class="stat-label" style="color: rgba(255,255,255,0.8);">
+                                <span class="de-only">Monitoring</span>
+                                <span class="en-only">Monitoring</span>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="features-section" id="features">
+        <div class="container">
+            <div class="section-header">
+                <h2>
+                    <span class="de-only">Funktionen für maximale Sicherheit</span>
+                    <span class="en-only">Features for Maximum Security</span>
+                </h2>
+                <p>
+                    <span class="de-only">Entwickelt für IT-Profis und Enterprise-Anforderungen</span>
+                    <span class="en-only">Built for IT professionals and enterprise requirements</span>
+                </p>
+            </div>
+
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">🛡️</div>
+                    <h3>
+                        <span class="de-only">Content Filtering</span>
+                        <span class="en-only">Content Filtering</span>
+                    </h3>
+                    <p>
+                        <span class="de-only">
+                            Regex-basierte Filter für E-Mails, Telefonnummern, Kreditkarten, Adressen, Custom Patterns. 
+                            Vertrauliche Daten werden automatisch erkannt und durch [REDACTED] ersetzt.
+                        </span>
+                        <span class="en-only">
+                            Regex-based filters for emails, phone numbers, credit cards, addresses, custom patterns. 
+                            Confidential data is automatically detected and replaced with [REDACTED].
+                        </span>
+                    </p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🔄</div>
+                    <h3>
+                        <span class="de-only">Multi-Provider</span>
+                        <span class="en-only">Multi-Provider</span>
+                    </h3>
+                    <p>
+                        <span class="de-only">
+                            Ein Interface für alle: Claude, OpenAI, Gemini, OpenRouter, Ollama, Custom APIs. 
+                            Wechseln Sie Provider dynamisch ohne Code-Änderungen.
+                        </span>
+                        <span class="en-only">
+                            One interface for all: Claude, OpenAI, Gemini, OpenRouter, Ollama, Custom APIs. 
+                            Switch providers dynamically without code changes.
+                        </span>
+                    </p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">📊</div>
+                    <h3>
+                        <span class="de-only">Admin Dashboard</span>
+                        <span class="en-only">Admin Dashboard</span>
+                    </h3>
+                    <p>
+                        <span class="de-only">
+                            Echtzeit-Monitoring aller Requests, Usage Statistics, Cost Tracking, Client Management. 
+                            Vollständige Transparenz über die KI-Nutzung im Unternehmen.
+                        </span>
+                        <span class="en-only">
+                            Real-time monitoring of all requests, usage statistics, cost tracking, client management. 
+                            Complete transparency about AI usage in your company.
+                        </span>
+                    </p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🔐</div>
+                    <h3>
+                        <span class="de-only">OAuth 2.0 & API Keys</span>
+                        <span class="en-only">OAuth 2.0 & API Keys</span>
+                    </h3>
+                    <p>
+                        <span class="de-only">
+                            Enterprise-grade Authentifizierung mit OAuth 2.0 oder API Keys. 
+                            Client-basierte Rate Limiting und Model-Zugriffskontrolle.
+                        </span>
+                        <span class="en-only">
+                            Enterprise-grade authentication with OAuth 2.0 or API keys. 
+                            Client-based rate limiting and model access control.
+                        </span>
+                    </p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">💾</div>
+                    <h3>
+                        <span class="de-only">Response Caching</span>
+                        <span class="en-only">Response Caching</span>
+                    </h3>
+                    <p>
+                        <span class="de-only">
+                            Redis-basiertes Caching für identische Anfragen. Spart Kosten und beschleunigt Antworten. 
+                            TTL und Cache-Strategie konfigurierbar.
+                        </span>
+                        <span class="en-only">
+                            Redis-based caching for identical requests. Saves costs and accelerates responses. 
+                            Configurable TTL and cache strategy.
+                        </span>
+                    </p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">📝</div>
+                    <h3>
+                        <span class="de-only">Request Logging</span>
+                        <span class="en-only">Request Logging</span>
+                    </h3>
+                    <p>
+                        <span class="de-only">
+                            Jede Anfrage wird in PostgreSQL protokolliert: Timestamp, Client, Model, Tokens, Kosten, Status. 
+                            Compliance-ready für Audits.
+                        </span>
+                        <span class="en-only">
+                            Every request is logged in PostgreSQL: timestamp, client, model, tokens, costs, status. 
+                            Compliance-ready for audits.
+                        </span>
+                    </p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">⚡</div>
+                    <h3>
+                        <span class="de-only">High Performance</span>
+                        <span class="en-only">High Performance</span>
+                    </h3>
+                    <p>
+                        <span class="de-only">
+                            Golang-basiert für maximale Performance. Handles 1000+ req/s. 
+                            Prometheus Metrics für Production Monitoring.
+                        </span>
+                        <span class="en-only">
+                            Golang-based for maximum performance. Handles 1000+ req/s. 
+                            Prometheus metrics for production monitoring.
+                        </span>
+                    </p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🔧</div>
+                    <h3>
+                        <span class="de-only">Easy Integration</span>
+                        <span class="en-only">Easy Integration</span>
+                    </h3>
+                    <p>
+                        <span class="de-only">
+                            OpenAI-kompatible API. Ändern Sie nur die Base URL – der Rest bleibt gleich. 
+                            SDKs für Python, JavaScript, Go verfügbar.
+                        </span>
+                        <span class="en-only">
+                            OpenAI-compatible API. Just change the base URL – everything else stays the same. 
+                            SDKs for Python, JavaScript, Go available.
+                        </span>
+                    </p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🐳</div>
+                    <h3>
+                        <span class="de-only">Docker Ready</span>
+                        <span class="en-only">Docker Ready</span>
+                    </h3>
+                    <p>
+                        <span class="de-only">
+                            Docker Compose Setup für schnelles Deployment. PostgreSQL & Redis inklusive. 
+                            Production-ready in 5 Minuten.
+                        </span>
+                        <span class="en-only">
+                            Docker Compose setup for quick deployment. PostgreSQL & Redis included. 
+                            Production-ready in 5 minutes.
+                        </span>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Tech Stack Section -->
+    <section class="tech-section" id="tech">
+        <div class="container">
+            <div class="section-header">
+                <h2 style="color: white;">
+                    <span class="de-only">Enterprise-Grade Tech Stack</span>
+                    <span class="en-only">Enterprise-Grade Tech Stack</span>
+                </h2>
+                <p style="color: rgba(255,255,255,0.7);">
+                    <span class="de-only">Battle-tested Technologien für Production Workloads</span>
+                    <span class="en-only">Battle-tested technologies for production workloads</span>
+                </p>
+            </div>
+
+            <div class="tech-grid">
+                <div class="tech-item">
+                    <h4>Backend</h4>
+                    <p>Golang 1.25 • Chi Router • Clean Architecture • SOLID Principles</p>
+                </div>
+                <div class="tech-item">
+                    <h4>Database</h4>
+                    <p>PostgreSQL 14 • Migrations • Indexes • Foreign Keys • ACID</p>
+                </div>
+                <div class="tech-item">
+                    <h4>Caching</h4>
+                    <p>Redis 7 • TTL-based • LRU Eviction • Cluster-ready</p>
+                </div>
+                <div class="tech-item">
+                    <h4>Admin UI</h4>
+                    <p>Svelte • Vite • Tailwind CSS • Real-time Updates</p>
+                </div>
+                <div class="tech-item">
+                    <h4>Security</h4>
+                    <p>OAuth 2.0 • API Keys • AES-256-GCM Encryption • Rate Limiting</p>
+                </div>
+                <div class="tech-item">
+                    <h4>Monitoring</h4>
+                    <p>Prometheus • Grafana • Request Logs • Health Checks</p>
+                </div>
+                <div class="tech-item">
+                    <h4>Deployment</h4>
+                    <p>Docker • Docker Compose • Reverse Proxy (Caddy/Nginx)</p>
+                </div>
+                <div class="tech-item">
+                    <h4>Providers</h4>
+                    <p>Claude • OpenAI • Gemini • OpenRouter • Ollama • Custom</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Use Cases Section -->
+    <section class="use-cases-section" id="use-cases">
+        <div class="container">
+            <div class="section-header">
+                <h2>
+                    <span class="de-only">Anwendungsfälle</span>
+                    <span class="en-only">Use Cases</span>
+                </h2>
+                <p>
+                    <span class="de-only">Von KMU bis Enterprise – LLM-Proxy passt sich Ihren Anforderungen an</span>
+                    <span class="en-only">From SMB to Enterprise – LLM-Proxy adapts to your requirements</span>
+                </p>
+            </div>
+
+            <div class="use-cases-grid">
+                <div class="use-case-card">
+                    <div class="use-case-icon">🏢</div>
+                    <h3>
+                        <span class="de-only">KMU & Mittelstand</span>
+                        <span class="en-only">SMB & Midsize</span>
+                    </h3>
+                    <p>
+                        <span class="de-only">
+                            Zentrale KI-Nutzung für alle Mitarbeiter ohne versteckte Kosten. Ein Account, ein Dashboard, volle Kontrolle.
+                        </span>
+                        <span class="en-only">
+                            Central AI usage for all employees without hidden costs. One account, one dashboard, full control.
+                        </span>
+                    </p>
+                </div>
+
+                <div class="use-case-card">
+                    <div class="use-case-icon">🏥</div>
+                    <h3>
+                        <span class="de-only">Gesundheitswesen</span>
+                        <span class="en-only">Healthcare</span>
+                    </h3>
+                    <p>
+                        <span class="de-only">
+                            Patientendaten automatisch filtern. HIPAA-konform, DSGVO-compliant. Keine sensiblen Daten verlassen Ihre Infrastruktur.
+                        </span>
+                        <span class="en-only">
+                            Automatically filter patient data. HIPAA-compliant, GDPR-compliant. No sensitive data leaves your infrastructure.
+                        </span>
+                    </p>
+                </div>
+
+                <div class="use-case-card">
+                    <div class="use-case-icon">⚖️</div>
+                    <h3>
+                        <span class="de-only">Anwaltskanzleien</span>
+                        <span class="en-only">Law Firms</span>
+                    </h3>
+                    <p>
+                        <span class="de-only">
+                            Mandanteninformationen schützen. Automatische Schwärzung von Namen, Adressen, Aktenzeichen. Audit-Trail inklusive.
+                        </span>
+                        <span class="en-only">
+                            Protect client information. Automatic redaction of names, addresses, case numbers. Audit trail included.
+                        </span>
+                    </p>
+                </div>
+
+                <div class="use-case-card">
+                    <div class="use-case-icon">💻</div>
+                    <h3>
+                        <span class="de-only">Software-Entwicklung</span>
+                        <span class="en-only">Software Development</span>
+                    </h3>
+                    <p>
+                        <span class="de-only">
+                            Code Review mit KI – ohne Source Code Leaks. API Keys, Secrets und proprietärer Code bleiben intern.
+                        </span>
+                        <span class="en-only">
+                            Code review with AI – without source code leaks. API keys, secrets and proprietary code stay internal.
+                        </span>
+                    </p>
+                </div>
+
+                <div class="use-case-card">
+                    <div class="use-case-icon">📊</div>
+                    <h3>
+                        <span class="de-only">Beratung & Consulting</span>
+                        <span class="en-only">Consulting</span>
+                    </h3>
+                    <p>
+                        <span class="de-only">
+                            Client-spezifische KI-Nutzung mit Mandantentrennung. Kosten pro Projekt nachvollziehen. Multi-Tenant-fähig.
+                        </span>
+                        <span class="en-only">
+                            Client-specific AI usage with tenant separation. Track costs per project. Multi-tenant capable.
+                        </span>
+                    </p>
+                </div>
+
+                <div class="use-case-card">
+                    <div class="use-case-icon">🏭</div>
+                    <h3>
+                        <span class="de-only">Produktion & Industrie</span>
+                        <span class="en-only">Manufacturing</span>
+                    </h3>
+                    <p>
+                        <span class="de-only">
+                            Betriebsgeheimnisse und Fertigungsdaten schützen. On-Premise-Deployment für Air-Gapped Environments.
+                        </span>
+                        <span class="en-only">
+                            Protect trade secrets and manufacturing data. On-premise deployment for air-gapped environments.
+                        </span>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="cta-section" id="contact">
+        <div class="container">
+            <h2>
+                <span class="de-only">Bereit für sichere KI?</span>
+                <span class="en-only">Ready for secure AI?</span>
+            </h2>
+            <p>
+                <span class="de-only">
+                    Starten Sie jetzt mit LLM-Proxy und schützen Sie Ihre sensiblen Daten bei der KI-Nutzung.
+                </span>
+                <span class="en-only">
+                    Start now with LLM-Proxy and protect your sensitive data when using AI.
+                </span>
+            </p>
+            <div class="cta-buttons">
+                <a href="mailto:info@aitrail.ch?subject=LLM-Proxy%20Demo%20Request" class="btn btn-primary" style="background: white; color: var(--primary);">
+                    <span class="de-only">📧 Demo anfragen</span>
+                    <span class="en-only">📧 Request Demo</span>
+                </a>
+                <a href="https://github.com/krieger-engineering/llm-proxy" class="btn btn-secondary" target="_blank">
+                    <span class="de-only">💾 GitHub Repository</span>
+                    <span class="en-only">💾 GitHub Repository</span>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container">
+            <div class="footer-grid">
+                <div class="footer-column">
+                    <div class="logo" style="margin-bottom: 1rem;">
+                        <div class="logo-icon">🛡️</div>
+                        <span style="color: white;">LLM-Proxy</span>
+                    </div>
+                    <p>
+                        <span class="de-only">Enterprise AI Gateway für sichere KI-Nutzung im Unternehmen.</span>
+                        <span class="en-only">Enterprise AI Gateway for secure AI usage in companies.</span>
+                    </p>
+                </div>
+
+                <div class="footer-column">
+                    <h4>Product</h4>
+                    <ul>
+                        <li><a href="#features">Features</a></li>
+                        <li><a href="#tech">Technology</a></li>
+                        <li><a href="#use-cases">
+                            <span class="de-only">Anwendungsfälle</span>
+                            <span class="en-only">Use Cases</span>
+                        </a></li>
+                        <li><a href="https://github.com/krieger-engineering/llm-proxy" target="_blank">GitHub</a></li>
+                    </ul>
+                </div>
+
+                <div class="footer-column">
+                    <h4>
+                        <span class="de-only">Unternehmen</span>
+                        <span class="en-only">Company</span>
+                    </h4>
+                    <ul>
+                        <li><a href="https://pa.aitrail.ch" target="_blank">AItrail</a></li>
+                        <li><a href="mailto:info@aitrail.ch">
+                            <span class="de-only">Kontakt</span>
+                            <span class="en-only">Contact</span>
+                        </a></li>
+                        <li><a href="https://aitrail.ch/impressum">
+                            <span class="de-only">Impressum</span>
+                            <span class="en-only">Imprint</span>
+                        </a></li>
+                        <li><a href="https://aitrail.ch/datenschutz">
+                            <span class="de-only">Datenschutz</span>
+                            <span class="en-only">Privacy</span>
+                        </a></li>
+                    </ul>
+                </div>
+
+                <div class="footer-column">
+                    <h4>
+                        <span class="de-only">Ressourcen</span>
+                        <span class="en-only">Resources</span>
+                    </h4>
+                    <ul>
+                        <li><a href="https://github.com/krieger-engineering/llm-proxy/wiki" target="_blank">
+                            <span class="de-only">Dokumentation</span>
+                            <span class="en-only">Documentation</span>
+                        </a></li>
+                        <li><a href="https://github.com/krieger-engineering/llm-proxy/issues" target="_blank">
+                            <span class="de-only">Support</span>
+                            <span class="en-only">Support</span>
+                        </a></li>
+                        <li><a href="https://github.com/krieger-engineering/llm-proxy/blob/master/CHANGELOG.md" target="_blank">Changelog</a></li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="footer-bottom">
+                <p>
+                    © 2026 LLM-Proxy by <a href="https://aitrail.ch" style="color: var(--primary);">AItrail / Krieger Engineering</a>. 
+                    <span class="de-only">Open Source unter MIT Lizenz.</span>
+                    <span class="en-only">Open Source under MIT License.</span>
+                </p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        function toggleLanguage() {
+            const body = document.body;
+            const currentLang = body.getAttribute('lang');
+            const newLang = currentLang === 'de' ? 'en' : 'de';
+            body.setAttribute('lang', newLang);
+            localStorage.setItem('lang', newLang);
+        }
+
+        // Load saved language preference
+        document.addEventListener('DOMContentLoaded', () => {
+            const savedLang = localStorage.getItem('lang');
+            if (savedLang) {
+                document.body.setAttribute('lang', savedLang);
+            }
+        });
+
+        // Smooth scrolling
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+    </script>
+</body>
+</html>

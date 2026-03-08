@@ -77,3 +77,6 @@ configs/config.yaml
 # Session and temporary files
 SESSION.md
 main
+
+# Token and config files
+OPENWEBUI_*.txt

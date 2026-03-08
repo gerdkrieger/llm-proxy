@@ -346,7 +346,7 @@ https://llmproxy.aitrail.ch:3005
 ### Login
 
 ```
-API Key: admin_dev_key_12345678901234567890123456789012
+API Key: YOUR_ADMIN_API_KEY_HERE
 ```
 
 ### Features
@@ -385,7 +385,7 @@ https://llmproxy.aitrail.ch/admin
 
 ```bash
 # Header
-X-Admin-API-Key: admin_dev_key_12345678901234567890123456789012
+X-Admin-API-Key: YOUR_ADMIN_API_KEY_HERE
 ```
 
 ### Endpoints
@@ -393,7 +393,7 @@ X-Admin-API-Key: admin_dev_key_12345678901234567890123456789012
 #### 1. Request Logs abrufen
 
 ```bash
-curl -H "X-Admin-API-Key: admin_dev_key_12345678901234567890123456789012" \
+curl -H "X-Admin-API-Key: YOUR_ADMIN_API_KEY_HERE" \
   "https://llmproxy.aitrail.ch/admin/logs?limit=100&offset=0" | jq .
 ```
 
@@ -434,7 +434,7 @@ curl -H "X-Admin-API-Key: admin_dev_key_12345678901234567890123456789012" \
 #### 2. Filter Statistics
 
 ```bash
-curl -H "X-Admin-API-Key: admin_dev_key_12345678901234567890123456789012" \
+curl -H "X-Admin-API-Key: YOUR_ADMIN_API_KEY_HERE" \
   "https://llmproxy.aitrail.ch/admin/filters/stats" | jq .
 ```
 
@@ -463,7 +463,7 @@ curl -H "X-Admin-API-Key: admin_dev_key_12345678901234567890123456789012" \
 #### 3. Filter Matches abrufen
 
 ```bash
-curl -H "X-Admin-API-Key: admin_dev_key_12345678901234567890123456789012" \
+curl -H "X-Admin-API-Key: YOUR_ADMIN_API_KEY_HERE" \
   "https://llmproxy.aitrail.ch/admin/filter-matches?limit=50" | jq .
 ```
 
@@ -489,7 +489,7 @@ curl -H "X-Admin-API-Key: admin_dev_key_12345678901234567890123456789012" \
 #### 4. System Health
 
 ```bash
-curl -H "X-Admin-API-Key: admin_dev_key_12345678901234567890123456789012" \
+curl -H "X-Admin-API-Key: YOUR_ADMIN_API_KEY_HERE" \
   "https://llmproxy.aitrail.ch/admin/health" | jq .
 ```
 

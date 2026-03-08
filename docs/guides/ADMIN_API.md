@@ -20,7 +20,7 @@ X-Admin-API-Key: your_admin_api_key_here
 
 **Default Admin API Key** (configured in `configs/config.yaml`):
 ```
-admin_dev_key_12345678901234567890123456789012
+YOUR_ADMIN_API_KEY_HERE
 ```
 
 **Security:** Change this key in production!
@@ -278,7 +278,7 @@ All endpoints return standard error responses:
 
 ```bash
 curl -X POST http://localhost:8080/admin/clients \
-  -H "X-Admin-API-Key: admin_dev_key_12345678901234567890123456789012" \
+  -H "X-Admin-API-Key: YOUR_ADMIN_API_KEY_HERE" \
   -H "Content-Type: application/json" \
   -d '{
     "client_id": "mobile_app",
@@ -294,28 +294,28 @@ curl -X POST http://localhost:8080/admin/clients \
 
 ```bash
 curl http://localhost:8080/admin/cache/stats \
-  -H "X-Admin-API-Key: admin_dev_key_12345678901234567890123456789012"
+  -H "X-Admin-API-Key: YOUR_ADMIN_API_KEY_HERE"
 ```
 
 ### Get Usage Statistics for a Specific Client
 
 ```bash
 curl "http://localhost:8080/admin/stats/usage?client_id=mobile_app" \
-  -H "X-Admin-API-Key: admin_dev_key_12345678901234567890123456789012"
+  -H "X-Admin-API-Key: YOUR_ADMIN_API_KEY_HERE"
 ```
 
 ### Clear All Cache
 
 ```bash
 curl -X POST http://localhost:8080/admin/cache/clear \
-  -H "X-Admin-API-Key: admin_dev_key_12345678901234567890123456789012"
+  -H "X-Admin-API-Key: YOUR_ADMIN_API_KEY_HERE"
 ```
 
 ### Update Client Rate Limits
 
 ```bash
 curl -X PATCH http://localhost:8080/admin/clients/mobile_app \
-  -H "X-Admin-API-Key: admin_dev_key_12345678901234567890123456789012" \
+  -H "X-Admin-API-Key: YOUR_ADMIN_API_KEY_HERE" \
   -H "Content-Type: application/json" \
   -d '{
     "rate_limit_rpm": 500,
@@ -406,7 +406,7 @@ Admin API key is configured in `configs/config.yaml`:
 ```yaml
 admin:
   api_keys:
-    - "admin_dev_key_12345678901234567890123456789012"
+    - "YOUR_ADMIN_API_KEY_HERE"
 ```
 
 **Multiple keys supported** - add multiple keys to the array for different admins.

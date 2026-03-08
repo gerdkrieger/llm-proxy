@@ -300,7 +300,7 @@ ssh openweb "docker logs -f llm-proxy-backend 2>&1 | grep '172.18.0.2'"
 ### Test 5: Live Monitor
 
 1. Öffnen Sie: `https://llmproxy.aitrail.ch:3005`
-2. Login: `admin_dev_key_12345678901234567890123456789012`
+2. Login: `YOUR_ADMIN_API_KEY_HERE`
 3. Klicken Sie: **🔴 Live Monitor**
 4. Sollte zeigen:
    ```

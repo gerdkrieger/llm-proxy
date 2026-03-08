@@ -191,7 +191,7 @@ docker exec llm-proxy-postgres psql -U proxy_user -d llm_proxy -c \
 
 ```bash
 # Test the new /admin/requests endpoint
-curl -s -H "X-Admin-API-Key: admin_dev_key_12345678901234567890123456789012" \
+curl -s -H "X-Admin-API-Key: YOUR_ADMIN_API_KEY_HERE" \
   "https://llmproxy.aitrail.ch/admin/requests?limit=5" | jq '.logs | length'
 ```
 

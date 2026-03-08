@@ -48,7 +48,7 @@ curl https://llmproxy.aitrail.ch/health
 
 # Admin-UI öffnen
 # Browser: https://llmproxy.aitrail.ch
-# Login mit: admin_dev_key_12345678901234567890123456789012
+# Login mit: YOUR_ADMIN_API_KEY_HERE
 ```
 
 ### 3. Lokale Entwicklungsumgebung (5 Minuten)
@@ -167,7 +167,7 @@ ssh openweb "docker restart llm-proxy-backend"
 **LIVE Server:**
 - **SSH:** `ssh openweb` (root@68.183.208.213)
 - **Admin-UI:** https://llmproxy.aitrail.ch
-- **Admin API Key:** `admin_dev_key_12345678901234567890123456789012`
+- **Admin API Key:** `YOUR_ADMIN_API_KEY_HERE`
 
 **Datenbank:**
 - **Host:** llm-proxy-postgres (Docker) / localhost:5432 (extern)

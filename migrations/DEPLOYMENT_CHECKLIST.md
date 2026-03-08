@@ -121,15 +121,15 @@ curl -s https://llmproxy.aitrail.ch/health | jq .
 #### Test 3: API Endpoints
 ```bash
 # Providers
-curl -s -H "X-Admin-API-Key: admin_dev_key_12345678901234567890123456789012" \
+curl -s -H "X-Admin-API-Key: YOUR_ADMIN_API_KEY_HERE" \
   https://llmproxy.aitrail.ch/admin/providers | jq .
 
 # Stats (the one that failed before!)
-curl -s -H "X-Admin-API-Key: admin_dev_key_12345678901234567890123456789012" \
+curl -s -H "X-Admin-API-Key: YOUR_ADMIN_API_KEY_HERE" \
   https://llmproxy.aitrail.ch/admin/stats/usage | jq .
 
 # Clients
-curl -s -H "X-Admin-API-Key: admin_dev_key_12345678901234567890123456789012" \
+curl -s -H "X-Admin-API-Key: YOUR_ADMIN_API_KEY_HERE" \
   https://llmproxy.aitrail.ch/admin/clients | jq .
 ```
 **Expected:** All return HTTP 200 with valid JSON

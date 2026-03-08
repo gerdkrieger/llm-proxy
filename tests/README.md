@@ -136,7 +136,7 @@ Configure using environment variables:
 export API_BASE_URL="http://localhost:8080"
 export TEST_CLIENT_ID="test_client"
 export TEST_CLIENT_SECRET="test_secret_123456"
-export ADMIN_API_KEY="admin_dev_key_12345678901234567890123456789012"
+export ADMIN_API_KEY="YOUR_ADMIN_API_KEY_HERE"
 
 # Then run tests
 go test -tags=integration ./tests/integration/
@@ -222,7 +222,7 @@ k6 run \
   -e BASE_URL=http://localhost:8080 \
   -e CLIENT_ID=test_client \
   -e CLIENT_SECRET=test_secret_123456 \
-  -e ADMIN_API_KEY=admin_dev_key_12345678901234567890123456789012 \
+  -e ADMIN_API_KEY=YOUR_ADMIN_API_KEY_HERE \
   api-endpoints-load-test.js
 ```
 

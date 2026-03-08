@@ -97,7 +97,7 @@ CLAUDE_API_KEY=sk-ant-api03-...
 OPENAI_API_KEY=sk-proj-...
 
 # Admin Key
-ADMIN_API_KEY=admin_dev_key_12345678901234567890123456789012
+ADMIN_API_KEY=YOUR_ADMIN_API_KEY_HERE
 ```
 
 ## 🧪 Testen der OCR-Funktionalität

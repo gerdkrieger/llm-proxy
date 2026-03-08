@@ -363,7 +363,7 @@ ssh openweb "docker logs -f llm-proxy-backend 2>&1 | grep '172.18.0.2'"
 **Live Monitor:**
 ```
 URL: https://llmproxy.aitrail.ch:3005
-Login: admin_dev_key_12345678901234567890123456789012
+Login: YOUR_ADMIN_API_KEY_HERE
 Navigate to: Live Monitor (top menu)
 ```
 

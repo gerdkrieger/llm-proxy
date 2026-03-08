@@ -17,7 +17,7 @@ npm run dev
 
 Access at: http://localhost:5173
 
-Default API Key: `admin_dev_key_12345678901234567890123456789012`
+Default API Key: `YOUR_ADMIN_API_KEY_HERE`
 
 ## Tech Stack
 - Svelte 5

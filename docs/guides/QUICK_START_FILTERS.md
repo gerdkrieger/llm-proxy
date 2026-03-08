@@ -35,7 +35,7 @@ Dieses Script erstellt:
 
 ```bash
 curl -X POST http://localhost:8080/admin/filters \
-  -H "X-Admin-API-Key: admin_dev_key_12345678901234567890123456789012" \
+  -H "X-Admin-API-Key: YOUR_ADMIN_API_KEY_HERE" \
   -H "Content-Type: application/json" \
   -d '{
     "pattern": "badword",
@@ -64,11 +64,11 @@ google-chrome filter-management.html
 ```bash
 # Alle Filter auflisten
 curl -s http://localhost:8080/admin/filters \
-  -H "X-Admin-API-Key: admin_dev_key_12345678901234567890123456789012" | jq '.'
+  -H "X-Admin-API-Key: YOUR_ADMIN_API_KEY_HERE" | jq '.'
 
 # Nur die wichtigsten Infos
 curl -s http://localhost:8080/admin/filters \
-  -H "X-Admin-API-Key: admin_dev_key_12345678901234567890123456789012" \
+  -H "X-Admin-API-Key: YOUR_ADMIN_API_KEY_HERE" \
   | jq '.filters[] | {id, pattern, replacement, filter_type, enabled, priority}'
 ```
 
@@ -79,7 +79,7 @@ curl -s http://localhost:8080/admin/filters \
 ```bash
 # Ad-hoc Test eines Filters
 curl -X POST http://localhost:8080/admin/filters/test \
-  -H "X-Admin-API-Key: admin_dev_key_12345678901234567890123456789012" \
+  -H "X-Admin-API-Key: YOUR_ADMIN_API_KEY_HERE" \
   -H "Content-Type: application/json" \
   -d '{
     "text": "This is a badword test",
@@ -154,7 +154,7 @@ curl -X POST http://localhost:8080/v1/chat/completions \
 ```bash
 # Filter-Statistiken
 curl -s http://localhost:8080/admin/filters/stats \
-  -H "X-Admin-API-Key: admin_dev_key_12345678901234567890123456789012" | jq '.'
+  -H "X-Admin-API-Key: YOUR_ADMIN_API_KEY_HERE" | jq '.'
 ```
 
 **Ausgabe:**
@@ -183,7 +183,7 @@ curl -s http://localhost:8080/admin/filters/stats \
 ```bash
 # Filter mit ID 1 deaktivieren
 curl -X PUT http://localhost:8080/admin/filters/1 \
-  -H "X-Admin-API-Key: admin_dev_key_12345678901234567890123456789012" \
+  -H "X-Admin-API-Key: YOUR_ADMIN_API_KEY_HERE" \
   -H "Content-Type: application/json" \
   -d '{"enabled": false}'
 ```
@@ -193,7 +193,7 @@ curl -X PUT http://localhost:8080/admin/filters/1 \
 ```bash
 # Priorität ändern
 curl -X PUT http://localhost:8080/admin/filters/1 \
-  -H "X-Admin-API-Key: admin_dev_key_12345678901234567890123456789012" \
+  -H "X-Admin-API-Key: YOUR_ADMIN_API_KEY_HERE" \
   -H "Content-Type: application/json" \
   -d '{
     "priority": 150,
@@ -206,7 +206,7 @@ curl -X PUT http://localhost:8080/admin/filters/1 \
 ```bash
 # Filter mit ID 1 löschen
 curl -X DELETE http://localhost:8080/admin/filters/1 \
-  -H "X-Admin-API-Key: admin_dev_key_12345678901234567890123456789012"
+  -H "X-Admin-API-Key: YOUR_ADMIN_API_KEY_HERE"
 ```
 
 ### Cache aktualisieren
@@ -214,7 +214,7 @@ curl -X DELETE http://localhost:8080/admin/filters/1 \
 ```bash
 # Nach mehreren Änderungen Cache manuell neu laden
 curl -X POST http://localhost:8080/admin/filters/refresh \
-  -H "X-Admin-API-Key: admin_dev_key_12345678901234567890123456789012"
+  -H "X-Admin-API-Key: YOUR_ADMIN_API_KEY_HERE"
 ```
 
 ---
@@ -236,7 +236,7 @@ PGPASSWORD=dev_password_2024 psql -h localhost -p 5433 -U proxy_user -d llm_prox
 ⚠️ **Wichtig:** Nach direkten DB-Änderungen unbedingt Cache aktualisieren:
 ```bash
 curl -X POST http://localhost:8080/admin/filters/refresh \
-  -H "X-Admin-API-Key: admin_dev_key_12345678901234567890123456789012"
+  -H "X-Admin-API-Key: YOUR_ADMIN_API_KEY_HERE"
 ```
 
 ---
@@ -257,11 +257,11 @@ cd /home/krieger/Sites/golang-projekte/llm-proxy
 ```bash
 # 1. Cache aktualisieren
 curl -X POST http://localhost:8080/admin/filters/refresh \
-  -H "X-Admin-API-Key: admin_dev_key_12345678901234567890123456789012"
+  -H "X-Admin-API-Key: YOUR_ADMIN_API_KEY_HERE"
 
 # 2. Prüfen ob Filter enabled sind
 curl -s http://localhost:8080/admin/filters \
-  -H "X-Admin-API-Key: admin_dev_key_12345678901234567890123456789012" \
+  -H "X-Admin-API-Key: YOUR_ADMIN_API_KEY_HERE" \
   | jq '.filters[] | select(.enabled == false)'
 
 # 3. Server-Logs prüfen
@@ -271,7 +271,7 @@ tail -f /path/to/log
 ### Admin API Key falsch
 Der Standard-Dev-Key ist:
 ```
-admin_dev_key_12345678901234567890123456789012
+YOUR_ADMIN_API_KEY_HERE
 ```
 
 Dieser ist in der `.env` Datei konfiguriert als `ADMIN_API_KEY`.
@@ -285,13 +285,13 @@ Dieser ist in der `.env` Datei konfiguriert als `ADMIN_API_KEY`.
 ```bash
 # 1. Filter erstellen
 curl -X POST http://localhost:8080/admin/filters \
-  -H "X-Admin-API-Key: admin_dev_key_12345678901234567890123456789012" \
+  -H "X-Admin-API-Key: YOUR_ADMIN_API_KEY_HERE" \
   -H "Content-Type: application/json" \
   -d '{"pattern": "badword", "replacement": "[FILTERED]", "filter_type": "word", "enabled": true, "priority": 100}'
 
 # 2. Testen
 curl -X POST http://localhost:8080/admin/filters/test \
-  -H "X-Admin-API-Key: admin_dev_key_12345678901234567890123456789012" \
+  -H "X-Admin-API-Key: YOUR_ADMIN_API_KEY_HERE" \
   -H "Content-Type: application/json" \
   -d '{"text": "This is a badword", "pattern": "badword", "replacement": "[FILTERED]", "filter_type": "word"}'
 
@@ -304,7 +304,7 @@ curl -X POST http://localhost:8080/admin/filters/test \
 ```bash
 # 1. Regex-Filter für Emails erstellen
 curl -X POST http://localhost:8080/admin/filters \
-  -H "X-Admin-API-Key: admin_dev_key_12345678901234567890123456789012" \
+  -H "X-Admin-API-Key: YOUR_ADMIN_API_KEY_HERE" \
   -H "Content-Type: application/json" \
   -d '{
     "pattern": "\\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Z|a-z]{2,}\\b",
@@ -316,7 +316,7 @@ curl -X POST http://localhost:8080/admin/filters \
 
 # 2. Testen
 curl -X POST http://localhost:8080/admin/filters/test \
-  -H "X-Admin-API-Key: admin_dev_key_12345678901234567890123456789012" \
+  -H "X-Admin-API-Key: YOUR_ADMIN_API_KEY_HERE" \
   -H "Content-Type: application/json" \
   -d '{
     "text": "Contact me at john.doe@example.com",

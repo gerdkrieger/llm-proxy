@@ -229,7 +229,7 @@ Eine **visuelle Monitoring-Komponente** in der Admin UI die **in Echtzeit** zeig
 
 ```
 URL: https://llmproxy.aitrail.ch:3005
-Login: admin_dev_key_12345678901234567890123456789012
+Login: YOUR_ADMIN_API_KEY_HERE
 
 Menü: 🔴 Live Monitor (grüner Button)
 ```

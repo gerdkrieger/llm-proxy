@@ -96,7 +96,7 @@ Für fortgeschrittene Nutzer oder Automation:
 
 ```bash
 curl -X POST http://localhost:8080/admin/filters/bulk-import \
-  -H "X-Admin-API-Key: admin_dev_key_12345678901234567890123456789012" \
+  -H "X-Admin-API-Key: YOUR_ADMIN_API_KEY_HERE" \
   -H "Content-Type: application/json" \
   -d '{
     "filters": [
@@ -315,7 +315,7 @@ badword3,[*],word,100,Offensive language
 ```bash
 # Cache aktualisieren
 curl -X POST http://localhost:8080/admin/filters/refresh \
-  -H "X-Admin-API-Key: admin_dev_key_12345678901234567890123456789012"
+  -H "X-Admin-API-Key: YOUR_ADMIN_API_KEY_HERE"
 ```
 
 ### Problem: Zu viele Fehler beim Import

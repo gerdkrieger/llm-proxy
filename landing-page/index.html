@@ -492,127 +492,17 @@
             opacity: 0.9;
         }
 
-        /* Demo Form */
-        .demo-form-container {
-            max-width: 600px;
-            margin: 3rem auto 0;
-            background: rgba(255, 255, 255, 0.95);
-            padding: 2.5rem;
-            border-radius: 12px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        /* CTA Buttons Enhancement */
+        .btn-large {
+            font-size: 1.3rem;
+            padding: 1.2rem 3rem;
+            font-weight: 700;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
         }
 
-        .demo-form {
-            text-align: left;
-        }
-
-        .form-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1.5rem;
-            margin-bottom: 1.5rem;
-        }
-
-        .form-group {
-            margin-bottom: 1.5rem;
-        }
-
-        .form-group label {
-            display: block;
-            color: var(--dark);
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-            font-size: 0.95rem;
-        }
-
-        .form-group input,
-        .form-group textarea {
-            width: 100%;
-            padding: 0.85rem;
-            border: 2px solid var(--border);
-            border-radius: 8px;
-            font-size: 1rem;
-            font-family: inherit;
-            transition: all 0.3s ease;
-            background: white;
-        }
-
-        .form-group input:focus,
-        .form-group textarea:focus {
-            outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
-        }
-
-        .form-group textarea {
-            resize: vertical;
-            min-height: 100px;
-        }
-
-        .btn-submit {
-            width: 100%;
-            padding: 1rem 2rem;
-            font-size: 1.1rem;
-            font-weight: 600;
-            margin-top: 0.5rem;
-            cursor: pointer;
-            border: none;
-        }
-
-        .btn-submit:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 20px rgba(37, 99, 235, 0.4);
-        }
-
-        .btn-submit:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .form-message {
-            margin-top: 1rem;
-            padding: 1rem;
-            border-radius: 8px;
-            text-align: center;
-            font-weight: 500;
-            display: none;
-        }
-
-        .form-message.success {
-            background: #10b981;
-            color: white;
-            display: block;
-        }
-
-        .form-message.error {
-            background: #ef4444;
-            color: white;
-            display: block;
-        }
-
-        .form-alternative {
-            text-align: center;
-            margin-top: 2rem;
-            padding-top: 2rem;
-            border-top: 1px solid rgba(0, 0, 0, 0.1);
-        }
-
-        .form-alternative p {
-            color: var(--gray);
-            font-size: 0.95rem;
-            margin-bottom: 1rem;
-        }
-
-        @media (max-width: 768px) {
-            .form-row {
-                grid-template-columns: 1fr;
-                gap: 0;
-            }
-
-            .demo-form-container {
-                padding: 1.5rem;
-            }
+        .btn-large:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 25px rgba(0, 0, 0, 0.3);
         }
 
         /* Footer */
@@ -1249,61 +1139,33 @@
                 </span>
             </p>
             
-            <!-- Demo Request Form -->
-            <div class="demo-form-container">
-                <form id="demoForm" class="demo-form">
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="name">
-                                <span class="de-only">Name *</span>
-                                <span class="en-only">Name *</span>
-                            </label>
-                            <input type="text" id="name" name="name" required 
-                                   placeholder="Max Mustermann / John Doe">
-                        </div>
-                        <div class="form-group">
-                            <label for="email">
-                                <span class="de-only">E-Mail *</span>
-                                <span class="en-only">Email *</span>
-                            </label>
-                            <input type="email" id="email" name="email" required 
-                                   placeholder="name@company.com">
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label for="company">
-                            <span class="de-only">Unternehmen *</span>
-                            <span class="en-only">Company *</span>
-                        </label>
-                        <input type="text" id="company" name="company" required 
-                               placeholder="ACME Corp">
-                    </div>
-                    <div class="form-group">
-                        <label for="message">
-                            <span class="de-only">Nachricht (optional)</span>
-                            <span class="en-only">Message (optional)</span>
-                        </label>
-                        <textarea id="message" name="message" rows="4" 
-                                  placeholder="Tell us about your use case..."></textarea>
-                    </div>
-                    <button type="submit" class="btn btn-primary btn-submit">
-                        <span class="de-only">🚀 Demo anfragen</span>
-                        <span class="en-only">🚀 Request Demo</span>
-                    </button>
-                    <div id="formMessage" class="form-message"></div>
-                </form>
-                
-                <div class="form-alternative">
-                    <p>
-                        <span class="de-only">Oder direkt:</span>
-                        <span class="en-only">Or directly:</span>
-                    </p>
-                    <a href="https://github.com/krieger-engineering/llm-proxy" class="btn btn-secondary" target="_blank">
-                        <span class="de-only">💾 GitHub Repository</span>
-                        <span class="en-only">💾 GitHub Repository</span>
-                    </a>
-                </div>
+            <!-- Cal.com Booking CTA -->
+            <div class="cta-buttons" style="margin-top: 3rem;">
+                <a href="https://cal.com/gerd-krieger-plwn35/llm-proxy" 
+                   class="btn btn-primary btn-large" 
+                   target="_blank" 
+                   rel="noopener noreferrer"
+                   style="background: white; color: var(--primary); font-size: 1.3rem; padding: 1.2rem 3rem;">
+                    <span class="de-only">📅 Jetzt Demo-Termin buchen</span>
+                    <span class="en-only">📅 Book Demo Meeting</span>
+                </a>
+                <a href="https://github.com/krieger-engineering/llm-proxy" 
+                   class="btn btn-secondary btn-large" 
+                   target="_blank"
+                   style="font-size: 1.3rem; padding: 1.2rem 3rem;">
+                    <span class="de-only">💾 GitHub Repository</span>
+                    <span class="en-only">💾 GitHub Repository</span>
+                </a>
             </div>
+            
+            <p style="margin-top: 2rem; font-size: 1rem; opacity: 0.85;">
+                <span class="de-only">
+                    ⏱️ 30 Minuten persönliche Demo • Kostenlos & unverbindlich
+                </span>
+                <span class="en-only">
+                    ⏱️ 30-minute personal demo • Free & no commitment
+                </span>
+            </p>
         </div>
     </section>
 
@@ -1456,71 +1318,7 @@
             });
         });
 
-        // Demo Form Submission
-        const demoForm = document.getElementById('demoForm');
-        const formMessage = document.getElementById('formMessage');
 
-        if (demoForm) {
-            demoForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-
-                const submitBtn = demoForm.querySelector('button[type="submit"]');
-                const originalBtnText = submitBtn.innerHTML;
-
-                // Get current language
-                const currentLang = document.documentElement.getAttribute('lang') || 'en';
-
-                // Disable button and show loading
-                submitBtn.disabled = true;
-                submitBtn.innerHTML = currentLang === 'de' ? '⏳ Wird gesendet...' : '⏳ Sending...';
-
-                // Hide previous messages
-                formMessage.className = 'form-message';
-                formMessage.style.display = 'none';
-
-                // Collect form data
-                const formData = {
-                    name: document.getElementById('name').value,
-                    email: document.getElementById('email').value,
-                    company: document.getElementById('company').value,
-                    message: document.getElementById('message').value
-                };
-
-                try {
-                    const response = await fetch('/api/demo-request', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify(formData)
-                    });
-
-                    const result = await response.json();
-
-                    if (response.ok) {
-                        formMessage.className = 'form-message success';
-                        formMessage.innerHTML = currentLang === 'de' 
-                            ? '✅ Vielen Dank! Wir melden uns in Kürze bei Ihnen.'
-                            : '✅ Thank you! We\'ll get back to you soon.';
-                        formMessage.style.display = 'block';
-                        demoForm.reset();
-                    } else {
-                        throw new Error(result.message || 'Failed to send');
-                    }
-                } catch (error) {
-                    console.error('Form submission error:', error);
-                    formMessage.className = 'form-message error';
-                    formMessage.innerHTML = currentLang === 'de'
-                        ? '❌ Fehler beim Senden. Bitte versuchen Sie es erneut oder kontaktieren Sie uns direkt unter service@aitrail.ch'
-                        : '❌ Error sending request. Please try again or contact us directly at service@aitrail.ch';
-                    formMessage.style.display = 'block';
-                } finally {
-                    // Re-enable button
-                    submitBtn.disabled = false;
-                    submitBtn.innerHTML = originalBtnText;
-                }
-            });
-        }
     </script>
 </body>
 </html>

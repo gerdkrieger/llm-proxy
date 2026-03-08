@@ -1,0 +1,167 @@
+# =============================================================================
+# LLM-PROXY CONFIGURATION EXAMPLE
+# =============================================================================
+# This is an example configuration file with placeholder values.
+# 
+# SETUP INSTRUCTIONS:
+# 1. Copy this file to config.yaml:
+#    cp configs/config.example.yaml configs/config.yaml
+# 
+# 2. Replace all placeholder values with your actual secrets:
+#    - Database password
+#    - JWT secret (min 32 characters)
+#    - Admin API keys
+#    - Client API keys
+#    - LLM provider API keys (Claude, OpenAI)
+# 
+# 3. Never commit config.yaml to Git! (it's in .gitignore)
+# 
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# SERVER CONFIGURATION
+# -----------------------------------------------------------------------------
+server:
+  host: 0.0.0.0
+  port: 8080
+  timeout: 300s
+  read_timeout: 30s
+  write_timeout: 30s
+
+# -----------------------------------------------------------------------------
+# DATABASE CONFIGURATION (PostgreSQL)
+# -----------------------------------------------------------------------------
+database:
+  host: localhost
+  port: 5433
+  database: llm_proxy
+  user: proxy_user
+  password: YOUR_DATABASE_PASSWORD_HERE  # CHANGE THIS!
+  max_connections: 25
+  ssl_mode: disable  # Use 'require' in production
+
+# -----------------------------------------------------------------------------
+# REDIS CONFIGURATION
+# -----------------------------------------------------------------------------
+redis:
+  host: localhost
+  port: 6380
+  db: 0
+  password: ""  # Set if Redis requires authentication
+  max_retries: 3
+  pool_size: 10
+
+# -----------------------------------------------------------------------------
+# OAUTH & JWT CONFIGURATION
+# -----------------------------------------------------------------------------
+oauth:
+  jwt_secret: "CHANGE-THIS-TO-RANDOM-STRING-MIN-32-CHARS-REQUIRED"  # CHANGE THIS!
+  access_token_ttl: 2592000s  # 30 days (for static API clients like OpenWebUI)
+  refresh_token_ttl: 7776000s  # 90 days
+  issuer: "llm-proxy"
+  
+  # External OAuth providers (for future use)
+  # external_providers:
+  #   google:
+  #     enabled: false
+  #     client_id: ""
+  #     client_secret: ""
+  #     redirect_uri: "http://localhost:8080/oauth/providers/google/callback"
+
+# -----------------------------------------------------------------------------
+# ADMIN CONFIGURATION
+# -----------------------------------------------------------------------------
+admin:
+  api_keys:
+    - "YOUR_ADMIN_API_KEY_HERE"  # CHANGE THIS! Use a strong random key
+
+# -----------------------------------------------------------------------------
+# CLIENT API KEYS (for OpenAI-compatible clients like OpenWebUI, Cursor, etc.)
+# -----------------------------------------------------------------------------
+# These keys allow simple Bearer token authentication without OAuth flow
+client_api_keys:
+  - key: "sk-llm-proxy-YOUR-CLIENT-KEY-1"  # CHANGE THIS!
+    name: "OpenWebUI"
+    scopes: ["read", "write"]
+    enabled: true
+  - key: "sk-llm-proxy-YOUR-CLIENT-KEY-2"  # CHANGE THIS!
+    name: "Cursor IDE"
+    scopes: ["read", "write"]
+    enabled: true
+
+# -----------------------------------------------------------------------------
+# LLM PROVIDERS CONFIGURATION
+# -----------------------------------------------------------------------------
+providers:
+  # Anthropic Claude Configuration
+  claude:
+    enabled: true
+    api_keys:
+      - key: "sk-ant-YOUR-CLAUDE-API-KEY-HERE"  # CHANGE THIS!
+        weight: 1
+        max_rpm: 1000
+    
+    models:
+      - claude-3-5-sonnet-20241022  # Latest & Best (recommended)
+      - claude-3-5-sonnet-20240620  # Previous Sonnet
+      - claude-3-opus-20240229      # Most capable
+      - claude-3-sonnet-20240229    # Balanced
+      - claude-3-haiku-20240307     # Fast & cheap
+    
+    timeout: 120s
+    
+    retry:
+      max_attempts: 3
+      initial_backoff: 1s
+      max_backoff: 10s
+      backoff_multiplier: 2.0
+  
+  # OpenAI Configuration (Optional)
+  openai:
+    enabled: true  # Set to false to disable
+    api_keys:
+      - key: "sk-proj-YOUR-OPENAI-API-KEY-HERE"  # CHANGE THIS!
+        weight: 1
+        max_rpm: 1000
+    
+    # Models will be fetched dynamically from OpenAI API
+    # Or you can specify them manually:
+    models:
+      - gpt-4-turbo-preview
+      - gpt-4
+      - gpt-3.5-turbo
+    
+    timeout: 120s
+
+# -----------------------------------------------------------------------------
+# CACHE CONFIGURATION
+# -----------------------------------------------------------------------------
+cache:
+  enabled: true
+  ttl: 3600  # seconds
+  max_size: 1000
+  prefix: "llm-proxy:"
+
+# -----------------------------------------------------------------------------
+# RATE LIMITING
+# -----------------------------------------------------------------------------
+rate_limiting:
+  enabled: true
+  default_rpm: 1000  # requests per minute
+  default_rpd: 50000  # requests per day
+
+# -----------------------------------------------------------------------------
+# LOGGING
+# -----------------------------------------------------------------------------
+logging:
+  level: info  # debug, info, warn, error, fatal
+  format: json  # json or console
+  output: stdout
+
+# -----------------------------------------------------------------------------
+# METRICS & MONITORING
+# -----------------------------------------------------------------------------
+metrics:
+  enabled: true
+  port: 9090
+  path: /metrics

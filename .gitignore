@@ -72,6 +72,7 @@ Thumbs.db
 # Application specific
 config.local.yaml
 config.*.local.yaml
+configs/config.yaml
 
 # Session and temporary files
 SESSION.md

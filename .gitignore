@@ -17,6 +17,7 @@ coverage.html
 
 # Dependency directories
 vendor/
+node_modules/
 
 # Go workspace file
 go.work
@@ -71,8 +72,7 @@ Thumbs.db
 # Application specific
 config.local.yaml
 config.*.local.yaml
-# Temporary fix scripts and configs
-Caddyfile.correct
-update-caddy-config.sh
-quick-diagnose.md
-live-diagnosis.log
+
+# Session and temporary files
+SESSION.md
+main

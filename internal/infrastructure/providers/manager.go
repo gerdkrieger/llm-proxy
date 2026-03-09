@@ -10,6 +10,7 @@ import (
 
 	"github.com/llm-proxy/llm-proxy/internal/config"
 	"github.com/llm-proxy/llm-proxy/internal/domain/models"
+	"github.com/llm-proxy/llm-proxy/internal/infrastructure/providers/abacus"
 	"github.com/llm-proxy/llm-proxy/internal/infrastructure/providers/claude"
 	"github.com/llm-proxy/llm-proxy/internal/infrastructure/providers/openai"
 	"github.com/llm-proxy/llm-proxy/pkg/logger"
@@ -26,6 +27,7 @@ type Provider interface {
 type ProviderManager struct {
 	providers     []Provider
 	openaiClients []*openai.Client
+	abacusClients []*abacus.Client
 	currentIndex  int
 	mu            sync.RWMutex
 	logger        *logger.Logger
@@ -54,6 +56,7 @@ func NewProviderManager(cfg config.ProvidersConfig, log *logger.Logger, dbKeyPro
 	pm := &ProviderManager{
 		providers:     make([]Provider, 0),
 		openaiClients: make([]*openai.Client, 0),
+		abacusClients: make([]*abacus.Client, 0),
 		logger:        log,
 		retryConfig:   cfg.Claude.Retry,
 		config:        cfg,
@@ -98,12 +101,30 @@ func NewProviderManager(cfg config.ProvidersConfig, log *logger.Logger, dbKeyPro
 		}
 	}
 
-	totalProviders := len(pm.providers) + len(pm.openaiClients)
+	// Initialize Abacus.ai providers (DB keys first, fallback to config)
+	if cfg.Abacus.Enabled {
+		dbKeys := loadDBKeys(ctx, dbKeyProvider, "abacus", log)
+		if len(dbKeys) > 0 {
+			for i, k := range dbKeys {
+				client := abacus.NewClient(k.APIKey, cfg.Abacus, log)
+				pm.abacusClients = append(pm.abacusClients, client)
+				log.Infof("Initialized Abacus.ai provider %d from DB with key: %s", i+1, client.GetAPIKey())
+			}
+		} else {
+			for i, apiKeyConfig := range cfg.Abacus.APIKeys {
+				client := abacus.NewClient(apiKeyConfig.Key, cfg.Abacus, log)
+				pm.abacusClients = append(pm.abacusClients, client)
+				log.Infof("Initialized Abacus.ai provider %d from config with key: %s", i+1, client.GetAPIKey())
+			}
+		}
+	}
+
+	totalProviders := len(pm.providers) + len(pm.openaiClients) + len(pm.abacusClients)
 	if totalProviders == 0 {
 		log.Warn("No providers initialized!")
 	} else {
-		log.Infof("Provider manager initialized with %d provider(s) (Claude: %d, OpenAI: %d)",
-			totalProviders, len(pm.providers), len(pm.openaiClients))
+		log.Infof("Provider manager initialized with %d provider(s) (Claude: %d, OpenAI: %d, Abacus: %d)",
+			totalProviders, len(pm.providers), len(pm.openaiClients), len(pm.abacusClients))
 	}
 
 	return pm
@@ -219,7 +240,7 @@ func (pm *ProviderManager) Health(ctx context.Context) error {
 	pm.mu.RLock()
 	defer pm.mu.RUnlock()
 
-	totalProviders := len(pm.providers) + len(pm.openaiClients)
+	totalProviders := len(pm.providers) + len(pm.openaiClients) + len(pm.abacusClients)
 	if totalProviders == 0 {
 		return fmt.Errorf("no providers configured")
 	}
@@ -244,6 +265,15 @@ func (pm *ProviderManager) Health(ctx context.Context) error {
 		}
 	}
 
+	// Check Abacus.ai providers
+	for i, client := range pm.abacusClients {
+		if err := client.Health(ctx); err != nil {
+			pm.logger.Warnf("Abacus.ai provider %d unhealthy: %v", i+1, err)
+		} else {
+			healthyCount++
+		}
+	}
+
 	if healthyCount == 0 {
 		return fmt.Errorf("all providers unhealthy")
 	}
@@ -256,7 +286,7 @@ func (pm *ProviderManager) Health(ctx context.Context) error {
 func (pm *ProviderManager) GetProviderCount() int {
 	pm.mu.RLock()
 	defer pm.mu.RUnlock()
-	return len(pm.providers) + len(pm.openaiClients)
+	return len(pm.providers) + len(pm.openaiClients) + len(pm.abacusClients)
 }
 
 // GetAvailableModels returns list of available models from all providers
@@ -274,6 +304,11 @@ func (pm *ProviderManager) GetAvailableModels() []string {
 	// Add OpenAI models
 	if pm.config.OpenAI.Enabled && len(pm.config.OpenAI.Models) > 0 {
 		models = append(models, pm.config.OpenAI.Models...)
+	}
+
+	// Add Abacus.ai models
+	if pm.config.Abacus.Enabled && len(pm.config.Abacus.Models) > 0 {
+		models = append(models, pm.config.Abacus.Models...)
 	}
 
 	// If no models configured, return defaults
@@ -299,6 +334,11 @@ func (pm *ProviderManager) GetActiveProviderIDs() []string {
 	// Check if OpenAI is enabled and has clients
 	if pm.config.OpenAI.Enabled && len(pm.openaiClients) > 0 {
 		activeProviders = append(activeProviders, "openai")
+	}
+
+	// Check if Abacus.ai is enabled and has clients
+	if pm.config.Abacus.Enabled && len(pm.abacusClients) > 0 {
+		activeProviders = append(activeProviders, "abacus")
 	}
 
 	return activeProviders
@@ -336,10 +376,28 @@ func (pm *ProviderManager) GetOpenAIClient() *openai.Client {
 	return pm.openaiClients[0]
 }
 
+// GetAbacusClient returns the first Abacus.ai client
+// TODO: Improve this to support load balancing
+func (pm *ProviderManager) GetAbacusClient() *abacus.Client {
+	pm.mu.RLock()
+	defer pm.mu.RUnlock()
+
+	if len(pm.abacusClients) == 0 {
+		return nil
+	}
+
+	// Return first Abacus.ai client
+	return pm.abacusClients[0]
+}
+
 // DetermineProvider determines which provider to use based on model name
 func (pm *ProviderManager) DetermineProvider(model string) string {
 	// Simple heuristic based on model name
 	if len(model) > 0 {
+		// Abacus.ai models start with "abacus:"
+		if len(model) >= 7 && model[:7] == "abacus:" {
+			return "abacus"
+		}
 		// OpenAI models start with "gpt", "o3", "o4", "text-", "dall-e", etc.
 		if model[0] == 'g' && len(model) >= 3 && model[:3] == "gpt" {
 			return "openai"
@@ -377,6 +435,7 @@ func (pm *ProviderManager) ReloadKeys(ctx context.Context) error {
 	// Clear existing providers
 	pm.providers = make([]Provider, 0)
 	pm.openaiClients = make([]*openai.Client, 0)
+	pm.abacusClients = make([]*abacus.Client, 0)
 	pm.currentIndex = 0
 
 	// Reload Claude providers (DB keys first, fallback to config)
@@ -415,14 +474,32 @@ func (pm *ProviderManager) ReloadKeys(ctx context.Context) error {
 		}
 	}
 
-	totalProviders := len(pm.providers) + len(pm.openaiClients)
+	// Reload Abacus.ai providers (DB keys first, fallback to config)
+	if pm.config.Abacus.Enabled {
+		dbKeys := loadDBKeys(ctx, pm.dbKeyProvider, "abacus", pm.logger)
+		if len(dbKeys) > 0 {
+			for i, k := range dbKeys {
+				client := abacus.NewClient(k.APIKey, pm.config.Abacus, pm.logger)
+				pm.abacusClients = append(pm.abacusClients, client)
+				pm.logger.Infof("Reloaded Abacus.ai provider %d from DB with key: %s", i+1, client.GetAPIKey())
+			}
+		} else {
+			for i, apiKeyConfig := range pm.config.Abacus.APIKeys {
+				client := abacus.NewClient(apiKeyConfig.Key, pm.config.Abacus, pm.logger)
+				pm.abacusClients = append(pm.abacusClients, client)
+				pm.logger.Infof("Reloaded Abacus.ai provider %d from config with key: %s", i+1, client.GetAPIKey())
+			}
+		}
+	}
+
+	totalProviders := len(pm.providers) + len(pm.openaiClients) + len(pm.abacusClients)
 	if totalProviders == 0 {
 		pm.logger.Warn("No providers initialized after reload!")
 		return fmt.Errorf("no providers available after reload")
 	}
 
-	pm.logger.Infof("Provider keys reloaded: %d provider(s) (Claude: %d, OpenAI: %d)",
-		totalProviders, len(pm.providers), len(pm.openaiClients))
+	pm.logger.Infof("Provider keys reloaded: %d provider(s) (Claude: %d, OpenAI: %d, Abacus: %d)",
+		totalProviders, len(pm.providers), len(pm.openaiClients), len(pm.abacusClients))
 
 	return nil
 }

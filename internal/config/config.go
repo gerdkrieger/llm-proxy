@@ -103,6 +103,7 @@ type ClientAPIKeyConfig struct {
 type ProvidersConfig struct {
 	Claude ClaudeConfig `mapstructure:"claude"`
 	OpenAI OpenAIConfig `mapstructure:"openai"`
+	Abacus AbacusConfig `mapstructure:"abacus"`
 }
 
 // ClaudeConfig holds Anthropic Claude configuration
@@ -131,6 +132,22 @@ type OpenAIConfig struct {
 
 // OpenAIAPIKey holds a single OpenAI API key configuration
 type OpenAIAPIKey struct {
+	Key    string `mapstructure:"key"`
+	Weight int    `mapstructure:"weight"`
+	MaxRPM int    `mapstructure:"max_rpm"`
+}
+
+// AbacusConfig holds Abacus.ai configuration
+type AbacusConfig struct {
+	Enabled      bool           `mapstructure:"enabled"`
+	APIKeys      []AbacusAPIKey `mapstructure:"api_keys"`
+	DeploymentID string         `mapstructure:"deployment_id"` // Default deployment ID
+	Models       []string       `mapstructure:"models"`        // Supported LLM names
+	Timeout      time.Duration  `mapstructure:"timeout"`
+}
+
+// AbacusAPIKey holds a single Abacus.ai API key configuration
+type AbacusAPIKey struct {
 	Key    string `mapstructure:"key"`
 	Weight int    `mapstructure:"weight"`
 	MaxRPM int    `mapstructure:"max_rpm"`

@@ -132,6 +132,27 @@ providers:
       - gpt-3.5-turbo
     
     timeout: 120s
+  
+  # Abacus.ai Configuration (Optional)
+  abacus:
+    enabled: false  # Set to true to enable
+    api_keys:
+      - key: "YOUR-ABACUS-API-KEY-HERE"  # CHANGE THIS!
+        weight: 1
+        max_rpm: 1000
+    
+    # Default deployment ID (required if not specified in model name)
+    deployment_id: "YOUR-DEPLOYMENT-ID-HERE"  # CHANGE THIS!
+    
+    # Available models (use format "abacus:deployment-id" or configure deployment_id above)
+    models:
+      - abacus:gpt-4
+      - abacus:gpt-4-turbo
+      - abacus:claude-3-opus
+      - abacus:claude-3-sonnet
+      - abacus:llama-3-70b
+    
+    timeout: 120s
 
 # -----------------------------------------------------------------------------
 # CACHE CONFIGURATION

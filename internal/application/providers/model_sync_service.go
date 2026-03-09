@@ -568,6 +568,82 @@ func GetAllKnownModels() []ModelDefinition {
 			Capabilities: []string{"function_calling"},
 			Description:  "GPT-3.5 16K snapshot from June 2023",
 		},
+
+		// ===================================================
+		// ABACUS.AI MODELS
+		// Source: https://api.abacus.ai/
+		// Note: Abacus.ai uses deployment IDs, these are common LLM names
+		// ===================================================
+		{
+			ID:           "abacus:gpt-4",
+			Name:         "Abacus GPT-4",
+			ProviderID:   "abacus",
+			Capabilities: []string{"chat", "deployment_based"},
+			Description:  "GPT-4 via Abacus.ai deployment",
+		},
+		{
+			ID:           "abacus:gpt-4-turbo",
+			Name:         "Abacus GPT-4 Turbo",
+			ProviderID:   "abacus",
+			Capabilities: []string{"chat", "deployment_based"},
+			Description:  "GPT-4 Turbo via Abacus.ai deployment",
+		},
+		{
+			ID:           "abacus:gpt-3.5-turbo",
+			Name:         "Abacus GPT-3.5 Turbo",
+			ProviderID:   "abacus",
+			Capabilities: []string{"chat", "deployment_based"},
+			Description:  "GPT-3.5 Turbo via Abacus.ai deployment",
+		},
+		{
+			ID:           "abacus:claude-3-opus",
+			Name:         "Abacus Claude 3 Opus",
+			ProviderID:   "abacus",
+			Capabilities: []string{"chat", "deployment_based"},
+			Description:  "Claude 3 Opus via Abacus.ai deployment",
+		},
+		{
+			ID:           "abacus:claude-3-sonnet",
+			Name:         "Abacus Claude 3 Sonnet",
+			ProviderID:   "abacus",
+			Capabilities: []string{"chat", "deployment_based"},
+			Description:  "Claude 3 Sonnet via Abacus.ai deployment",
+		},
+		{
+			ID:           "abacus:claude-3-haiku",
+			Name:         "Abacus Claude 3 Haiku",
+			ProviderID:   "abacus",
+			Capabilities: []string{"chat", "deployment_based"},
+			Description:  "Claude 3 Haiku via Abacus.ai deployment",
+		},
+		{
+			ID:           "abacus:llama-3-70b",
+			Name:         "Abacus Llama 3 70B",
+			ProviderID:   "abacus",
+			Capabilities: []string{"chat", "deployment_based"},
+			Description:  "Llama 3 70B via Abacus.ai deployment",
+		},
+		{
+			ID:           "abacus:llama-3-8b",
+			Name:         "Abacus Llama 3 8B",
+			ProviderID:   "abacus",
+			Capabilities: []string{"chat", "deployment_based"},
+			Description:  "Llama 3 8B via Abacus.ai deployment",
+		},
+		{
+			ID:           "abacus:mistral-large",
+			Name:         "Abacus Mistral Large",
+			ProviderID:   "abacus",
+			Capabilities: []string{"chat", "deployment_based"},
+			Description:  "Mistral Large via Abacus.ai deployment",
+		},
+		{
+			ID:           "abacus:mistral-medium",
+			Name:         "Abacus Mistral Medium",
+			ProviderID:   "abacus",
+			Capabilities: []string{"chat", "deployment_based"},
+			Description:  "Mistral Medium via Abacus.ai deployment",
+		},
 	}
 }
 

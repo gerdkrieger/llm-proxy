@@ -3,7 +3,6 @@
 Die Marketing-Landing-Page wurde in ein **separates Repository** ausgelagert:
 
 🌐 **GitLab**: https://gitlab.com/krieger-engineering/llm-proxy-landing  
-🌐 **GitHub Mirror**: https://github.com/gerdkrieger/llm-proxy-landing  
 🌐 **Live**: https://landing.llmproxy.aitrail.ch
 
 ---

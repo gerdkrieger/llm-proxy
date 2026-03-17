@@ -23,11 +23,51 @@ type Provider interface {
 	GetAPIKey() string
 }
 
+// clientState tracks metadata for load balancing and rate limiting
+type clientState struct {
+	client       interface{} // *claude.Client, *openai.Client, or *abacus.Client
+	weight       int         // Weight for load balancing (higher = more requests)
+	maxRPM       int         // Max requests per minute (0 = unlimited)
+	requestCount int         // Current request count in time window
+	windowStart  time.Time   // Start of current rate limit window
+}
+
+// resetRateLimitIfNeeded resets the request counter if the time window has expired
+func (cs *clientState) resetRateLimitIfNeeded() {
+	if cs.maxRPM == 0 {
+		return // No rate limit
+	}
+
+	now := time.Now()
+	if now.Sub(cs.windowStart) >= time.Minute {
+		cs.requestCount = 0
+		cs.windowStart = now
+	}
+}
+
+// canAcceptRequest checks if this client can accept a new request
+func (cs *clientState) canAcceptRequest() bool {
+	cs.resetRateLimitIfNeeded()
+
+	if cs.maxRPM == 0 {
+		return true // No rate limit
+	}
+
+	return cs.requestCount < cs.maxRPM
+}
+
+// incrementRequestCount increments the request counter
+func (cs *clientState) incrementRequestCount() {
+	cs.resetRateLimitIfNeeded()
+	cs.requestCount++
+}
+
 // ProviderManager manages multiple provider instances with load balancing
 type ProviderManager struct {
 	providers     []Provider
-	openaiClients []*openai.Client
-	abacusClients []*abacus.Client
+	claudeStates  []*clientState
+	openaiStates  []*clientState
+	abacusStates  []*clientState
 	currentIndex  int
 	mu            sync.RWMutex
 	logger        *logger.Logger
@@ -55,8 +95,9 @@ type DBProviderKey struct {
 func NewProviderManager(cfg config.ProvidersConfig, log *logger.Logger, dbKeyProvider DBKeyProvider) *ProviderManager {
 	pm := &ProviderManager{
 		providers:     make([]Provider, 0),
-		openaiClients: make([]*openai.Client, 0),
-		abacusClients: make([]*abacus.Client, 0),
+		claudeStates:  make([]*clientState, 0),
+		openaiStates:  make([]*clientState, 0),
+		abacusStates:  make([]*clientState, 0),
 		logger:        log,
 		retryConfig:   cfg.Claude.Retry,
 		config:        cfg,
@@ -72,13 +113,27 @@ func NewProviderManager(cfg config.ProvidersConfig, log *logger.Logger, dbKeyPro
 			for i, k := range dbKeys {
 				client := claude.NewClient(k.APIKey, cfg.Claude, log)
 				pm.providers = append(pm.providers, client)
-				log.Infof("Initialized Claude provider %d from DB with key: %s", i+1, client.GetAPIKey())
+				pm.claudeStates = append(pm.claudeStates, &clientState{
+					client:      client,
+					weight:      k.Weight,
+					maxRPM:      k.MaxRPM,
+					windowStart: time.Now(),
+				})
+				log.Infof("Initialized Claude provider %d from DB with key: %s (weight: %d, maxRPM: %d)",
+					i+1, client.GetAPIKey(), k.Weight, k.MaxRPM)
 			}
 		} else {
 			for i, apiKeyConfig := range cfg.Claude.APIKeys {
 				client := claude.NewClient(apiKeyConfig.Key, cfg.Claude, log)
 				pm.providers = append(pm.providers, client)
-				log.Infof("Initialized Claude provider %d from config with key: %s", i+1, client.GetAPIKey())
+				pm.claudeStates = append(pm.claudeStates, &clientState{
+					client:      client,
+					weight:      apiKeyConfig.Weight,
+					maxRPM:      apiKeyConfig.MaxRPM,
+					windowStart: time.Now(),
+				})
+				log.Infof("Initialized Claude provider %d from config with key: %s (weight: %d, maxRPM: %d)",
+					i+1, client.GetAPIKey(), apiKeyConfig.Weight, apiKeyConfig.MaxRPM)
 			}
 		}
 	}
@@ -89,14 +144,26 @@ func NewProviderManager(cfg config.ProvidersConfig, log *logger.Logger, dbKeyPro
 		if len(dbKeys) > 0 {
 			for i, k := range dbKeys {
 				client := openai.NewClient(k.APIKey, log)
-				pm.openaiClients = append(pm.openaiClients, client)
-				log.Infof("Initialized OpenAI provider %d from DB with key: %s", i+1, client.GetAPIKey())
+				pm.openaiStates = append(pm.openaiStates, &clientState{
+					client:      client,
+					weight:      k.Weight,
+					maxRPM:      k.MaxRPM,
+					windowStart: time.Now(),
+				})
+				log.Infof("Initialized OpenAI provider %d from DB with key: %s (weight: %d, maxRPM: %d)",
+					i+1, client.GetAPIKey(), k.Weight, k.MaxRPM)
 			}
 		} else {
 			for i, apiKeyConfig := range cfg.OpenAI.APIKeys {
 				client := openai.NewClient(apiKeyConfig.Key, log)
-				pm.openaiClients = append(pm.openaiClients, client)
-				log.Infof("Initialized OpenAI provider %d from config with key: %s", i+1, client.GetAPIKey())
+				pm.openaiStates = append(pm.openaiStates, &clientState{
+					client:      client,
+					weight:      apiKeyConfig.Weight,
+					maxRPM:      apiKeyConfig.MaxRPM,
+					windowStart: time.Now(),
+				})
+				log.Infof("Initialized OpenAI provider %d from config with key: %s (weight: %d, maxRPM: %d)",
+					i+1, client.GetAPIKey(), apiKeyConfig.Weight, apiKeyConfig.MaxRPM)
 			}
 		}
 	}
@@ -107,24 +174,36 @@ func NewProviderManager(cfg config.ProvidersConfig, log *logger.Logger, dbKeyPro
 		if len(dbKeys) > 0 {
 			for i, k := range dbKeys {
 				client := abacus.NewClient(k.APIKey, cfg.Abacus, log)
-				pm.abacusClients = append(pm.abacusClients, client)
-				log.Infof("Initialized Abacus.ai provider %d from DB with key: %s", i+1, client.GetAPIKey())
+				pm.abacusStates = append(pm.abacusStates, &clientState{
+					client:      client,
+					weight:      k.Weight,
+					maxRPM:      k.MaxRPM,
+					windowStart: time.Now(),
+				})
+				log.Infof("Initialized Abacus.ai provider %d from DB with key: %s (weight: %d, maxRPM: %d)",
+					i+1, client.GetAPIKey(), k.Weight, k.MaxRPM)
 			}
 		} else {
 			for i, apiKeyConfig := range cfg.Abacus.APIKeys {
 				client := abacus.NewClient(apiKeyConfig.Key, cfg.Abacus, log)
-				pm.abacusClients = append(pm.abacusClients, client)
-				log.Infof("Initialized Abacus.ai provider %d from config with key: %s", i+1, client.GetAPIKey())
+				pm.abacusStates = append(pm.abacusStates, &clientState{
+					client:      client,
+					weight:      apiKeyConfig.Weight,
+					maxRPM:      apiKeyConfig.MaxRPM,
+					windowStart: time.Now(),
+				})
+				log.Infof("Initialized Abacus.ai provider %d from config with key: %s (weight: %d, maxRPM: %d)",
+					i+1, client.GetAPIKey(), apiKeyConfig.Weight, apiKeyConfig.MaxRPM)
 			}
 		}
 	}
 
-	totalProviders := len(pm.providers) + len(pm.openaiClients) + len(pm.abacusClients)
+	totalProviders := len(pm.providers) + len(pm.openaiStates) + len(pm.abacusStates)
 	if totalProviders == 0 {
 		log.Warn("No providers initialized!")
 	} else {
 		log.Infof("Provider manager initialized with %d provider(s) (Claude: %d, OpenAI: %d, Abacus: %d)",
-			totalProviders, len(pm.providers), len(pm.openaiClients), len(pm.abacusClients))
+			totalProviders, len(pm.providers), len(pm.openaiStates), len(pm.abacusStates))
 	}
 
 	return pm
@@ -240,7 +319,7 @@ func (pm *ProviderManager) Health(ctx context.Context) error {
 	pm.mu.RLock()
 	defer pm.mu.RUnlock()
 
-	totalProviders := len(pm.providers) + len(pm.openaiClients) + len(pm.abacusClients)
+	totalProviders := len(pm.providers) + len(pm.openaiStates) + len(pm.abacusStates)
 	if totalProviders == 0 {
 		return fmt.Errorf("no providers configured")
 	}
@@ -257,7 +336,8 @@ func (pm *ProviderManager) Health(ctx context.Context) error {
 	}
 
 	// Check OpenAI providers
-	for i, client := range pm.openaiClients {
+	for i, state := range pm.openaiStates {
+		client := state.client.(*openai.Client)
 		if err := client.Health(ctx); err != nil {
 			pm.logger.Warnf("OpenAI provider %d unhealthy: %v", i+1, err)
 		} else {
@@ -266,7 +346,8 @@ func (pm *ProviderManager) Health(ctx context.Context) error {
 	}
 
 	// Check Abacus.ai providers
-	for i, client := range pm.abacusClients {
+	for i, state := range pm.abacusStates {
+		client := state.client.(*abacus.Client)
 		if err := client.Health(ctx); err != nil {
 			pm.logger.Warnf("Abacus.ai provider %d unhealthy: %v", i+1, err)
 		} else {
@@ -286,7 +367,7 @@ func (pm *ProviderManager) Health(ctx context.Context) error {
 func (pm *ProviderManager) GetProviderCount() int {
 	pm.mu.RLock()
 	defer pm.mu.RUnlock()
-	return len(pm.providers) + len(pm.openaiClients) + len(pm.abacusClients)
+	return len(pm.providers) + len(pm.openaiStates) + len(pm.abacusStates)
 }
 
 // GetAvailableModels returns list of available models from all providers
@@ -332,62 +413,129 @@ func (pm *ProviderManager) GetActiveProviderIDs() []string {
 	}
 
 	// Check if OpenAI is enabled and has clients
-	if pm.config.OpenAI.Enabled && len(pm.openaiClients) > 0 {
+	if pm.config.OpenAI.Enabled && len(pm.openaiStates) > 0 {
 		activeProviders = append(activeProviders, "openai")
 	}
 
 	// Check if Abacus.ai is enabled and has clients
-	if pm.config.Abacus.Enabled && len(pm.abacusClients) > 0 {
+	if pm.config.Abacus.Enabled && len(pm.abacusStates) > 0 {
 		activeProviders = append(activeProviders, "abacus")
 	}
 
 	return activeProviders
 }
 
-// GetClaudeClient returns the first Claude client for streaming
-// TODO: Improve this to support streaming with load balancing
+// GetClaudeClient returns a Claude client using weighted load balancing and rate limiting
 func (pm *ProviderManager) GetClaudeClient() *claude.Client {
-	pm.mu.RLock()
-	defer pm.mu.RUnlock()
+	pm.mu.Lock()
+	defer pm.mu.Unlock()
 
-	if len(pm.providers) == 0 {
+	if len(pm.claudeStates) == 0 {
 		return nil
 	}
 
-	// Return first provider as Claude client
-	if client, ok := pm.providers[0].(*claude.Client); ok {
-		return client
+	// Try to find an available client using weighted round-robin
+	selectedState := pm.selectWeightedClient(pm.claudeStates)
+	if selectedState == nil {
+		// All clients are rate-limited, return first one anyway
+		pm.logger.Warn("All Claude clients are rate-limited, returning first client")
+		return pm.claudeStates[0].client.(*claude.Client)
 	}
 
-	return nil
+	// Increment request count for rate limiting
+	selectedState.incrementRequestCount()
+
+	return selectedState.client.(*claude.Client)
 }
 
-// GetOpenAIClient returns the first OpenAI client
-// TODO: Improve this to support load balancing
+// GetOpenAIClient returns an OpenAI client using weighted load balancing and rate limiting
 func (pm *ProviderManager) GetOpenAIClient() *openai.Client {
-	pm.mu.RLock()
-	defer pm.mu.RUnlock()
+	pm.mu.Lock()
+	defer pm.mu.Unlock()
 
-	if len(pm.openaiClients) == 0 {
+	if len(pm.openaiStates) == 0 {
 		return nil
 	}
 
-	// Return first OpenAI client
-	return pm.openaiClients[0]
+	// Try to find an available client using weighted round-robin
+	selectedState := pm.selectWeightedClient(pm.openaiStates)
+	if selectedState == nil {
+		// All clients are rate-limited, return first one anyway
+		pm.logger.Warn("All OpenAI clients are rate-limited, returning first client")
+		return pm.openaiStates[0].client.(*openai.Client)
+	}
+
+	// Increment request count for rate limiting
+	selectedState.incrementRequestCount()
+
+	return selectedState.client.(*openai.Client)
 }
 
-// GetAbacusClient returns the first Abacus.ai client
-// TODO: Improve this to support load balancing
+// GetAbacusClient returns an Abacus.ai client using weighted load balancing and rate limiting
 func (pm *ProviderManager) GetAbacusClient() *abacus.Client {
-	pm.mu.RLock()
-	defer pm.mu.RUnlock()
+	pm.mu.Lock()
+	defer pm.mu.Unlock()
 
-	if len(pm.abacusClients) == 0 {
+	if len(pm.abacusStates) == 0 {
 		return nil
 	}
 
-	// Return first Abacus.ai client
-	return pm.abacusClients[0]
+	// Try to find an available client using weighted round-robin
+	selectedState := pm.selectWeightedClient(pm.abacusStates)
+	if selectedState == nil {
+		// All clients are rate-limited, return first one anyway
+		pm.logger.Warn("All Abacus.ai clients are rate-limited, returning first client")
+		return pm.abacusStates[0].client.(*abacus.Client)
+	}
+
+	// Increment request count for rate limiting
+	selectedState.incrementRequestCount()
+
+	return selectedState.client.(*abacus.Client)
+}
+
+// selectWeightedClient selects a client using weighted round-robin with rate limiting
+// Returns nil if all clients are rate-limited
+func (pm *ProviderManager) selectWeightedClient(states []*clientState) *clientState {
+	if len(states) == 0 {
+		return nil
+	}
+
+	// Calculate total weight of available (non-rate-limited) clients
+	totalWeight := 0
+	availableStates := make([]*clientState, 0)
+
+	for _, state := range states {
+		if state.canAcceptRequest() {
+			totalWeight += state.weight
+			availableStates = append(availableStates, state)
+		}
+	}
+
+	// If no clients are available (all rate-limited), return nil
+	if len(availableStates) == 0 {
+		return nil
+	}
+
+	// If only one client available, use it
+	if len(availableStates) == 1 {
+		return availableStates[0]
+	}
+
+	// Weighted random selection
+	// Generate a random number between 0 and totalWeight
+	randWeight := time.Now().UnixNano() % int64(totalWeight)
+	currentWeight := int64(0)
+
+	for _, state := range availableStates {
+		currentWeight += int64(state.weight)
+		if randWeight < currentWeight {
+			return state
+		}
+	}
+
+	// Fallback to first available client
+	return availableStates[0]
 }
 
 // DetermineProvider determines which provider to use based on model name
@@ -434,8 +582,9 @@ func (pm *ProviderManager) ReloadKeys(ctx context.Context) error {
 
 	// Clear existing providers
 	pm.providers = make([]Provider, 0)
-	pm.openaiClients = make([]*openai.Client, 0)
-	pm.abacusClients = make([]*abacus.Client, 0)
+	pm.claudeStates = make([]*clientState, 0)
+	pm.openaiStates = make([]*clientState, 0)
+	pm.abacusStates = make([]*clientState, 0)
 	pm.currentIndex = 0
 
 	// Reload Claude providers (DB keys first, fallback to config)
@@ -445,13 +594,27 @@ func (pm *ProviderManager) ReloadKeys(ctx context.Context) error {
 			for i, k := range dbKeys {
 				client := claude.NewClient(k.APIKey, pm.config.Claude, pm.logger)
 				pm.providers = append(pm.providers, client)
-				pm.logger.Infof("Reloaded Claude provider %d from DB with key: %s", i+1, client.GetAPIKey())
+				pm.claudeStates = append(pm.claudeStates, &clientState{
+					client:      client,
+					weight:      k.Weight,
+					maxRPM:      k.MaxRPM,
+					windowStart: time.Now(),
+				})
+				pm.logger.Infof("Reloaded Claude provider %d from DB with key: %s (weight: %d, maxRPM: %d)",
+					i+1, client.GetAPIKey(), k.Weight, k.MaxRPM)
 			}
 		} else {
 			for i, apiKeyConfig := range pm.config.Claude.APIKeys {
 				client := claude.NewClient(apiKeyConfig.Key, pm.config.Claude, pm.logger)
 				pm.providers = append(pm.providers, client)
-				pm.logger.Infof("Reloaded Claude provider %d from config with key: %s", i+1, client.GetAPIKey())
+				pm.claudeStates = append(pm.claudeStates, &clientState{
+					client:      client,
+					weight:      apiKeyConfig.Weight,
+					maxRPM:      apiKeyConfig.MaxRPM,
+					windowStart: time.Now(),
+				})
+				pm.logger.Infof("Reloaded Claude provider %d from config with key: %s (weight: %d, maxRPM: %d)",
+					i+1, client.GetAPIKey(), apiKeyConfig.Weight, apiKeyConfig.MaxRPM)
 			}
 		}
 	}
@@ -462,14 +625,26 @@ func (pm *ProviderManager) ReloadKeys(ctx context.Context) error {
 		if len(dbKeys) > 0 {
 			for i, k := range dbKeys {
 				client := openai.NewClient(k.APIKey, pm.logger)
-				pm.openaiClients = append(pm.openaiClients, client)
-				pm.logger.Infof("Reloaded OpenAI provider %d from DB with key: %s", i+1, client.GetAPIKey())
+				pm.openaiStates = append(pm.openaiStates, &clientState{
+					client:      client,
+					weight:      k.Weight,
+					maxRPM:      k.MaxRPM,
+					windowStart: time.Now(),
+				})
+				pm.logger.Infof("Reloaded OpenAI provider %d from DB with key: %s (weight: %d, maxRPM: %d)",
+					i+1, client.GetAPIKey(), k.Weight, k.MaxRPM)
 			}
 		} else {
 			for i, apiKeyConfig := range pm.config.OpenAI.APIKeys {
 				client := openai.NewClient(apiKeyConfig.Key, pm.logger)
-				pm.openaiClients = append(pm.openaiClients, client)
-				pm.logger.Infof("Reloaded OpenAI provider %d from config with key: %s", i+1, client.GetAPIKey())
+				pm.openaiStates = append(pm.openaiStates, &clientState{
+					client:      client,
+					weight:      apiKeyConfig.Weight,
+					maxRPM:      apiKeyConfig.MaxRPM,
+					windowStart: time.Now(),
+				})
+				pm.logger.Infof("Reloaded OpenAI provider %d from config with key: %s (weight: %d, maxRPM: %d)",
+					i+1, client.GetAPIKey(), apiKeyConfig.Weight, apiKeyConfig.MaxRPM)
 			}
 		}
 	}
@@ -480,26 +655,38 @@ func (pm *ProviderManager) ReloadKeys(ctx context.Context) error {
 		if len(dbKeys) > 0 {
 			for i, k := range dbKeys {
 				client := abacus.NewClient(k.APIKey, pm.config.Abacus, pm.logger)
-				pm.abacusClients = append(pm.abacusClients, client)
-				pm.logger.Infof("Reloaded Abacus.ai provider %d from DB with key: %s", i+1, client.GetAPIKey())
+				pm.abacusStates = append(pm.abacusStates, &clientState{
+					client:      client,
+					weight:      k.Weight,
+					maxRPM:      k.MaxRPM,
+					windowStart: time.Now(),
+				})
+				pm.logger.Infof("Reloaded Abacus.ai provider %d from DB with key: %s (weight: %d, maxRPM: %d)",
+					i+1, client.GetAPIKey(), k.Weight, k.MaxRPM)
 			}
 		} else {
 			for i, apiKeyConfig := range pm.config.Abacus.APIKeys {
 				client := abacus.NewClient(apiKeyConfig.Key, pm.config.Abacus, pm.logger)
-				pm.abacusClients = append(pm.abacusClients, client)
-				pm.logger.Infof("Reloaded Abacus.ai provider %d from config with key: %s", i+1, client.GetAPIKey())
+				pm.abacusStates = append(pm.abacusStates, &clientState{
+					client:      client,
+					weight:      apiKeyConfig.Weight,
+					maxRPM:      apiKeyConfig.MaxRPM,
+					windowStart: time.Now(),
+				})
+				pm.logger.Infof("Reloaded Abacus.ai provider %d from config with key: %s (weight: %d, maxRPM: %d)",
+					i+1, client.GetAPIKey(), apiKeyConfig.Weight, apiKeyConfig.MaxRPM)
 			}
 		}
 	}
 
-	totalProviders := len(pm.providers) + len(pm.openaiClients) + len(pm.abacusClients)
+	totalProviders := len(pm.providers) + len(pm.openaiStates) + len(pm.abacusStates)
 	if totalProviders == 0 {
 		pm.logger.Warn("No providers initialized after reload!")
 		return fmt.Errorf("no providers available after reload")
 	}
 
 	pm.logger.Infof("Provider keys reloaded: %d provider(s) (Claude: %d, OpenAI: %d, Abacus: %d)",
-		totalProviders, len(pm.providers), len(pm.openaiClients), len(pm.abacusClients))
+		totalProviders, len(pm.providers), len(pm.openaiStates), len(pm.abacusStates))
 
 	return nil
 }

@@ -97,9 +97,19 @@ providers:
   claude:
     enabled: true
     api_keys:
+      # Primary API key (higher weight = more requests)
       - key: "sk-ant-YOUR-CLAUDE-API-KEY-HERE"  # CHANGE THIS!
-        weight: 1
-        max_rpm: 1000
+        weight: 3      # 3x more requests than weight=1 keys
+        max_rpm: 300   # Max 300 requests per minute (0 = unlimited)
+      
+      # Backup API key (lower weight = fewer requests)
+      # - key: "sk-ant-YOUR-BACKUP-KEY-HERE"
+      #   weight: 1
+      #   max_rpm: 100
+      
+      # Add more keys for load balancing and failover
+      # Note: Requests are distributed based on weight
+      # Example: weight 3 + weight 1 = 75% vs 25% distribution
     
     models:
       - claude-3-5-sonnet-20241022  # Latest & Best (recommended)
@@ -121,8 +131,13 @@ providers:
     enabled: true  # Set to false to disable
     api_keys:
       - key: "sk-proj-YOUR-OPENAI-API-KEY-HERE"  # CHANGE THIS!
-        weight: 1
-        max_rpm: 1000
+        weight: 1      # Equal distribution if multiple keys
+        max_rpm: 500   # OpenAI Tier 1: ~500 RPM, Tier 2: ~5000 RPM
+      
+      # Add more keys for higher throughput
+      # - key: "sk-proj-YOUR-SECOND-KEY-HERE"
+      #   weight: 1
+      #   max_rpm: 500
     
     # Models will be fetched dynamically from OpenAI API
     # Or you can specify them manually:
@@ -138,8 +153,13 @@ providers:
     enabled: false  # Set to true to enable
     api_keys:
       - key: "YOUR-ABACUS-API-KEY-HERE"  # CHANGE THIS!
-        weight: 1
-        max_rpm: 1000
+        weight: 1      # Load balancing weight
+        max_rpm: 100   # Check your Abacus.ai rate limits
+      
+      # Add multiple deployments for redundancy
+      # - key: "YOUR-SECOND-ABACUS-KEY-HERE"
+      #   weight: 1
+      #   max_rpm: 100
     
     # Default deployment ID (required if not specified in model name)
     deployment_id: "YOUR-DEPLOYMENT-ID-HERE"  # CHANGE THIS!

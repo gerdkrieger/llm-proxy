@@ -142,6 +142,30 @@ filters:
     replacement: "[CARD_REDACTED]"
 ```
 
+### Load Balancing & Rate Limiting
+
+The proxy supports **Weighted Load Balancing** across multiple API keys:
+
+```yaml
+providers:
+  claude:
+    api_keys:
+      - key: "primary-key"
+        weight: 3      # Gets 75% of requests
+        max_rpm: 300   # Max 300 requests/minute
+      - key: "backup-key"
+        weight: 1      # Gets 25% of requests
+        max_rpm: 100
+```
+
+**Features:**
+- Distribute requests based on weight
+- Per-key rate limiting (RPM)
+- Automatic failover when rate limited
+- Works for streaming & non-streaming
+
+📖 **[Full Documentation](docs/WEIGHTED_LOAD_BALANCING.md)**
+
 ---
 
 ## 🛠️ **Development**

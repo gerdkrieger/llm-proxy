@@ -22,7 +22,7 @@ services:
       PGDATA: /var/lib/postgresql/data/pgdata
     
     ports:
-      - "${DB_PORT:-5433}:5432"
+      - "127.0.0.1:${DB_PORT:-5433}:5432"  # 🔒 SECURITY: Bind to localhost only!
     
     volumes:
       - llm-proxy-postgres-data:/var/lib/postgresql/data
@@ -74,7 +74,7 @@ services:
       --save 60 10000
     
     ports:
-      - "${REDIS_PORT:-6380}:6379"
+      - "127.0.0.1:${REDIS_PORT:-6380}:6379"  # 🔒 SECURITY: Bind to localhost only!
     
     volumes:
       - llm-proxy-redis-data:/data
@@ -135,8 +135,8 @@ services:
       OAUTH_REFRESH_TOKEN_TTL: 720h
     
     ports:
-      - "${SERVER_PORT:-8080}:8080"
-      - "${METRICS_PORT:-9091}:9090"
+      - "127.0.0.1:${SERVER_PORT:-8080}:8080"  # 🔒 SECURITY: Backend API (localhost only)
+      - "127.0.0.1:${METRICS_PORT:-9091}:9090"  # 🔒 SECURITY: Metrics (localhost only)
     
     depends_on:
       postgres:
@@ -186,7 +186,7 @@ services:
     # This means the SAME image works on localhost, staging, and production!
     
     ports:
-      - "${ADMIN_UI_PORT:-3005}:80"
+      - "127.0.0.1:${ADMIN_UI_PORT:-3005}:80"  # 🔒 SECURITY: Admin UI (localhost only)
     
     depends_on:
       backend:

@@ -23,7 +23,7 @@ services:
       PGDATA: /var/lib/postgresql/data/pgdata
     
     ports:
-      - "${DB_PORT:-5433}:5432"
+      - "127.0.0.1:${DB_PORT:-5433}:5432"  # 🔒 SECURITY: Bind to localhost only!
     
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -75,7 +75,7 @@ services:
       --save 60 10000
     
     ports:
-      - "${REDIS_PORT:-6380}:6379"
+      - "127.0.0.1:${REDIS_PORT:-6380}:6379"  # 🔒 SECURITY: Bind to localhost only!
     
     volumes:
       - redis_data:/data
@@ -131,8 +131,8 @@ services:
       ENVIRONMENT: production
     
     ports:
-      - "${SERVER_PORT:-8080}:8080"
-      - "${METRICS_PORT:-9091}:9090"
+      - "127.0.0.1:${SERVER_PORT:-8080}:8080"  # 🔒 SECURITY: Backend (localhost only)
+      - "127.0.0.1:${METRICS_PORT:-9091}:9090"  # 🔒 SECURITY: Metrics (localhost only)
     
     depends_on:
       postgres:
@@ -180,7 +180,7 @@ services:
       VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8080}
     
     ports:
-      - "${ADMIN_UI_PORT:-3005}:80"
+      - "127.0.0.1:${ADMIN_UI_PORT:-3005}:80"  # 🔒 SECURITY: Admin UI (localhost only)
     
     depends_on:
       backend:
@@ -228,7 +228,7 @@ services:
       - '--web.enable-lifecycle'
     
     ports:
-      - "9090:9090"
+      - "127.0.0.1:9090:9090"  # 🔒 SECURITY: Prometheus (localhost only)
     
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
@@ -263,7 +263,7 @@ services:
       - GF_INSTALL_PLUGINS=redis-datasource
     
     ports:
-      - "3001:3000"
+      - "127.0.0.1:3001:3000"  # 🔒 SECURITY: Grafana (localhost only)
     
     volumes:
       - grafana_data:/var/lib/grafana

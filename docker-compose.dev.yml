@@ -25,7 +25,7 @@ services:
       PGDATA: /var/lib/postgresql/data/pgdata
     
     ports:
-      - "${POSTGRES_PORT:-5433}:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5433}:5432"  # 🔒 SECURITY: Bind to localhost only!
     
     volumes:
       - postgres_dev_data:/var/lib/postgresql/data
@@ -64,7 +64,7 @@ services:
       --maxmemory-policy allkeys-lru
     
     ports:
-      - "${REDIS_PORT:-6380}:6379"
+      - "127.0.0.1:${REDIS_PORT:-6380}:6379"  # 🔒 SECURITY: Bind to localhost only!
     
     volumes:
       - redis_dev_data:/data
@@ -104,9 +104,9 @@ services:
       ENCRYPTION_KEY: e5a6c2183015ccd4f3d9c832eccb01c1a932f8f082f31fc0f3b72fe0c60f0de9
     
     ports:
-      - "8080:8080"   # Backend API
-      - "9091:9090"   # Metrics (9091 to avoid conflict with local Prometheus on 9090)
-      - "2345:2345"   # Delve debugger (optional)
+      - "127.0.0.1:8080:8080"   # 🔒 Backend API (localhost only)
+      - "127.0.0.1:9091:9090"   # 🔒 Metrics (localhost only)
+      - "127.0.0.1:2345:2345"   # 🔒 Delve debugger (localhost only)
     
     volumes:
       # Mount source code for hot-reload
@@ -152,7 +152,7 @@ services:
     # This means it works on any domain without configuration
     
     ports:
-      - "${ADMIN_UI_PORT:-3005}:5173"  # Vite dev server
+      - "127.0.0.1:${ADMIN_UI_PORT:-3005}:5173"  # 🔒 Vite dev server (localhost only)
     
     volumes:
       # Mount source code for hot-reload

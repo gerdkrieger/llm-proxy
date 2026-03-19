@@ -1,0 +1,269 @@
+# =============================================================================
+# LLM-PROXY PRODUCTION DEPLOYMENT (Registry-Based)
+# =============================================================================
+# This file should be the ONLY docker-compose.yml on production server!
+# Pulls pre-built images from GitLab Container Registry
+# No source code, no builds on server - just pull & run
+# =============================================================================
+
+version: '3.8'
+
+services:
+  # ---------------------------------------------------------------------------
+  # PostgreSQL 14 - Production Database
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:14-alpine
+    container_name: llm-proxy-postgres
+    restart: unless-stopped
+    
+    environment:
+      POSTGRES_DB: ${DB_NAME:-llm_proxy}
+      POSTGRES_USER: ${DB_USER:-proxy_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_INITDB_ARGS: "-E UTF8 --locale=en_US.UTF-8"
+      PGDATA: /var/lib/postgresql/data/pgdata
+    
+    ports:
+      - "127.0.0.1:5433:5432"  # 🔒 Localhost only!
+    
+    volumes:
+      - llm-proxy-postgres-data:/var/lib/postgresql/data
+    
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-proxy_user} -d ${DB_NAME:-llm_proxy}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    
+    networks:
+      - llm-proxy-network
+    
+    user: postgres
+    
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ---------------------------------------------------------------------------
+  # Redis 7 - Production Cache
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: llm-proxy-redis
+    restart: unless-stopped
+    
+    command: >
+      redis-server
+      --appendonly yes
+      --appendfsync everysec
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --save 900 1
+      --save 300 10
+      --save 60 10000
+    
+    ports:
+      - "127.0.0.1:6380:6379"  # 🔒 Localhost only!
+    
+    volumes:
+      - llm-proxy-redis-data:/data
+    
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    
+    networks:
+      - llm-proxy-network
+    
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ---------------------------------------------------------------------------
+  # LLM-Proxy Backend (From GitLab Registry)
+  # ---------------------------------------------------------------------------
+  backend:
+    image: registry.gitlab.com/krieger-engineering/llm-proxy/backend:latest
+    container_name: llm-proxy-backend
+    restart: unless-stopped
+    
+    env_file:
+      - .env
+    
+    environment:
+      # Override for Docker network
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      ENVIRONMENT: production
+    
+    ports:
+      - "127.0.0.1:8080:8080"  # 🔒 Backend API (localhost only)
+      - "127.0.0.1:9090:9090"  # 🔒 Metrics (localhost only)
+    
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--tries=1", "-O", "/dev/null", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    networks:
+      - llm-proxy-network
+    
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ---------------------------------------------------------------------------
+  # Admin UI (From GitLab Registry)
+  # ---------------------------------------------------------------------------
+  admin-ui:
+    image: registry.gitlab.com/krieger-engineering/llm-proxy/admin-ui:latest
+    container_name: llm-proxy-admin-ui
+    restart: unless-stopped
+    
+    # NOTE: No VITE_API_BASE_URL needed!
+    # Frontend auto-detects API URL via window.location.origin
+    
+    ports:
+      - "127.0.0.1:3005:80"  # 🔒 Admin UI (localhost only)
+    
+    depends_on:
+      backend:
+        condition: service_healthy
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    
+    networks:
+      - llm-proxy-network
+    
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+# =============================================================================
+# NETWORKS - EXTERNAL (created manually once)
+# =============================================================================
+networks:
+  llm-proxy-network:
+    name: llm-proxy-network
+    external: true
+
+# =============================================================================
+# VOLUMES - EXTERNAL (created manually once, persist across deployments)
+# =============================================================================
+volumes:
+  llm-proxy-postgres-data:
+    name: llm-proxy-postgres-data
+    external: true
+  
+  llm-proxy-redis-data:
+    name: llm-proxy-redis-data
+    external: true
+
+# =============================================================================
+# DEPLOYMENT INSTRUCTIONS
+# =============================================================================
+# 
+# FIRST TIME SETUP:
+# -----------------
+# 1. Create external resources (run ONCE):
+#    docker network create llm-proxy-network
+#    docker volume create llm-proxy-postgres-data
+#    docker volume create llm-proxy-redis-data
+#
+# 2. Create .env file with production config
+#
+# 3. Login to GitLab Registry:
+#    docker login registry.gitlab.com
+#    Username: <your-gitlab-username>
+#    Password: <gitlab-access-token>  # NOT your password!
+#
+# 4. Pull images:
+#    docker-compose pull
+#
+# 5. Start services:
+#    docker-compose up -d
+#
+# UPDATES:
+# --------
+# 1. Pull new images:
+#    docker-compose pull
+#
+# 2. Restart services:
+#    docker-compose up -d
+#
+# 3. Verify:
+#    docker-compose ps
+#    docker-compose logs -f backend
+#
+# ROLLBACK:
+# ---------
+# 1. Tag specific version in .env or docker-compose.yml:
+#    image: registry.gitlab.com/.../backend:v1.2.3
+#
+# 2. Pull and restart:
+#    docker-compose pull
+#    docker-compose up -d
+#
+# MONITORING:
+# -----------
+# View logs:     docker-compose logs -f [service]
+# Check status:  docker-compose ps
+# Check health:  curl http://localhost:8080/health
+#
+# REVERSE PROXY:
+# --------------
+# Use Caddy or Nginx to expose services to internet:
+#
+# Caddyfile:
+#   llmproxy.example.com {
+#     reverse_proxy localhost:8080
+#     tls your-email@example.com
+#   }
+#
+#   admin.llmproxy.example.com {
+#     reverse_proxy localhost:3005
+#     tls your-email@example.com
+#   }
+#
+# =============================================================================
+# SECURITY NOTES:
+# =============================================================================
+# ✅ All ports bound to 127.0.0.1 (localhost only)
+# ✅ No source code on server
+# ✅ No build tools on server
+# ✅ Images from trusted registry
+# ✅ Volumes external (persist across deployments)
+# ✅ Reverse proxy required for external access
+#
+# ⚠️  NEVER expose ports without reverse proxy!
+# ⚠️  NEVER put source code on production server!
+# ⚠️  NEVER commit .env to git!
+# =============================================================================

@@ -425,13 +425,42 @@ make release VERSION=v1.0.0
 
 ---
 
+## Database Migrations
+
+The deployment system includes **automatic database migration execution**. Migrations run before deploying new containers to prevent schema mismatch outages.
+
+### Quick Commands
+
+```bash
+# Check migration status
+make migrate-status
+
+# List pending migrations
+make migrate-pending
+
+# Apply migrations manually
+make migrate-up
+```
+
+**Note**: Migrations run automatically during `make release`. See [DATABASE_MIGRATIONS.md](DATABASE_MIGRATIONS.md) for complete documentation.
+
+---
+
 ## Support & Troubleshooting
 
 For issues or questions:
 - Check logs: `make logs SERVICE=<name>`
 - Check status: `make status`
+- Check migrations: `make migrate-status`
 - Rollback: `make rollback VERSION=<previous>`
 - Backup: `make backup-db`
+
+### Related Documentation
+
+- [Database Migrations](DATABASE_MIGRATIONS.md) - Migration system documentation
+- [Deployment Flow](DEPLOYMENT_FLOW.md) - Phase-by-phase deployment explanation
+- [Cheatsheet](CHEATSHEET.md) - Quick command reference
+- [Quick Start](QUICKSTART_REGISTRY.md) - Fast deployment guide
 
 ---
 

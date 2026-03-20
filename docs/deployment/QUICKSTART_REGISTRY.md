@@ -112,12 +112,25 @@ That's it! The command will:
 - ✅ Copy deployment files to server
 - ✅ Pull images on server
 - ✅ Backup database
+- ✅ **Run database migrations** (automatic!)
 - ✅ Deploy with zero downtime
 - ✅ Health check all containers
 
 ---
 
 ## Quick Operations
+
+### Check Migration Status
+
+```bash
+# Check current database version
+make migrate-status
+
+# List pending migrations
+make migrate-pending
+```
+
+**Note**: Migrations run automatically during deployment. See [DATABASE_MIGRATIONS.md](DATABASE_MIGRATIONS.md) for details.
 
 ### Check Production Status
 
@@ -202,8 +215,12 @@ llm-proxy/
 │   ├── .env                               # Configuration (SECRET!)
 │   ├── docker-compose.registry-deploy.yml # Deployment config
 │   └── prometheus.yml                     # Metrics config
-└── scripts/deployment/
-    └── server-deploy.sh                   # Server-side deployment
+├── scripts/deployment/
+│   └── server-deploy.sh                   # Server-side deployment
+└── migrations/                            # Database migrations
+    ├── 000001_init.up.sql
+    ├── 000001_init.down.sql
+    └── ...
 ```
 
 ---
@@ -211,9 +228,10 @@ llm-proxy/
 ## Next Steps
 
 1. **Read full documentation:** `docs/deployment/REGISTRY_DEPLOYMENT.md`
-2. **Setup CI/CD (optional):** Automate builds on git push
-3. **Setup monitoring:** Grafana dashboards
-4. **Setup alerts:** Notify on unhealthy containers
+2. **Learn about migrations:** `docs/deployment/DATABASE_MIGRATIONS.md`
+3. **Setup CI/CD (optional):** Automate builds on git push
+4. **Setup monitoring:** Grafana dashboards
+5. **Setup alerts:** Notify on unhealthy containers
 
 ---
 

@@ -18,6 +18,37 @@ make deploy-prod VERSION=v1.2.0    # Deploy to server
 
 ---
 
+## 🗄️ Database Migrations
+
+```bash
+# Check migration status
+make migrate-status
+
+# List pending migrations
+make migrate-pending
+
+# Apply all pending migrations
+make migrate-up
+
+# Apply next migration only
+make migrate-up-one
+
+# Rollback last migration (CAREFUL!)
+make migrate-down
+
+# Create new migration
+make migrate-create NAME=add_user_roles
+
+# Sync migrations to server
+make migrate-sync
+```
+
+**Note**: Migrations run automatically during `make release`. Manual commands are for checking status or emergency fixes.
+
+See [DATABASE_MIGRATIONS.md](DATABASE_MIGRATIONS.md) for detailed documentation.
+
+---
+
 ## 🔑 Registry Login (One-Time)
 
 ```bash

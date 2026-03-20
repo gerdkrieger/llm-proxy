@@ -1,0 +1,86 @@
+# The Caddyfile is an easy way to configure your Caddy web server.
+#
+# Unless the file starts with a global options block, the first
+# uncommented line is always the address of your site.
+#
+# To use your own domain name (with automatic HTTPS), first make
+# sure your domain's A/AAAA DNS records are properly pointed to
+# this machine's public IP, then replace ":80" below with your
+# domain name.
+
+#:80 {
+# Set this path to your site's directory.
+#	root * /usr/share/caddy
+
+# Enable the static file server.
+#	file_server
+
+# Another common task is to set up a reverse proxy:
+# reverse_proxy localhost:8080
+
+# Or serve a PHP site through php-fpm:
+# php_fastcgi localhost:9000
+#}
+
+# Refer to the Caddy docs for more information:
+# https://caddyserver.com/docs/caddyfile
+
+chat.aitrail.ch {
+	reverse_proxy 127.0.0.1:3001
+}
+
+dockhand.aitrail.ch {
+	encode gzip
+	basic_auth {
+		admin $2a$14$7QTFS3q4QBdI5curcm/EI.3HcbJVSu8snPHEz861D3iERQarUj0f.
+	}
+	reverse_proxy 127.0.0.1:3000
+}
+
+# portainer.aitrail.ch {
+#     reverse_proxy 127.0.0.1:9000
+# }
+
+tavea.ai, www.tavea.ai {
+	reverse_proxy 127.0.0.1:8088
+}
+
+scrubgate.tech {
+	# Admin API → Backend (Port 8080)
+	handle /admin/* {
+		reverse_proxy 127.0.0.1:8080
+	}
+
+	# LLM API v1 → Backend (Port 8080)
+	handle /v1/* {
+		reverse_proxy 127.0.0.1:8080
+	}
+
+	# Health Check → Backend (Port 8080)
+	handle /health {
+		reverse_proxy 127.0.0.1:8080
+	}
+
+	# Metrics → Backend (Port 9091)
+	handle /metrics {
+		reverse_proxy 127.0.0.1:9093
+	}
+
+	# Alles andere → Admin UI (Port 3005)
+	handle {
+		reverse_proxy 127.0.0.1:3005
+	}
+}
+
+# Landing Page
+scrubgate.com {
+	reverse_proxy 127.0.0.1:8090
+	encode gzip
+
+	header {
+		X-Frame-Options "SAMEORIGIN"
+		X-Content-Type-Options "nosniff"
+		X-XSS-Protection "1; mode=block"
+		Referrer-Policy "no-referrer-when-downgrade"
+	}
+}

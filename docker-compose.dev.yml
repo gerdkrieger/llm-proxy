@@ -25,7 +25,7 @@ services:
       PGDATA: /var/lib/postgresql/data/pgdata
     
     ports:
-      - "127.0.0.1:${POSTGRES_PORT:-5433}:5432"  # 🔒 SECURITY: Bind to localhost only!
+      - "127.0.0.1:5433:5432"
     
     volumes:
       - postgres_dev_data:/var/lib/postgresql/data
@@ -64,7 +64,7 @@ services:
       --maxmemory-policy allkeys-lru
     
     ports:
-      - "127.0.0.1:${REDIS_PORT:-6380}:6379"  # 🔒 SECURITY: Bind to localhost only!
+      - "${REDIS_PORT:-6380}:6379"
     
     volumes:
       - redis_dev_data:/data
@@ -101,12 +101,11 @@ services:
       REDIS_PORT: 6379
       ENVIRONMENT: development
       LOG_LEVEL: debug
-      ENCRYPTION_KEY: e5a6c2183015ccd4f3d9c832eccb01c1a932f8f082f31fc0f3b72fe0c60f0de9
     
     ports:
-      - "127.0.0.1:8080:8080"   # 🔒 Backend API (localhost only)
-      - "127.0.0.1:9091:9090"   # 🔒 Metrics (localhost only)
-      - "127.0.0.1:2345:2345"   # 🔒 Delve debugger (localhost only)
+      - "8080:8080"   # Backend API
+      - "9090:9090"   # Metrics
+      - "2345:2345"   # Delve debugger (optional)
     
     volumes:
       # Mount source code for hot-reload
@@ -120,13 +119,6 @@ services:
       # Go module cache (for faster rebuilds)
       - go_mod_cache:/go/pkg/mod
       - go_build_cache:/root/.cache/go-build
-    
-    healthcheck:
-      test: ["CMD", "wget", "-q", "--tries=1", "-O", "-", "http://localhost:8080/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
     
     depends_on:
       postgres:
@@ -152,7 +144,7 @@ services:
     # This means it works on any domain without configuration
     
     ports:
-      - "127.0.0.1:${ADMIN_UI_PORT:-3005}:5173"  # 🔒 Vite dev server (localhost only)
+      - "${ADMIN_UI_PORT:-3005}:5173"  # Vite dev server
     
     volumes:
       # Mount source code for hot-reload

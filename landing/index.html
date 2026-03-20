@@ -1,0 +1,1579 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Nutzen Sie ChatGPT & Co. sicher im Unternehmen - Automatische Anonymisierung von Firmendaten. Ihre Mitarbeiter arbeiten mit KI, ohne sensible Daten preiszugeben. DSGVO-konform, Self-Hosted.">
+    <meta name="keywords" content="KI Datenschutz, ChatGPT Anonymisierung, KI Firmendaten schützen, DSGVO KI, ChatGPT Enterprise, AI Data Protection, Datenleck vermeiden">
+    <title>ChatGPT & KI sicher nutzen - Automatische Anonymisierung von Firmendaten</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="manifest" href="/site.webmanifest">
+    <meta name="theme-color" content="#2563eb">
+    
+    <!-- SEO Meta Tags -->
+    <meta name="author" content="Gerd Krieger, aitrail.ch">
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+    <link rel="canonical" href="https://landing.llmproxy.aitrail.ch/">
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://landing.llmproxy.aitrail.ch/">
+    <meta property="og:title" content="ChatGPT & KI sicher nutzen - Automatische Anonymisierung">
+    <meta property="og:description" content="Ihre Mitarbeiter nutzen ChatGPT, Claude & Co. für die tägliche Arbeit? Unser System anonymisiert automatisch alle sensiblen Daten BEVOR sie an KI-Anbieter gesendet werden. DSGVO-konform, Self-Hosted, kein Datenleck.">
+    <meta property="og:image" content="https://landing.llmproxy.aitrail.ch/android-chrome-512x512.png">
+    <meta property="og:locale" content="de_DE">
+    <meta property="og:locale:alternate" content="en_US">
+    
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="ChatGPT & KI sicher nutzen - Automatische Anonymisierung">
+    <meta name="twitter:description" content="Schützen Sie Firmendaten bei der KI-Nutzung. Automatische Anonymisierung von sensiblen Informationen. DSGVO-konform.">
+    <meta name="twitter:image" content="https://landing.llmproxy.aitrail.ch/android-chrome-512x512.png">
+    
+    <!-- Schema.org JSON-LD -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "LLM-Proxy - KI-Anonymisierungs-Gateway",
+      "applicationCategory": "SecurityApplication",
+      "operatingSystem": "Linux, Docker",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "description": "Automatische Anonymisierung von Firmendaten bei der Nutzung von ChatGPT, Claude und anderen KI-Systemen. Schützt vor Datenlecks, DSGVO-konform, Self-Hosted.",
+      "keywords": "KI Datenschutz, ChatGPT Anonymisierung, AI Data Protection, DSGVO, Enterprise AI Security",
+      "featureList": [
+        "Automatische Anonymisierung von sensiblen Daten",
+        "Unterstützung für ChatGPT, Claude, OpenAI, Gemini",
+        "DSGVO-konform und Self-Hosted",
+        "Vollständige Transparenz durch Logging",
+        "Zentrale Kostenkontrolle",
+        "Keine Datenlecks"
+      ]
+    }
+    </script>
+    
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1e40af;
+            --secondary: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --dark: #1e293b;
+            --darker: #0f172a;
+            --light: #f8fafc;
+            --gray: #64748b;
+            --border: #e2e8f0;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: var(--dark);
+            background: #fff;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        /* Header / Navigation */
+        header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem 0;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 1.3rem;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            align-items: center;
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: var(--dark);
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+
+        .nav-links a:hover {
+            color: var(--primary);
+        }
+
+        .lang-switch {
+            background: var(--light);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .lang-switch:hover {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        /* Hero Section */
+        .hero {
+            background: linear-gradient(135deg, var(--darker) 0%, var(--dark) 100%);
+            color: white;
+            padding: 6rem 0;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 600"><rect fill="%232563eb" fill-opacity="0.05" width="1200" height="600"/><circle cx="100" cy="100" r="300" fill="%2310b981" fill-opacity="0.03"/><circle cx="1100" cy="500" r="400" fill="%232563eb" fill-opacity="0.03"/></svg>') no-repeat center;
+            background-size: cover;
+        }
+
+        .hero-content {
+            position: relative;
+            z-index: 1;
+            max-width: 900px;
+            margin: 0 auto;
+            text-align: center;
+        }
+
+        .hero h1 {
+            font-size: 3.8rem;
+            font-weight: 800;
+            line-height: 1.15;
+            margin-bottom: 1.5rem;
+        }
+
+        .hero h1 .highlight {
+            color: var(--secondary);
+            text-decoration: underline;
+            text-decoration-color: var(--secondary);
+            text-decoration-thickness: 4px;
+            text-underline-offset: 8px;
+        }
+
+        .hero .subtitle {
+            font-size: 1.6rem;
+            color: rgba(255, 255, 255, 0.95);
+            margin-bottom: 2rem;
+            font-weight: 400;
+            line-height: 1.5;
+        }
+
+        .hero-description {
+            font-size: 1.15rem;
+            color: rgba(255, 255, 255, 0.85);
+            margin-bottom: 3rem;
+            line-height: 1.9;
+            max-width: 850px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .cta-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 1.1rem 2.5rem;
+            border-radius: 10px;
+            font-weight: 600;
+            text-decoration: none;
+            display: inline-block;
+            transition: all 0.3s;
+            border: none;
+            cursor: pointer;
+            font-size: 1.05rem;
+        }
+
+        .btn-primary {
+            background: var(--secondary);
+            color: white;
+            box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4);
+        }
+
+        .btn-primary:hover {
+            background: #059669;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.6);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            backdrop-filter: blur(10px);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.5);
+        }
+
+        /* Trust Badges */
+        .trust-badges {
+            display: flex;
+            justify-content: center;
+            gap: 3rem;
+            margin-top: 3rem;
+            flex-wrap: wrap;
+        }
+
+        .trust-badge {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 0.95rem;
+            font-weight: 500;
+        }
+
+        .trust-badge svg {
+            width: 22px;
+            height: 22px;
+        }
+
+        /* Alert Banner */
+        .alert-banner {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            color: white;
+            padding: 1.5rem 0;
+            text-align: center;
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
+        /* Problem Section */
+        .problem-section {
+            padding: 5rem 0;
+            background: #fff;
+        }
+
+        .problem-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 5rem;
+            align-items: center;
+        }
+
+        .problem-content h2 {
+            font-size: 2.8rem;
+            margin-bottom: 1.5rem;
+            color: var(--danger);
+            font-weight: 800;
+        }
+
+        .problem-content > p {
+            font-size: 1.2rem;
+            color: var(--gray);
+            margin-bottom: 2rem;
+            line-height: 1.8;
+        }
+
+        .problem-list {
+            list-style: none;
+            margin-top: 2rem;
+        }
+
+        .problem-list li {
+            padding: 1.3rem 0;
+            padding-left: 3rem;
+            position: relative;
+            border-bottom: 1px solid var(--border);
+            font-size: 1.05rem;
+            line-height: 1.7;
+        }
+
+        .problem-list li:before {
+            content: '❌';
+            position: absolute;
+            left: 0;
+            font-size: 1.4rem;
+            top: 1.2rem;
+        }
+
+        .problem-list li strong {
+            color: var(--danger);
+            font-weight: 700;
+        }
+
+        .solution-box {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+            padding: 3.5rem;
+            border-radius: 20px;
+            box-shadow: 0 25px 70px rgba(16, 185, 129, 0.25);
+        }
+
+        .solution-box h3 {
+            font-size: 2.2rem;
+            margin-bottom: 1.5rem;
+            font-weight: 800;
+        }
+
+        .solution-box p {
+            font-size: 1.15rem;
+            line-height: 1.9;
+            margin-bottom: 2rem;
+        }
+
+        .solution-features {
+            display: grid;
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+
+        .solution-feature {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            font-size: 1.05rem;
+            font-weight: 500;
+        }
+
+        .solution-feature:before {
+            content: '✅';
+            font-size: 1.3rem;
+        }
+
+        /* How It Works */
+        .how-section {
+            padding: 5rem 0;
+            background: var(--light);
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 4rem;
+        }
+
+        .section-header h2 {
+            font-size: 2.8rem;
+            margin-bottom: 1rem;
+            font-weight: 800;
+        }
+
+        .section-header p {
+            font-size: 1.25rem;
+            color: var(--gray);
+        }
+
+        .how-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 3rem;
+            margin-top: 3rem;
+        }
+
+        .how-step {
+            text-align: center;
+            position: relative;
+        }
+
+        .how-step-number {
+            width: 70px;
+            height: 70px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            font-weight: 800;
+            color: white;
+            margin: 0 auto 1.5rem;
+            box-shadow: 0 4px 20px rgba(37, 99, 235, 0.3);
+        }
+
+        .how-step h3 {
+            font-size: 1.4rem;
+            margin-bottom: 1rem;
+            font-weight: 700;
+        }
+
+        .how-step p {
+            color: var(--gray);
+            line-height: 1.8;
+            font-size: 1.05rem;
+        }
+
+        /* Features Section */
+        .features-section {
+            padding: 5rem 0;
+            background: white;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 2.5rem;
+        }
+
+        .feature-card {
+            background: white;
+            padding: 2.5rem;
+            border-radius: 15px;
+            border: 2px solid var(--border);
+            transition: all 0.3s;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 50px rgba(0, 0, 0, 0.1);
+            border-color: var(--primary);
+        }
+
+        .feature-icon {
+            width: 70px;
+            height: 70px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.2rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .feature-card h3 {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            font-weight: 700;
+        }
+
+        .feature-card p {
+            color: var(--gray);
+            line-height: 1.8;
+            font-size: 1.05rem;
+        }
+
+        /* Use Cases */
+        .use-cases-section {
+            padding: 5rem 0;
+            background: var(--light);
+        }
+
+        .use-cases-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2.5rem;
+            margin-top: 3rem;
+        }
+
+        .use-case-card {
+            background: white;
+            padding: 2.5rem;
+            border-radius: 15px;
+            border: 2px solid var(--border);
+            transition: all 0.3s;
+        }
+
+        .use-case-card:hover {
+            border-color: var(--secondary);
+            box-shadow: 0 10px 40px rgba(16, 185, 129, 0.15);
+        }
+
+        .use-case-icon {
+            font-size: 3.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .use-case-card h3 {
+            font-size: 1.4rem;
+            margin-bottom: 1rem;
+            font-weight: 700;
+        }
+
+        .use-case-card p {
+            color: var(--gray);
+            line-height: 1.8;
+            font-size: 1.05rem;
+        }
+
+        .use-case-example {
+            background: var(--light);
+            padding: 1rem;
+            border-radius: 8px;
+            margin-top: 1rem;
+            font-size: 0.95rem;
+            font-style: italic;
+            color: var(--dark);
+        }
+
+        /* CTA Section */
+        .cta-section {
+            padding: 5rem 0;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            text-align: center;
+        }
+
+        .cta-section h2 {
+            font-size: 3.2rem;
+            margin-bottom: 1rem;
+            font-weight: 800;
+        }
+
+        .cta-section p {
+            font-size: 1.35rem;
+            margin-bottom: 2.5rem;
+            opacity: 0.95;
+        }
+
+        .btn-large {
+            font-size: 1.3rem;
+            padding: 1.3rem 3.5rem;
+            font-weight: 700;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-large:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Footer */
+        footer {
+            background: var(--darker);
+            color: rgba(255, 255, 255, 0.7);
+            padding: 3rem 0 1.5rem;
+        }
+
+        .footer-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr;
+            gap: 3rem;
+            margin-bottom: 2rem;
+        }
+
+        .footer-column h4 {
+            color: white;
+            margin-bottom: 1rem;
+            font-weight: 700;
+        }
+
+        .footer-column ul {
+            list-style: none;
+        }
+
+        .footer-column ul li {
+            margin-bottom: 0.5rem;
+        }
+
+        .footer-column a {
+            color: rgba(255, 255, 255, 0.7);
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .footer-column a:hover {
+            color: white;
+        }
+
+        .footer-bottom {
+            text-align: center;
+            padding-top: 2rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            font-size: 0.9rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 2.5rem;
+            }
+
+            .hero .subtitle {
+                font-size: 1.2rem;
+            }
+
+            .problem-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .how-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .footer-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .nav-links {
+                display: none;
+            }
+        }
+
+        /* Language Toggle */
+        html[lang="en"] .de-only,
+        html[lang="de"] .en-only {
+            display: none !important;
+        }
+        
+        html[lang="de"] .de-only,
+        html[lang="en"] .en-only {
+            display: inline !important;
+        }
+
+        /* Stats */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2rem;
+            margin: 2.5rem 0;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 3rem;
+            font-weight: 800;
+            color: white;
+            display: block;
+        }
+
+        .stat-label {
+            color: rgba(255, 255, 255, 0.85);
+            margin-top: 0.5rem;
+            font-size: 1.05rem;
+        }
+
+        @media (max-width: 768px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body lang="de">
+    <!-- Header -->
+    <header>
+        <nav class="container">
+            <div class="logo">
+                <div class="logo-icon">🛡️</div>
+                <span class="de-only">KI-Datenschutz</span>
+                <span class="en-only">AI Data Protection</span>
+            </div>
+            <div class="nav-links">
+                <a href="#problem"><span class="de-only">Problem</span><span class="en-only">Problem</span></a>
+                <a href="#how"><span class="de-only">So funktioniert's</span><span class="en-only">How It Works</span></a>
+                <a href="#use-cases"><span class="de-only">Beispiele</span><span class="en-only">Examples</span></a>
+                <a href="#features"><span class="de-only">Funktionen</span><span class="en-only">Features</span></a>
+                <a href="#contact"><span class="de-only">Demo</span><span class="en-only">Demo</span></a>
+                <button class="lang-switch" onclick="toggleLanguage()">
+                    <span class="de-only">🇬🇧 EN</span>
+                    <span class="en-only">🇩🇪 DE</span>
+                </button>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="container">
+            <div class="hero-content">
+                <h1>
+                    <span class="de-only">
+                        Nutzen Sie ChatGPT & Co.<br/>
+                        <span class="highlight">ohne Datenlecks.</span>
+                    </span>
+                    <span class="en-only">
+                        Use ChatGPT & Co.<br/>
+                        <span class="highlight">without data leaks.</span>
+                    </span>
+                </h1>
+                <p class="subtitle">
+                    <span class="de-only">Automatische Anonymisierung von Firmendaten bei der KI-Nutzung</span>
+                    <span class="en-only">Automatic anonymization of company data when using AI</span>
+                </p>
+                <p class="hero-description">
+                    <span class="de-only">
+                        Ihre Mitarbeiter nutzen ChatGPT, Claude & Co. für die tägliche Arbeit? 
+                        <strong>Unser System anonymisiert automatisch alle sensiblen Daten</strong> 
+                        (Kundennamen, E-Mails, Telefonnummern, Verträge, Source Code) 
+                        <strong>BEVOR sie an KI-Anbieter gesendet werden.</strong>
+                        <br/><br/>
+                        ✅ DSGVO-konform &nbsp;|&nbsp; ✅ 100% Self-Hosted &nbsp;|&nbsp; ✅ Kein Datenleck möglich
+                    </span>
+                    <span class="en-only">
+                        Your employees use ChatGPT, Claude & Co. for daily work? 
+                        <strong>Our system automatically anonymizes all sensitive data</strong> 
+                        (customer names, emails, phone numbers, contracts, source code) 
+                        <strong>BEFORE it's sent to AI providers.</strong>
+                        <br/><br/>
+                        ✅ GDPR compliant &nbsp;|&nbsp; ✅ 100% Self-Hosted &nbsp;|&nbsp; ✅ No data leaks possible
+                    </span>
+                </p>
+                <div class="cta-buttons">
+                    <a href="https://cal.com/gerd-krieger-plwn35/llm-proxy?overlayCalendar=true" class="btn btn-primary" target="_blank" rel="noopener noreferrer">
+                        <span class="de-only">🚀 Jetzt 30-Min Demo buchen</span>
+                        <span class="en-only">🚀 Book 30-Min Demo Now</span>
+                    </a>
+                    <a href="https://github.com/gerdkrieger/llm-proxy" class="btn btn-secondary" target="_blank">
+                        <span class="de-only">⭐ Open Source auf GitHub</span>
+                        <span class="en-only">⭐ Open Source on GitHub</span>
+                    </a>
+                </div>
+
+                <div class="trust-badges">
+                    <div class="trust-badge">
+                        <svg fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"></path></svg>
+                        <span class="de-only">DSGVO-konform</span>
+                        <span class="en-only">GDPR Compliant</span>
+                    </div>
+                    <div class="trust-badge">
+                        <svg fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z"></path></svg>
+                        <span class="de-only">100% Self-Hosted (Ihre Server)</span>
+                        <span class="en-only">100% Self-Hosted (Your Servers)</span>
+                    </div>
+                    <div class="trust-badge">
+                        <svg fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"></path></svg>
+                        <span class="de-only">Open Source (MIT Lizenz)</span>
+                        <span class="en-only">Open Source (MIT License)</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Problem Section -->
+    <section class="problem-section" id="problem">
+        <div class="container">
+            <div class="problem-grid">
+                <div class="problem-content">
+                    <h2>
+                        <span class="de-only">❌ Kennen Sie diese Szenarien?</span>
+                        <span class="en-only">❌ Do you recognize these scenarios?</span>
+                    </h2>
+                    <p>
+                        <span class="de-only">
+                            Ihre Mitarbeiter nutzen täglich ChatGPT, Claude & Co. – aber <strong>vertrauliche Firmendaten landen dabei unkontrolliert bei externen Anbietern.</strong>
+                        </span>
+                        <span class="en-only">
+                            Your employees use ChatGPT, Claude & Co. daily – but <strong>confidential company data ends up uncontrolled with external providers.</strong>
+                        </span>
+                    </p>
+                    <ul class="problem-list">
+                        <li>
+                            <span class="de-only">
+                                <strong>Datenleck durch Copy & Paste:</strong> 
+                                Mitarbeiter kopieren versehentlich E-Mails mit Kundendaten in ChatGPT – 
+                                Namen, Adressen, Vertragsinhalte landen bei OpenAI.
+                            </span>
+                            <span class="en-only">
+                                <strong>Data leak through copy & paste:</strong> 
+                                Employees accidentally copy emails with customer data into ChatGPT – 
+                                names, addresses, contract contents end up with OpenAI.
+                            </span>
+                        </li>
+                        <li>
+                            <span class="de-only">
+                                <strong>Source Code Leaks:</strong> 
+                                Entwickler nutzen Claude für Code-Reviews – dabei werden API Keys, 
+                                Passwörter und proprietäre Algorithmen offengelegt.
+                            </span>
+                            <span class="en-only">
+                                <strong>Source code leaks:</strong> 
+                                Developers use Claude for code reviews – exposing API keys, 
+                                passwords and proprietary algorithms.
+                            </span>
+                        </li>
+                        <li>
+                            <span class="de-only">
+                                <strong>DSGVO-Verstöße:</strong> 
+                                Personenbezogene Daten werden ohne Rechtsgrundlage an US-Anbieter übermittelt – 
+                                Bußgelder bis zu 20 Mio. € drohen.
+                            </span>
+                            <span class="en-only">
+                                <strong>GDPR violations:</strong> 
+                                Personal data is transmitted to US providers without legal basis – 
+                                fines of up to €20 million threatened.
+                            </span>
+                        </li>
+                        <li>
+                            <span class="de-only">
+                                <strong>Keine Kontrolle:</strong> 
+                                Sie wissen nicht, welcher Mitarbeiter wann welche sensiblen Daten 
+                                in KI-Systeme eingibt. Compliance-Alptraum.
+                            </span>
+                            <span class="en-only">
+                                <strong>No control:</strong> 
+                                You don't know which employee enters which sensitive data 
+                                into AI systems when. Compliance nightmare.
+                            </span>
+                        </li>
+                        <li>
+                            <span class="de-only">
+                                <strong>Unkontrollierte Kosten:</strong> 
+                                Jeder hat eigene ChatGPT-Accounts, Subscriptions stapeln sich, 
+                                keine zentrale Kostenkontrolle möglich.
+                            </span>
+                            <span class="en-only">
+                                <strong>Uncontrolled costs:</strong> 
+                                Everyone has their own ChatGPT accounts, subscriptions pile up, 
+                                no central cost control possible.
+                            </span>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="solution-box">
+                    <h3>
+                        <span class="de-only">✅ Die Lösung</span>
+                        <span class="en-only">✅ The Solution</span>
+                    </h3>
+                    <p>
+                        <span class="de-only">
+                            <strong>Ein intelligentes Gateway zwischen Ihren Mitarbeitern und KI-Systemen.</strong>
+                            <br/><br/>
+                            Alle Anfragen laufen durch unser System – vertrauliche Daten werden automatisch 
+                            erkannt und anonymisiert, BEVOR sie Ihr Unternehmen verlassen.
+                        </span>
+                        <span class="en-only">
+                            <strong>An intelligent gateway between your employees and AI systems.</strong>
+                            <br/><br/>
+                            All requests go through our system – confidential data is automatically 
+                            detected and anonymized BEFORE it leaves your company.
+                        </span>
+                    </p>
+
+                    <div class="solution-features">
+                        <div class="solution-feature">
+                            <span class="de-only">E-Mails, Telefonnummern automatisch erkennen</span>
+                            <span class="en-only">Automatically detect emails, phone numbers</span>
+                        </div>
+                        <div class="solution-feature">
+                            <span class="de-only">Namen, Adressen, IBANs filtern</span>
+                            <span class="en-only">Filter names, addresses, IBANs</span>
+                        </div>
+                        <div class="solution-feature">
+                            <span class="de-only">API Keys & Passwörter schützen</span>
+                            <span class="en-only">Protect API keys & passwords</span>
+                        </div>
+                        <div class="solution-feature">
+                            <span class="de-only">Custom Patterns (z.B. Aktenzeichen)</span>
+                            <span class="en-only">Custom patterns (e.g. case numbers)</span>
+                        </div>
+                        <div class="solution-feature">
+                            <span class="de-only">Vollständiges Logging für Audits</span>
+                            <span class="en-only">Complete logging for audits</span>
+                        </div>
+                    </div>
+
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <span class="stat-number">100%</span>
+                            <span class="stat-label">
+                                <span class="de-only">Daten bleiben intern</span>
+                                <span class="en-only">Data stays internal</span>
+                            </span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-number">0</span>
+                            <span class="stat-label">
+                                <span class="de-only">Datenlecks</span>
+                                <span class="en-only">Data leaks</span>
+                            </span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-number">∞</span>
+                            <span class="stat-label">
+                                <span class="de-only">Filter-Regeln</span>
+                                <span class="en-only">Filter rules</span>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- How It Works -->
+    <section class="how-section" id="how">
+        <div class="container">
+            <div class="section-header">
+                <h2>
+                    <span class="de-only">So funktioniert die Anonymisierung</span>
+                    <span class="en-only">How Anonymization Works</span>
+                </h2>
+                <p>
+                    <span class="de-only">In 3 Schritten zu sicherer KI-Nutzung</span>
+                    <span class="en-only">3 steps to secure AI usage</span>
+                </p>
+            </div>
+
+            <div class="how-grid">
+                <div class="how-step">
+                    <div class="how-step-number">1</div>
+                    <h3>
+                        <span class="de-only">Mitarbeiter nutzt ChatGPT normal</span>
+                        <span class="en-only">Employee uses ChatGPT normally</span>
+                    </h3>
+                    <p>
+                        <span class="de-only">
+                            Ihre Mitarbeiter arbeiten wie gewohnt mit ChatGPT, Claude oder anderen KI-Tools. 
+                            Sie ändern nur die Basis-URL – der Rest bleibt gleich.
+                        </span>
+                        <span class="en-only">
+                            Your employees work as usual with ChatGPT, Claude or other AI tools. 
+                            They only change the base URL – everything else stays the same.
+                        </span>
+                    </p>
+                </div>
+
+                <div class="how-step">
+                    <div class="how-step-number">2</div>
+                    <h3>
+                        <span class="de-only">Automatische Anonymisierung</span>
+                        <span class="en-only">Automatic Anonymization</span>
+                    </h3>
+                    <p>
+                        <span class="de-only">
+                            Unser System analysiert jede Anfrage in Echtzeit: E-Mails, Namen, Telefonnummern, 
+                            Adressen, IBAN, API Keys werden erkannt und durch <strong>[ANONYMISIERT]</strong> ersetzt.
+                        </span>
+                        <span class="en-only">
+                            Our system analyzes every request in real-time: emails, names, phone numbers, 
+                            addresses, IBAN, API keys are detected and replaced with <strong>[ANONYMIZED]</strong>.
+                        </span>
+                    </p>
+                </div>
+
+                <div class="how-step">
+                    <div class="how-step-number">3</div>
+                    <h3>
+                        <span class="de-only">Sichere Weiterleitung an KI</span>
+                        <span class="en-only">Secure forwarding to AI</span>
+                    </h3>
+                    <p>
+                        <span class="de-only">
+                            Nur die anonymisierte Version wird an OpenAI, Claude & Co. gesendet. 
+                            Sensible Daten verlassen nie Ihre Infrastruktur. Vollständiges Logging für Audits.
+                        </span>
+                        <span class="en-only">
+                            Only the anonymized version is sent to OpenAI, Claude & Co. 
+                            Sensitive data never leaves your infrastructure. Complete logging for audits.
+                        </span>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Use Cases Section -->
+    <section class="use-cases-section" id="use-cases">
+        <div class="container">
+            <div class="section-header">
+                <h2>
+                    <span class="de-only">Praxis-Beispiele: So schützen Sie Ihre Daten</span>
+                    <span class="en-only">Real-World Examples: How to protect your data</span>
+                </h2>
+                <p>
+                    <span class="de-only">Konkrete Szenarien aus verschiedenen Branchen</span>
+                    <span class="en-only">Concrete scenarios from different industries</span>
+                </p>
+            </div>
+
+            <div class="use-cases-grid">
+                <div class="use-case-card">
+                    <div class="use-case-icon">⚖️</div>
+                    <h3>
+                        <span class="de-only">Anwaltskanzlei</span>
+                        <span class="en-only">Law Firm</span>
+                    </h3>
+                    <p>
+                        <span class="de-only">
+                            <strong>Problem:</strong> Anwälte wollen Verträge mit KI prüfen, dürfen aber 
+                            keine Mandantennamen oder Aktenzeichen nach außen geben.
+                        </span>
+                        <span class="en-only">
+                            <strong>Problem:</strong> Lawyers want to check contracts with AI, but 
+                            cannot share client names or case numbers externally.
+                        </span>
+                    </p>
+                    <div class="use-case-example">
+                        <span class="de-only">
+                            <strong>Vorher:</strong> "Prüfe Vertrag zwischen Max Mustermann GmbH und..."<br/>
+                            <strong>Anonymisiert:</strong> "Prüfe Vertrag zwischen [NAME] und..."
+                        </span>
+                        <span class="en-only">
+                            <strong>Before:</strong> "Check contract between Max Mustermann GmbH and..."<br/>
+                            <strong>Anonymized:</strong> "Check contract between [NAME] and..."
+                        </span>
+                    </div>
+                </div>
+
+                <div class="use-case-card">
+                    <div class="use-case-icon">💻</div>
+                    <h3>
+                        <span class="de-only">Software-Entwicklung</span>
+                        <span class="en-only">Software Development</span>
+                    </h3>
+                    <p>
+                        <span class="de-only">
+                            <strong>Problem:</strong> Entwickler nutzen Claude für Code-Reviews, 
+                            aber API Keys und Passwörter stehen im Code.
+                        </span>
+                        <span class="en-only">
+                            <strong>Problem:</strong> Developers use Claude for code reviews, 
+                            but API keys and passwords are in the code.
+                        </span>
+                    </p>
+                    <div class="use-case-example">
+                        <span class="de-only">
+                            <strong>Vorher:</strong> const API_KEY = "sk-proj-abc123..."<br/>
+                            <strong>Anonymisiert:</strong> const API_KEY = "[REDACTED]"
+                        </span>
+                        <span class="en-only">
+                            <strong>Before:</strong> const API_KEY = "sk-proj-abc123..."<br/>
+                            <strong>Anonymized:</strong> const API_KEY = "[REDACTED]"
+                        </span>
+                    </div>
+                </div>
+
+                <div class="use-case-card">
+                    <div class="use-case-icon">🏥</div>
+                    <h3>
+                        <span class="de-only">Gesundheitswesen</span>
+                        <span class="en-only">Healthcare</span>
+                    </h3>
+                    <p>
+                        <span class="de-only">
+                            <strong>Problem:</strong> Ärzte wollen Diagnosen mit KI diskutieren, 
+                            dürfen aber keine Patientendaten preisgeben (HIPAA/DSGVO).
+                        </span>
+                        <span class="en-only">
+                            <strong>Problem:</strong> Doctors want to discuss diagnoses with AI, 
+                            but cannot disclose patient data (HIPAA/GDPR).
+                        </span>
+                    </p>
+                    <div class="use-case-example">
+                        <span class="de-only">
+                            <strong>Vorher:</strong> "Patient Maria Schmidt, geb. 15.03.1980..."<br/>
+                            <strong>Anonymisiert:</strong> "Patient [NAME], geb. [DATE]..."
+                        </span>
+                        <span class="en-only">
+                            <strong>Before:</strong> "Patient Maria Schmidt, born 15.03.1980..."<br/>
+                            <strong>Anonymized:</strong> "Patient [NAME], born [DATE]..."
+                        </span>
+                    </div>
+                </div>
+
+                <div class="use-case-card">
+                    <div class="use-case-icon">📊</div>
+                    <h3>
+                        <span class="de-only">Unternehmensberatung</span>
+                        <span class="en-only">Management Consulting</span>
+                    </h3>
+                    <p>
+                        <span class="de-only">
+                            <strong>Problem:</strong> Berater analysieren Kundendaten mit KI, 
+                            verstoßen aber gegen NDAs wenn Firmennamen offengelegt werden.
+                        </span>
+                        <span class="en-only">
+                            <strong>Problem:</strong> Consultants analyze client data with AI, 
+                            but violate NDAs if company names are disclosed.
+                        </span>
+                    </p>
+                    <div class="use-case-example">
+                        <span class="de-only">
+                            <strong>Vorher:</strong> "Für Kunde Müller AG mit Umsatz 50 Mio..."<br/>
+                            <strong>Anonymisiert:</strong> "Für Kunde [COMPANY] mit Umsatz 50 Mio..."
+                        </span>
+                        <span class="en-only">
+                            <strong>Before:</strong> "For client Müller AG with revenue 50 Mio..."<br/>
+                            <strong>Anonymized:</strong> "For client [COMPANY] with revenue 50 Mio..."
+                        </span>
+                    </div>
+                </div>
+
+                <div class="use-case-card">
+                    <div class="use-case-icon">🏢</div>
+                    <h3>
+                        <span class="de-only">Personalabteilung (HR)</span>
+                        <span class="en-only">Human Resources</span>
+                    </h3>
+                    <p>
+                        <span class="de-only">
+                            <strong>Problem:</strong> HR nutzt KI für Stellenanzeigen und E-Mails, 
+                            aber Bewerberdaten und Gehälter dürfen nicht nach außen.
+                        </span>
+                        <span class="en-only">
+                            <strong>Problem:</strong> HR uses AI for job postings and emails, 
+                            but applicant data and salaries must stay confidential.
+                        </span>
+                    </p>
+                    <div class="use-case-example">
+                        <span class="de-only">
+                            <strong>Vorher:</strong> "Bewerbung von Anna Müller, Tel. 0171-123..."<br/>
+                            <strong>Anonymisiert:</strong> "Bewerbung von [NAME], Tel. [PHONE]..."
+                        </span>
+                        <span class="en-only">
+                            <strong>Before:</strong> "Application from Anna Müller, Tel. 0171-123..."<br/>
+                            <strong>Anonymized:</strong> "Application from [NAME], Tel. [PHONE]..."
+                        </span>
+                    </div>
+                </div>
+
+                <div class="use-case-card">
+                    <div class="use-case-icon">🏭</div>
+                    <h3>
+                        <span class="de-only">Produktion & Fertigung</span>
+                        <span class="en-only">Manufacturing</span>
+                    </h3>
+                    <p>
+                        <span class="de-only">
+                            <strong>Problem:</strong> Ingenieure optimieren Fertigungsprozesse mit KI, 
+                            aber Betriebsgeheimnisse und Patente müssen geschützt werden.
+                        </span>
+                        <span class="en-only">
+                            <strong>Problem:</strong> Engineers optimize manufacturing with AI, 
+                            but trade secrets and patents must be protected.
+                        </span>
+                    </p>
+                    <div class="use-case-example">
+                        <span class="de-only">
+                            <strong>Vorher:</strong> "Unser Patent DE102023001234 für Verfahren..."<br/>
+                            <strong>Anonymisiert:</strong> "Unser Patent [PATENT] für Verfahren..."
+                        </span>
+                        <span class="en-only">
+                            <strong>Before:</strong> "Our patent DE102023001234 for process..."<br/>
+                            <strong>Anonymized:</strong> "Our patent [PATENT] for process..."
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="features-section" id="features">
+        <div class="container">
+            <div class="section-header">
+                <h2>
+                    <span class="de-only">Alle Funktionen für maximale Sicherheit</span>
+                    <span class="en-only">All features for maximum security</span>
+                </h2>
+                <p>
+                    <span class="de-only">Von Anonymisierung bis Compliance – alles inklusive</span>
+                    <span class="en-only">From anonymization to compliance – everything included</span>
+                </p>
+            </div>
+
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">🛡️</div>
+                    <h3>
+                        <span class="de-only">Intelligente Anonymisierung</span>
+                        <span class="en-only">Intelligent Anonymization</span>
+                    </h3>
+                    <p>
+                        <span class="de-only">
+                            Automatische Erkennung von E-Mails, Telefonnummern, Namen, Adressen, IBANs, 
+                            Kreditkarten, API Keys, Passwörtern. Plus: Eigene Filter-Regeln (Regex, Keywords).
+                        </span>
+                        <span class="en-only">
+                            Automatic detection of emails, phone numbers, names, addresses, IBANs, 
+                            credit cards, API keys, passwords. Plus: Custom filter rules (regex, keywords).
+                        </span>
+                    </p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">📊</div>
+                    <h3>
+                        <span class="de-only">Vollständige Transparenz</span>
+                        <span class="en-only">Complete Transparency</span>
+                    </h3>
+                    <p>
+                        <span class="de-only">
+                            Echtzeit-Dashboard mit allen Anfragen: Wer hat wann was gefragt, welche Daten wurden anonymisiert, 
+                            wie hoch sind die Kosten. Perfekt für Compliance-Audits.
+                        </span>
+                        <span class="en-only">
+                            Real-time dashboard with all requests: Who asked what when, which data was anonymized, 
+                            what are the costs. Perfect for compliance audits.
+                        </span>
+                    </p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🔐</div>
+                    <h3>
+                        <span class="de-only">DSGVO & Compliance-Ready</span>
+                        <span class="en-only">GDPR & Compliance-Ready</span>
+                    </h3>
+                    <p>
+                        <span class="de-only">
+                            100% Self-Hosted auf Ihren Servern. Daten verlassen nie Ihre Infrastruktur. 
+                            Audit-Logs, Verschlüsselung, Zugriffskontrolle – alles inklusive.
+                        </span>
+                        <span class="en-only">
+                            100% self-hosted on your servers. Data never leaves your infrastructure. 
+                            Audit logs, encryption, access control – everything included.
+                        </span>
+                    </p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">💰</div>
+                    <h3>
+                        <span class="de-only">Zentrale Kostenkontrolle</span>
+                        <span class="en-only">Central Cost Control</span>
+                    </h3>
+                    <p>
+                        <span class="de-only">
+                            Ein Account für alle Mitarbeiter. Sehen Sie genau, wie viel jeder Bereich verbraucht. 
+                            Budgets setzen, Limits definieren, Kosten optimieren.
+                        </span>
+                        <span class="en-only">
+                            One account for all employees. See exactly how much each department consumes. 
+                            Set budgets, define limits, optimize costs.
+                        </span>
+                    </p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🔄</div>
+                    <h3>
+                        <span class="de-only">Multi-Provider-Support</span>
+                        <span class="en-only">Multi-Provider Support</span>
+                    </h3>
+                    <p>
+                        <span class="de-only">
+                            Nutzen Sie ChatGPT, Claude, Gemini, Llama oder Custom-Modelle – 
+                            alles über eine Schnittstelle. Provider wechseln ohne Code-Änderung.
+                        </span>
+                        <span class="en-only">
+                            Use ChatGPT, Claude, Gemini, Llama or custom models – 
+                            all through one interface. Switch providers without code changes.
+                        </span>
+                    </p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">⚡</div>
+                    <h3>
+                        <span class="de-only">Schnell & Zuverlässig</span>
+                        <span class="en-only">Fast & Reliable</span>
+                    </h3>
+                    <p>
+                        <span class="de-only">
+                            Golang-basiert für maximale Performance. Response-Caching spart Kosten. 
+                            Handles 1000+ Anfragen/Sekunde. Production-ready.
+                        </span>
+                        <span class="en-only">
+                            Golang-based for maximum performance. Response caching saves costs. 
+                            Handles 1000+ requests/second. Production-ready.
+                        </span>
+                    </p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🔧</div>
+                    <h3>
+                        <span class="de-only">Einfache Integration</span>
+                        <span class="en-only">Easy Integration</span>
+                    </h3>
+                    <p>
+                        <span class="de-only">
+                            OpenAI-kompatible API. Ihre Mitarbeiter ändern nur die Base-URL – 
+                            der Rest bleibt gleich. SDK für Python, JavaScript, Go.
+                        </span>
+                        <span class="en-only">
+                            OpenAI-compatible API. Your employees only change the base URL – 
+                            everything else stays the same. SDK for Python, JavaScript, Go.
+                        </span>
+                    </p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🐳</div>
+                    <h3>
+                        <span class="de-only">Docker & Self-Hosted</span>
+                        <span class="en-only">Docker & Self-Hosted</span>
+                    </h3>
+                    <p>
+                        <span class="de-only">
+                            Docker Compose Setup in 5 Minuten. PostgreSQL & Redis inklusive. 
+                            Läuft auf Ihren Servern, in Ihrer Cloud, oder On-Premise.
+                        </span>
+                        <span class="en-only">
+                            Docker Compose setup in 5 minutes. PostgreSQL & Redis included. 
+                            Runs on your servers, in your cloud, or on-premise.
+                        </span>
+                    </p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🎯</div>
+                    <h3>
+                        <span class="de-only">Custom Filter-Regeln</span>
+                        <span class="en-only">Custom Filter Rules</span>
+                    </h3>
+                    <p>
+                        <span class="de-only">
+                            Erstellen Sie eigene Filter: Aktenzeichen, Projektnummern, interne Codes. 
+                            Regex-basiert, flexibel, für Ihre spezifischen Anforderungen.
+                        </span>
+                        <span class="en-only">
+                            Create custom filters: case numbers, project numbers, internal codes. 
+                            Regex-based, flexible, for your specific requirements.
+                        </span>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="cta-section" id="contact">
+        <div class="container">
+            <h2>
+                <span class="de-only">Bereit für sichere KI-Nutzung?</span>
+                <span class="en-only">Ready for secure AI usage?</span>
+            </h2>
+            <p>
+                <span class="de-only">
+                    Buchen Sie jetzt eine persönliche Demo und erleben Sie, 
+                    wie einfach der Schutz Ihrer Firmendaten sein kann.
+                </span>
+                <span class="en-only">
+                    Book a personal demo now and experience 
+                    how easy protecting your company data can be.
+                </span>
+            </p>
+            
+            <div class="cta-buttons" style="margin-top: 3rem;">
+                <a href="https://cal.com/gerd-krieger-plwn35/llm-proxy" 
+                   class="btn btn-primary btn-large" 
+                   target="_blank" 
+                   rel="noopener noreferrer"
+                   style="background: white; color: var(--primary);">
+                    <span class="de-only">📅 Jetzt 30-Min Demo buchen</span>
+                    <span class="en-only">📅 Book 30-Min Demo Now</span>
+                </a>
+                <a href="https://github.com/gerdkrieger/llm-proxy" 
+                   class="btn btn-secondary btn-large" 
+                   target="_blank">
+                    <span class="de-only">💾 Open Source auf GitHub</span>
+                    <span class="en-only">💾 Open Source on GitHub</span>
+                </a>
+            </div>
+            
+            <p style="margin-top: 2rem; font-size: 1.05rem; opacity: 0.9;">
+                <span class="de-only">
+                    ⏱️ 30 Minuten • Kostenlos & unverbindlich • Live-Demo mit echten Daten
+                </span>
+                <span class="en-only">
+                    ⏱️ 30 minutes • Free & no commitment • Live demo with real data
+                </span>
+            </p>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container">
+            <div class="footer-grid">
+                <div class="footer-column">
+                    <div class="logo" style="margin-bottom: 1rem;">
+                        <div class="logo-icon">🛡️</div>
+                        <span style="color: white;">
+                            <span class="de-only">KI-Datenschutz</span>
+                            <span class="en-only">AI Data Protection</span>
+                        </span>
+                    </div>
+                    <p>
+                        <span class="de-only">
+                            Automatische Anonymisierung von Firmendaten bei der Nutzung von ChatGPT, Claude & Co. 
+                            DSGVO-konform, Self-Hosted, Open Source.
+                        </span>
+                        <span class="en-only">
+                            Automatic anonymization of company data when using ChatGPT, Claude & Co. 
+                            GDPR compliant, self-hosted, open source.
+                        </span>
+                    </p>
+                </div>
+
+                <div class="footer-column">
+                    <h4>
+                        <span class="de-only">Produkt</span>
+                        <span class="en-only">Product</span>
+                    </h4>
+                    <ul>
+                        <li><a href="#problem">
+                            <span class="de-only">Problem</span>
+                            <span class="en-only">Problem</span>
+                        </a></li>
+                        <li><a href="#how">
+                            <span class="de-only">So funktioniert's</span>
+                            <span class="en-only">How It Works</span>
+                        </a></li>
+                        <li><a href="#use-cases">
+                            <span class="de-only">Beispiele</span>
+                            <span class="en-only">Examples</span>
+                        </a></li>
+                        <li><a href="#features">
+                            <span class="de-only">Funktionen</span>
+                            <span class="en-only">Features</span>
+                        </a></li>
+                        <li><a href="https://github.com/gerdkrieger/llm-proxy" target="_blank">GitHub</a></li>
+                    </ul>
+                </div>
+
+                <div class="footer-column">
+                    <h4>
+                        <span class="de-only">Unternehmen</span>
+                        <span class="en-only">Company</span>
+                    </h4>
+                    <ul>
+                        <li><a href="https://derkrieger.ch" target="_blank">AItrail</a></li>
+                        <li><a href="mailto:info@aitrail.ch">
+                            <span class="de-only">Kontakt</span>
+                            <span class="en-only">Contact</span>
+                        </a></li>
+                        <li><a href="/impressum.html">
+                            <span class="de-only">Impressum</span>
+                            <span class="en-only">Imprint</span>
+                        </a></li>
+                        <li><a href="/datenschutz.html">
+                            <span class="de-only">Datenschutz</span>
+                            <span class="en-only">Privacy</span>
+                        </a></li>
+                    </ul>
+                </div>
+
+                <div class="footer-column">
+                    <h4>
+                        <span class="de-only">Ressourcen</span>
+                        <span class="en-only">Resources</span>
+                    </h4>
+                    <ul>
+                        <li><a href="https://github.com/gerdkrieger/llm-proxy/wiki" target="_blank">
+                            <span class="de-only">Dokumentation</span>
+                            <span class="en-only">Documentation</span>
+                        </a></li>
+                        <li><a href="https://github.com/gerdkrieger/llm-proxy/issues" target="_blank">Support</a></li>
+                        <li><a href="https://github.com/gerdkrieger/llm-proxy/blob/master/CHANGELOG.md" target="_blank">Changelog</a></li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="footer-bottom">
+                <p>
+                    © 2026 LLM-Proxy by <a href="https://aitrail.ch" style="color: var(--primary);">AItrail / Krieger Engineering</a>. 
+                    <span class="de-only">Open Source unter MIT Lizenz.</span>
+                    <span class="en-only">Open Source under MIT License.</span>
+                </p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        function toggleLanguage() {
+            const html = document.documentElement;
+            const currentLang = html.getAttribute('lang');
+            const newLang = currentLang === 'de' ? 'en' : 'de';
+            html.setAttribute('lang', newLang);
+            localStorage.setItem('lang', newLang);
+            
+            const url = new URL(window.location);
+            url.searchParams.set('lang', newLang);
+            window.history.pushState({}, '', url);
+        }
+
+        // Initialize language on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            let targetLang = 'de'; // Default: Deutsch
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const urlLang = urlParams.get('lang');
+            if (urlLang === 'en' || urlLang === 'de') {
+                targetLang = urlLang;
+            }
+            else if (localStorage.getItem('lang')) {
+                targetLang = localStorage.getItem('lang');
+            }
+            else {
+                const browserLang = navigator.language || navigator.userLanguage;
+                if (browserLang.startsWith('de')) {
+                    targetLang = 'de';
+                } else {
+                    targetLang = 'en';
+                }
+            }
+
+            document.documentElement.setAttribute('lang', targetLang);
+            localStorage.setItem('lang', targetLang);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml">
+    
+    <!-- Landing Page (Main) -->
+    <url>
+        <loc>https://landing.llmproxy.aitrail.ch/</loc>
+        <lastmod>2026-03-06</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>1.0</priority>
+        <xhtml:link rel="alternate" hreflang="en" href="https://landing.llmproxy.aitrail.ch/?lang=en"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://landing.llmproxy.aitrail.ch/?lang=de"/>
+    </url>
+    
+    <!-- Impressum (Legal Notice) -->
+    <url>
+        <loc>https://landing.llmproxy.aitrail.ch/impressum.html</loc>
+        <lastmod>2026-03-06</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.3</priority>
+        <xhtml:link rel="alternate" hreflang="en" href="https://landing.llmproxy.aitrail.ch/impressum.html?lang=en"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://landing.llmproxy.aitrail.ch/impressum.html?lang=de"/>
+    </url>
+    
+    <!-- Datenschutzerklärung (Privacy Policy) -->
+    <url>
+        <loc>https://landing.llmproxy.aitrail.ch/datenschutz.html</loc>
+        <lastmod>2026-03-06</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.3</priority>
+        <xhtml:link rel="alternate" hreflang="en" href="https://landing.llmproxy.aitrail.ch/datenschutz.html?lang=en"/>
+        <xhtml:link rel="alternate" hreflang="de" href="https://landing.llmproxy.aitrail.ch/datenschutz.html?lang=de"/>
+    </url>
+    
+    <!-- GitHub Repository -->
+    <url>
+        <loc>https://github.com/krieger-engineering/llm-proxy</loc>
+        <changefreq>weekly</changefreq>
+        <priority>0.8</priority>
+    </url>
+    
+</urlset>

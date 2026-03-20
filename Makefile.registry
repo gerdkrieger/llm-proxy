@@ -111,6 +111,35 @@ clean: ## Clean up old Docker images
 	@echo "$(GREEN)✓ Cleanup complete$(NC)"
 
 # =============================================================================
+# DATABASE MIGRATIONS
+# =============================================================================
+
+migrate-status: ## Check current migration version on server
+	@./scripts/deployment/migrate.sh status
+
+migrate-pending: ## List pending migrations on server
+	@./scripts/deployment/migrate.sh pending
+
+migrate-up: ## Apply all pending migrations on server
+	@./scripts/deployment/migrate.sh up
+
+migrate-up-one: ## Apply next migration on server
+	@./scripts/deployment/migrate.sh up 1
+
+migrate-down: ## Rollback last migration on server (CAREFUL!)
+	@./scripts/deployment/migrate.sh down
+
+migrate-create: ## Create new migration (usage: make migrate-create NAME=add_user_roles)
+	@if [ -z "$(NAME)" ]; then \
+		echo "$(YELLOW)Usage: make migrate-create NAME=migration_name$(NC)"; \
+		exit 1; \
+	fi
+	@./scripts/deployment/migrate.sh create $(NAME)
+
+migrate-sync: ## Sync migrations to production server
+	@./scripts/deployment/migrate.sh sync
+
+# =============================================================================
 # FULL DEPLOYMENT WORKFLOW
 # =============================================================================
 

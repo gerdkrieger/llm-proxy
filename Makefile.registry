@@ -1,0 +1,132 @@
+# =============================================================================
+# MAKEFILE FOR REGISTRY-BASED DEPLOYMENT
+# =============================================================================
+# Simplified commands for building, pushing, and deploying Docker images
+# =============================================================================
+
+.PHONY: help build push deploy deploy-prod login-registries status rollback
+
+# Default version (can be overridden: make build VERSION=v1.2.3)
+VERSION ?= latest
+
+# Registry URLs
+GITHUB_REGISTRY := ghcr.io/gerdkrieger
+GITLAB_REGISTRY := registry.gitlab.com/krieger-engineering
+
+# Colors for output
+BLUE := \033[0;34m
+GREEN := \033[0;32m
+YELLOW := \033[1;33m
+NC := \033[0m
+
+help: ## Show this help message
+	@echo "$(BLUE)========================================$(NC)"
+	@echo "$(BLUE)  LLM-PROXY DEPLOYMENT COMMANDS$(NC)"
+	@echo "$(BLUE)========================================$(NC)"
+	@echo ""
+	@echo "$(GREEN)Usage:$(NC)"
+	@echo "  make <command> [VERSION=v1.2.3]"
+	@echo ""
+	@echo "$(GREEN)Available commands:$(NC)"
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(YELLOW)%-20s$(NC) %s\n", $$1, $$2}'
+	@echo ""
+	@echo "$(GREEN)Examples:$(NC)"
+	@echo "  make build                 # Build all images (latest)"
+	@echo "  make build VERSION=v1.2.3  # Build specific version"
+	@echo "  make push                  # Push to registries"
+	@echo "  make deploy-prod           # Deploy to production server"
+	@echo ""
+
+login-registries: ## Login to GitHub and GitLab registries
+	@echo "$(BLUE)Logging in to registries...$(NC)"
+	@echo "$(YELLOW)GitHub Container Registry:$(NC)"
+	docker login ghcr.io -u gerdkrieger
+	@echo ""
+	@echo "$(YELLOW)GitLab Container Registry:$(NC)"
+	docker login registry.gitlab.com
+	@echo ""
+	@echo "$(GREEN)✓ Logged in to all registries$(NC)"
+
+build: ## Build all Docker images locally
+	@echo "$(BLUE)Building all images (version: $(VERSION))...$(NC)"
+	@./scripts/deployment/build-and-push.sh $(VERSION) --build-only 2>/dev/null || \
+		(docker build -f deployments/docker/Dockerfile -t $(GITHUB_REGISTRY)/llm-proxy-backend:$(VERSION) . && \
+		 docker build -f admin-ui/Dockerfile -t $(GITHUB_REGISTRY)/llm-proxy-admin-ui:$(VERSION) ./admin-ui && \
+		 docker build -f landing/Dockerfile -t $(GITLAB_REGISTRY)/llm-proxy-landing:$(VERSION) ./landing)
+	@echo "$(GREEN)✓ All images built$(NC)"
+
+push: ## Push all images to registries
+	@echo "$(BLUE)Pushing images to registries (version: $(VERSION))...$(NC)"
+	./scripts/deployment/build-and-push.sh $(VERSION)
+	@echo "$(GREEN)✓ All images pushed$(NC)"
+
+build-and-push: ## Build and push all images (shortcut)
+	@echo "$(BLUE)Building and pushing all images (version: $(VERSION))...$(NC)"
+	./scripts/deployment/build-and-push.sh $(VERSION)
+	@echo "$(GREEN)✓ Complete$(NC)"
+
+deploy-prod: ## Deploy to production server (pulls images from registries)
+	@echo "$(BLUE)Deploying to production server (version: $(VERSION))...$(NC)"
+	@echo "$(YELLOW)Copying deployment script to server...$(NC)"
+	scp scripts/deployment/server-deploy.sh openweb:/opt/llm-proxy/scripts/deployment/
+	scp deployments/docker/docker-compose.registry-deploy.yml openweb:/opt/llm-proxy/deployments/docker/
+	@echo "$(YELLOW)Running deployment on server...$(NC)"
+	ssh openweb "chmod +x /opt/llm-proxy/scripts/deployment/server-deploy.sh && \
+	             cd /opt/llm-proxy && \
+	             ./scripts/deployment/server-deploy.sh $(VERSION)"
+	@echo "$(GREEN)✓ Deployment complete$(NC)"
+
+status: ## Check status of containers on production server
+	@echo "$(BLUE)Checking container status on production server...$(NC)"
+	@ssh openweb "docker ps --filter 'name=llm-proxy' --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'"
+
+logs: ## View logs from production server (usage: make logs SERVICE=backend)
+	@if [ -z "$(SERVICE)" ]; then \
+		echo "$(YELLOW)Usage: make logs SERVICE=<backend|admin-ui|landing|postgres|redis>$(NC)"; \
+	else \
+		ssh openweb "docker logs -f llm-proxy-$(SERVICE)"; \
+	fi
+
+rollback: ## Rollback to previous version (usage: make rollback VERSION=v1.2.2)
+	@if [ "$(VERSION)" = "latest" ]; then \
+		echo "$(YELLOW)Please specify a version: make rollback VERSION=v1.2.2$(NC)"; \
+		exit 1; \
+	fi
+	@echo "$(BLUE)Rolling back to version: $(VERSION)$(NC)"
+	@$(MAKE) deploy-prod VERSION=$(VERSION)
+
+backup-db: ## Backup PostgreSQL database from production
+	@echo "$(BLUE)Backing up PostgreSQL database...$(NC)"
+	ssh openweb "docker exec llm-proxy-postgres pg_dump -U proxy_user llm_proxy" > backups/postgres-backup-$(shell date +%Y%m%d-%H%M%S).sql
+	@echo "$(GREEN)✓ Backup saved to backups/$(NC)"
+
+test-local: ## Test docker-compose file locally
+	@echo "$(BLUE)Testing docker-compose configuration...$(NC)"
+	docker-compose -f deployments/docker/docker-compose.registry-deploy.yml config
+	@echo "$(GREEN)✓ Configuration is valid$(NC)"
+
+clean: ## Clean up old Docker images
+	@echo "$(BLUE)Cleaning up old Docker images...$(NC)"
+	docker image prune -f
+	@echo "$(GREEN)✓ Cleanup complete$(NC)"
+
+# =============================================================================
+# FULL DEPLOYMENT WORKFLOW
+# =============================================================================
+
+release: ## Full release workflow: build, push, deploy (usage: make release VERSION=v1.2.3)
+	@if [ "$(VERSION)" = "latest" ]; then \
+		echo "$(YELLOW)Please specify a version for release: make release VERSION=v1.2.3$(NC)"; \
+		exit 1; \
+	fi
+	@echo "$(BLUE)========================================$(NC)"
+	@echo "$(BLUE)  FULL RELEASE: $(VERSION)$(NC)"
+	@echo "$(BLUE)========================================$(NC)"
+	@echo ""
+	@$(MAKE) build-and-push VERSION=$(VERSION)
+	@echo ""
+	@$(MAKE) deploy-prod VERSION=$(VERSION)
+	@echo ""
+	@echo "$(GREEN)========================================$(NC)"
+	@echo "$(GREEN)✓ RELEASE $(VERSION) COMPLETE$(NC)"
+	@echo "$(GREEN)========================================$(NC)"

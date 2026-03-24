@@ -236,8 +236,8 @@ main() {
     
     if [ "$dry_run" = "false" ]; then
         echo "Next steps:"
-        echo "1. Test filters via Admin UI: https://llmproxy.aitrail.ch:3005"
-        echo "2. Check filter stats: curl -H 'X-Admin-API-Key: ...' https://llmproxy.aitrail.ch/admin/filters/stats"
+        echo "1. Test filters via Admin UI: https://scrubgate.tech:3005"
+        echo "2. Check filter stats: curl -H 'X-Admin-API-Key: ...' https://scrubgate.tech/admin/filters/stats"
         echo "3. Monitor logs: ssh ${SERVER} 'docker logs -f llm-proxy-backend | grep filter'"
         echo ""
         echo "Rollback if needed:"

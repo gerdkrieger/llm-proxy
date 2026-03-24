@@ -109,12 +109,12 @@ docker-compose ps admin-ui
 
 #### Test 1: Health Check
 ```bash
-curl -s https://llmproxy.aitrail.ch/health | jq .
+curl -s https://scrubgate.tech/health | jq .
 ```
 **Expected:** `{"status": "healthy"}`
 
 #### Test 2: Admin Login
-- Open: https://llmproxy.aitrail.ch
+- Open: https://scrubgate.tech
 - Login with admin key
 - **Expected:** Login successful, no console errors
 
@@ -122,15 +122,15 @@ curl -s https://llmproxy.aitrail.ch/health | jq .
 ```bash
 # Providers
 curl -s -H "X-Admin-API-Key: YOUR_ADMIN_API_KEY_HERE" \
-  https://llmproxy.aitrail.ch/admin/providers | jq .
+  https://scrubgate.tech/admin/providers | jq .
 
 # Stats (the one that failed before!)
 curl -s -H "X-Admin-API-Key: YOUR_ADMIN_API_KEY_HERE" \
-  https://llmproxy.aitrail.ch/admin/stats/usage | jq .
+  https://scrubgate.tech/admin/stats/usage | jq .
 
 # Clients
 curl -s -H "X-Admin-API-Key: YOUR_ADMIN_API_KEY_HERE" \
-  https://llmproxy.aitrail.ch/admin/clients | jq .
+  https://scrubgate.tech/admin/clients | jq .
 ```
 **Expected:** All return HTTP 200 with valid JSON
 

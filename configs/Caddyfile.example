@@ -8,7 +8,7 @@
 #       Therefore, use localhost:PORT instead of container names
 # =============================================================================
 
-llmproxy.aitrail.ch {
+scrubgate.tech {
     # Enable HTTPS (Caddy handles Let's Encrypt automatically)
     
     # Admin API - Route to backend

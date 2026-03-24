@@ -361,10 +361,10 @@ docker exec -i llm-proxy-postgres psql -U proxy_user -d llm_proxy < /opt/llm-pro
 
 ### Access URLs
 
-- **Backend API:** http://llmproxy.aitrail.ch:8080
-- **Admin UI:** https://llmproxy.aitrail.ch:3005
-- **Prometheus:** http://llmproxy.aitrail.ch:9090
-- **Grafana:** http://llmproxy.aitrail.ch:3001
+- **Backend API:** http://scrubgate.tech:8080
+- **Admin UI:** https://scrubgate.tech:3005
+- **Prometheus:** http://scrubgate.tech:9090
+- **Grafana:** http://scrubgate.tech:3001
 
 ### Prometheus Metrics
 

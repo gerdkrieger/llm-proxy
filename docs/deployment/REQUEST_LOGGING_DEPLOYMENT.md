@@ -163,7 +163,7 @@ docker exec llm-proxy-postgres psql -U proxy_user -d llm_proxy -c \
 ```bash
 # Make a request that will be logged
 curl -H "Authorization: Bearer sk-llm-proxy-openwebui-2026-01-30-secure-key-abc123xyz789" \
-  https://llmproxy.aitrail.ch/v1/models
+  https://scrubgate.tech/v1/models
 ```
 
 **Expected:** 200 OK with model list
@@ -192,7 +192,7 @@ docker exec llm-proxy-postgres psql -U proxy_user -d llm_proxy -c \
 ```bash
 # Test the new /admin/requests endpoint
 curl -s -H "X-Admin-API-Key: YOUR_ADMIN_API_KEY_HERE" \
-  "https://llmproxy.aitrail.ch/admin/requests?limit=5" | jq '.logs | length'
+  "https://scrubgate.tech/admin/requests?limit=5" | jq '.logs | length'
 ```
 
 **Expected:** Number (1-5) showing logged requests
@@ -201,7 +201,7 @@ curl -s -H "X-Admin-API-Key: YOUR_ADMIN_API_KEY_HERE" \
 
 #### Test 5: Check Live Monitor
 
-1. Open: `https://llmproxy.aitrail.ch:3005`
+1. Open: `https://scrubgate.tech:3005`
 2. Login with admin key
 3. Click: **🔴 Live Monitor** (green button at top)
 4. Should see:
@@ -240,7 +240,7 @@ Watch logs for 5-10 minutes:
 docker logs -f llm-proxy-backend 2>&1
 
 # Terminal 2: Make test requests
-watch -n 5 'curl -s -o /dev/null -w "Status: %{http_code}\n" -H "Authorization: Bearer sk-llm-proxy-openwebui-2026..." https://llmproxy.aitrail.ch/v1/models'
+watch -n 5 'curl -s -o /dev/null -w "Status: %{http_code}\n" -H "Authorization: Bearer sk-llm-proxy-openwebui-2026..." https://scrubgate.tech/v1/models'
 ```
 
 **Look for:**
@@ -392,7 +392,7 @@ docker exec llm-proxy-postgres psql -U proxy_user -d llm_proxy -c \
 
 ```bash
 curl -H "X-Admin-API-Key: admin_dev_key_12345..." \
-  https://llmproxy.aitrail.ch/admin/requests?limit=5
+  https://scrubgate.tech/admin/requests?limit=5
 ```
 
 **Check 3:** Browser console

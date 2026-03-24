@@ -4,6 +4,8 @@ package config
 
 import (
 	"fmt"
+	"log"
+	"os"
 	"strings"
 	"time"
 
@@ -24,6 +26,7 @@ type Config struct {
 	Logging       LoggingConfig        `mapstructure:"logging"`
 	Metrics       MetricsConfig        `mapstructure:"metrics"`
 	EncryptionKey string               `mapstructure:"encryption_key"` // 32-byte hex key for encrypting secrets in DB
+	SMTP          SMTPConfig           `mapstructure:"smtp"`
 }
 
 // ServerConfig holds HTTP server configuration
@@ -33,6 +36,21 @@ type ServerConfig struct {
 	Timeout      time.Duration `mapstructure:"timeout"`
 	ReadTimeout  time.Duration `mapstructure:"read_timeout"`
 	WriteTimeout time.Duration `mapstructure:"write_timeout"`
+	CORSOrigins  []string      `mapstructure:"cors_origins"`
+}
+
+// Environment returns the current environment name from the ENVIRONMENT env var
+func Environment() string {
+	env := os.Getenv("ENVIRONMENT")
+	if env == "" {
+		return "development"
+	}
+	return env
+}
+
+// IsProduction returns true if running in production environment
+func IsProduction() bool {
+	return Environment() == "production"
 }
 
 // DatabaseConfig holds PostgreSQL configuration
@@ -190,6 +208,18 @@ type MetricsConfig struct {
 	Path    string `mapstructure:"path"`
 }
 
+// SMTPConfig holds SMTP configuration for sending emails (contact form)
+type SMTPConfig struct {
+	Enabled          bool   `mapstructure:"enabled"`
+	Host             string `mapstructure:"host"`
+	Port             int    `mapstructure:"port"`
+	Username         string `mapstructure:"username"`
+	Password         string `mapstructure:"password"`
+	From             string `mapstructure:"from"`
+	To               string `mapstructure:"to"`               // Recipient for contact form submissions
+	TurnstileSecret  string `mapstructure:"turnstile_secret"`  // Cloudflare Turnstile secret key
+}
+
 // Load loads configuration from file and environment variables
 func Load(configPath string) (*Config, error) {
 	v := viper.New()
@@ -220,6 +250,53 @@ func Load(configPath string) (*Config, error) {
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	v.AutomaticEnv()
 
+	// Explicit env bindings for keys without defaults (Viper's AutomaticEnv
+	// only works for keys it already knows about via defaults or config file)
+	_ = v.BindEnv("oauth.jwt_secret", "OAUTH_JWT_SECRET")
+	_ = v.BindEnv("oauth.access_token_ttl", "OAUTH_ACCESS_TOKEN_TTL")
+	_ = v.BindEnv("oauth.refresh_token_ttl", "OAUTH_REFRESH_TOKEN_TTL")
+	_ = v.BindEnv("oauth.issuer", "OAUTH_ISSUER")
+	_ = v.BindEnv("admin.api_keys", "ADMIN_API_KEYS")
+	_ = v.BindEnv("database.password", "DB_PASSWORD", "DATABASE_PASSWORD")
+	_ = v.BindEnv("database.host", "DB_HOST", "DATABASE_HOST")
+	_ = v.BindEnv("database.port", "DB_PORT", "DATABASE_PORT")
+	_ = v.BindEnv("database.database", "DB_NAME", "DATABASE_DATABASE")
+	_ = v.BindEnv("database.user", "DB_USER", "DATABASE_USER")
+	_ = v.BindEnv("database.ssl_mode", "DB_SSL_MODE", "DATABASE_SSL_MODE")
+	_ = v.BindEnv("encryption_key", "ENCRYPTION_KEY")
+	_ = v.BindEnv("smtp.enabled", "SMTP_ENABLED")
+	_ = v.BindEnv("smtp.host", "SMTP_HOST")
+	_ = v.BindEnv("smtp.port", "SMTP_PORT")
+	_ = v.BindEnv("smtp.username", "SMTP_USERNAME")
+	_ = v.BindEnv("smtp.password", "SMTP_PASSWORD")
+	_ = v.BindEnv("smtp.from", "SMTP_FROM")
+	_ = v.BindEnv("smtp.to", "SMTP_TO")
+	_ = v.BindEnv("smtp.turnstile_secret", "TURNSTILE_SECRET")
+
+	// Handle comma-separated env vars for slice fields
+	if corsOrigins := os.Getenv("SERVER_CORS_ORIGINS"); corsOrigins != "" {
+		v.Set("server.cors_origins", strings.Split(corsOrigins, ","))
+	}
+	if adminKeys := os.Getenv("ADMIN_API_KEYS"); adminKeys != "" {
+		v.Set("admin.api_keys", strings.Split(adminKeys, ","))
+	}
+	// Single ADMIN_API_KEY env var (backwards compatibility)
+	if adminKey := os.Getenv("ADMIN_API_KEY"); adminKey != "" && os.Getenv("ADMIN_API_KEYS") == "" {
+		v.Set("admin.api_keys", []string{adminKey})
+	}
+	// Provider API keys from env (simple single-key format)
+	if claudeKey := os.Getenv("CLAUDE_API_KEY"); claudeKey != "" {
+		v.Set("providers.claude.api_keys", []map[string]interface{}{
+			{"key": claudeKey, "weight": 1, "max_rpm": 60},
+		})
+	}
+	if openaiKey := os.Getenv("OPENAI_API_KEY"); openaiKey != "" {
+		v.Set("providers.openai.enabled", true)
+		v.Set("providers.openai.api_keys", []map[string]interface{}{
+			{"key": openaiKey, "weight": 1, "max_rpm": 60},
+		})
+	}
+
 	// Unmarshal into struct
 	var config Config
 	if err := v.Unmarshal(&config); err != nil {
@@ -229,6 +306,16 @@ func Load(configPath string) (*Config, error) {
 	// Validate
 	if err := validate(&config); err != nil {
 		return nil, fmt.Errorf("invalid configuration: %w", err)
+	}
+
+	// Environment-aware warnings
+	if IsProduction() {
+		if config.Database.SSLMode == "disable" {
+			log.Println("[WARNING] Production environment with database ssl_mode=disable — consider using 'require' or 'verify-full'")
+		}
+		if config.Logging.Level == "debug" {
+			log.Println("[WARNING] Production environment with log level 'debug' — consider using 'info' or 'warn'")
+		}
 	}
 
 	return &config, nil
@@ -242,6 +329,11 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("server.timeout", "300s")
 	v.SetDefault("server.read_timeout", "30s")
 	v.SetDefault("server.write_timeout", "30s")
+	v.SetDefault("server.cors_origins", []string{
+		"http://localhost:5173",
+		"http://localhost:3005",
+		"http://localhost:3000",
+	})
 
 	// Database
 	v.SetDefault("database.host", "localhost")
@@ -304,6 +396,11 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("metrics.enabled", true)
 	v.SetDefault("metrics.port", 9090)
 	v.SetDefault("metrics.path", "/metrics")
+
+	// SMTP (for contact form)
+	v.SetDefault("smtp.enabled", false)
+	v.SetDefault("smtp.host", "smtp.protonmail.ch")
+	v.SetDefault("smtp.port", 587)
 }
 
 // validate validates the configuration
@@ -341,6 +438,11 @@ func validate(cfg *Config) error {
 	if len(cfg.Admin.APIKeys) == 0 {
 		return fmt.Errorf("at least one admin API key is required")
 	}
+	for _, key := range cfg.Admin.APIKeys {
+		if len(key) < 32 {
+			return fmt.Errorf("admin API keys must be at least 32 characters (got %d)", len(key))
+		}
+	}
 
 	// Providers
 	if cfg.Providers.Claude.Enabled {
@@ -355,8 +457,14 @@ func validate(cfg *Config) error {
 		}
 	}
 
+	if cfg.Providers.Abacus.Enabled {
+		if len(cfg.Providers.Abacus.APIKeys) == 0 {
+			return fmt.Errorf("at least one Abacus API key is required when Abacus is enabled")
+		}
+	}
+
 	// At least one provider must be enabled
-	if !cfg.Providers.Claude.Enabled && !cfg.Providers.OpenAI.Enabled {
+	if !cfg.Providers.Claude.Enabled && !cfg.Providers.OpenAI.Enabled && !cfg.Providers.Abacus.Enabled {
 		return fmt.Errorf("at least one provider must be enabled")
 	}
 

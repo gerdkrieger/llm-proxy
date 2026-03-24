@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kontakt - Scrubgate</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="manifest" href="/site.webmanifest">
+    <meta name="theme-color" content="#2563eb">
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1e40af;
+            --dark: #1e293b;
+            --darker: #0f172a;
+            --light: #f8fafc;
+            --gray: #64748b;
+            --border: #e2e8f0;
+            --success: #10b981;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: var(--dark);
+            background: var(--light);
+        }
+
+        .container { max-width: 900px; margin: 0 auto; padding: 20px; }
+
+        header {
+            background: white;
+            border-bottom: 1px solid var(--border);
+            padding: 1.5rem 0;
+            margin-bottom: 3rem;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--primary);
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--primary), #10b981);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+
+        .content {
+            background: white;
+            padding: 3rem;
+            border-radius: 15px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+        }
+
+        h1 { font-size: 2.5rem; margin-bottom: 1rem; color: var(--darker); }
+        h2 { font-size: 1.5rem; margin-top: 2rem; margin-bottom: 1rem; color: var(--dark); }
+        p { margin-bottom: 1rem; color: var(--dark); }
+
+        a { color: var(--primary); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        .contact-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            margin: 2rem 0;
+        }
+
+        .contact-card {
+            background: var(--light);
+            padding: 1.5rem;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            text-align: center;
+            transition: all 0.3s;
+        }
+
+        .contact-card:hover {
+            border-color: var(--primary);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.1);
+        }
+
+        .contact-card-icon { font-size: 2rem; margin-bottom: 0.75rem; }
+        .contact-card h3 { font-size: 1.1rem; margin-bottom: 0.5rem; color: var(--darker); }
+        .contact-card p { margin: 0; font-size: 0.95rem; color: var(--gray); }
+        .contact-card a { font-weight: 600; }
+
+        .form-group { margin-bottom: 1.5rem; }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: var(--dark);
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 1rem;
+            color: var(--dark);
+            background: white;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .form-group textarea { min-height: 150px; resize: vertical; }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+        }
+
+        .btn-submit {
+            display: inline-block;
+            padding: 0.85rem 2rem;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-family: inherit;
+        }
+
+        .btn-submit:hover {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
+        }
+
+        .success-message {
+            display: none;
+            background: #ecfdf5;
+            border: 1px solid var(--success);
+            border-radius: 10px;
+            padding: 2rem;
+            text-align: center;
+            margin-top: 1.5rem;
+        }
+
+        .success-message p { color: var(--success); font-weight: 600; font-size: 1.1rem; }
+
+        .back-link {
+            display: inline-block;
+            margin-top: 2rem;
+            padding: 0.75rem 1.5rem;
+            background: var(--primary);
+            color: white;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .back-link:hover {
+            background: var(--primary-dark);
+            text-decoration: none;
+            transform: translateY(-2px);
+        }
+
+        .lang-switch {
+            float: right;
+            background: var(--light);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .lang-switch:hover {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        html[lang="en"] .de-only,
+        html[lang="de"] .en-only { display: none !important; }
+        html[lang="de"] .de-only,
+        html[lang="en"] .en-only { display: inline !important; }
+
+        @media (max-width: 768px) {
+            .content { padding: 1.5rem; }
+            h1 { font-size: 2rem; }
+            .contact-info { grid-template-columns: 1fr; }
+            .form-row { grid-template-columns: 1fr; }
+            .lang-switch { float: none; display: block; margin-bottom: 1rem; }
+        }
+    </style>
+</head>
+<body lang="en">
+    <header>
+        <div class="container">
+            <button class="lang-switch" onclick="toggleLanguage()">
+                <span class="de-only">EN</span>
+                <span class="en-only">DE</span>
+            </button>
+            <a href="/" class="logo">
+                <div class="logo-icon">&#x1f6e1;&#xfe0f;</div>
+                <span>Scrubgate</span>
+            </a>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="content">
+            <h1>
+                <span class="de-only">Kontakt</span>
+                <span class="en-only">Contact</span>
+            </h1>
+            <p>
+                <span class="de-only">
+                    Haben Sie Fragen zu Scrubgate oder möchten Sie eine persönliche Demo?
+                    Füllen Sie das Formular aus oder buchen Sie direkt eine Demo.
+                </span>
+                <span class="en-only">
+                    Have questions about Scrubgate or want a personal demo?
+                    Fill out the form below or book a demo directly.
+                </span>
+            </p>
+
+            <div class="contact-info" style="grid-template-columns: 1fr;">
+                <a href="https://cal.com/gerd-krieger-plwn35/llm-proxy" target="_blank" rel="noopener noreferrer" class="contact-card" style="text-decoration:none;">
+                    <div class="contact-card-icon">&#x1f4c5;</div>
+                    <h3>
+                        <span class="de-only">Demo buchen</span>
+                        <span class="en-only">Book a Demo</span>
+                    </h3>
+                    <p>
+                        <span class="de-only">30 Min, kostenlos &amp; unverbindlich</span>
+                        <span class="en-only">30 min, free &amp; no commitment</span>
+                    </p>
+                </a>
+            </div>
+
+            <h2>
+                <span class="de-only">Nachricht senden</span>
+                <span class="en-only">Send a Message</span>
+            </h2>
+
+            <form id="contactForm" onsubmit="return submitForm(event)">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="name">
+                            <span class="de-only">Name *</span>
+                            <span class="en-only">Name *</span>
+                        </label>
+                        <input type="text" id="name" name="name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="email">
+                            <span class="de-only">E-Mail *</span>
+                            <span class="en-only">Email *</span>
+                        </label>
+                        <input type="email" id="email" name="email" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="company">
+                        <span class="de-only">Unternehmen</span>
+                        <span class="en-only">Company</span>
+                    </label>
+                    <input type="text" id="company" name="company">
+                </div>
+
+                <div class="form-group">
+                    <label for="subject">
+                        <span class="de-only">Betreff *</span>
+                        <span class="en-only">Subject *</span>
+                    </label>
+                    <select id="subject" name="subject" required>
+                        <option value="" disabled selected>
+                            --
+                        </option>
+                        <option value="demo" class="de-only">Demo anfragen</option>
+                        <option value="demo" class="en-only">Request a demo</option>
+                        <option value="pricing" class="de-only">Preisanfrage</option>
+                        <option value="pricing" class="en-only">Pricing inquiry</option>
+                        <option value="technical" class="de-only">Technische Frage</option>
+                        <option value="technical" class="en-only">Technical question</option>
+                        <option value="partnership" class="de-only">Partnerschaft</option>
+                        <option value="partnership" class="en-only">Partnership</option>
+                        <option value="other" class="de-only">Sonstiges</option>
+                        <option value="other" class="en-only">Other</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="message">
+                        <span class="de-only">Nachricht *</span>
+                        <span class="en-only">Message *</span>
+                    </label>
+                    <textarea id="message" name="message" required></textarea>
+                </div>
+
+                <div class="form-group">
+                    <div class="cf-turnstile" data-sitekey="0x4AAAAAACvctFKVUP18zMEx" data-callback="onTurnstileSuccess" data-theme="light"></div>
+                </div>
+
+                <button type="submit" class="btn-submit">
+                    <span class="de-only">Nachricht senden</span>
+                    <span class="en-only">Send Message</span>
+                </button>
+            </form>
+
+            <div class="success-message" id="successMessage">
+                <p>
+                    <span class="de-only">Vielen Dank! Ihre Nachricht wurde erfolgreich gesendet. Wir melden uns schnellstmöglich.</span>
+                    <span class="en-only">Thank you! Your message has been sent successfully. We'll get back to you soon.</span>
+                </p>
+            </div>
+
+            <div class="error-message" id="errorMessage" style="display:none; background:#fef2f2; border:1px solid #ef4444; border-radius:10px; padding:2rem; text-align:center; margin-top:1.5rem;">
+                <p style="color:#ef4444; font-weight:600; font-size:1.1rem;" id="errorText"></p>
+            </div>
+
+            <a href="/" class="back-link">
+                <span class="de-only">&larr; Zurück zur Startseite</span>
+                <span class="en-only">&larr; Back to Home</span>
+            </a>
+        </div>
+    </div>
+
+    <script>
+        function submitForm(e) {
+            e.preventDefault();
+
+            var btn = document.querySelector('.btn-submit');
+            var origText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="de-only">Wird gesendet...</span><span class="en-only">Sending...</span>';
+
+            document.getElementById('successMessage').style.display = 'none';
+            document.getElementById('errorMessage').style.display = 'none';
+
+            var subject = document.getElementById('subject');
+            var subjectText = subject.options[subject.selectedIndex].text;
+
+            var turnstileToken = document.querySelector('[name="cf-turnstile-response"]');
+            if (!turnstileToken || !turnstileToken.value) {
+                btn.disabled = false;
+                btn.innerHTML = origText;
+                document.getElementById('errorText').textContent = 'Bitte Captcha bestätigen / Please complete the captcha';
+                document.getElementById('errorMessage').style.display = 'block';
+                return false;
+            }
+
+            var payload = {
+                name: document.getElementById('name').value.trim(),
+                email: document.getElementById('email').value.trim(),
+                company: document.getElementById('company').value.trim(),
+                subject: subjectText,
+                message: document.getElementById('message').value.trim(),
+                turnstile_token: turnstileToken.value
+            };
+
+            fetch('https://scrubgate.tech/api/contact', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            .then(function(res) { return res.json().then(function(data) { return { ok: res.ok, data: data }; }); })
+            .then(function(result) {
+                btn.disabled = false;
+                btn.innerHTML = origText;
+                if (result.ok) {
+                    document.getElementById('successMessage').style.display = 'block';
+                    document.getElementById('contactForm').reset();
+                    if (typeof turnstile !== 'undefined') turnstile.reset();
+                } else {
+                    document.getElementById('errorText').textContent = result.data.error || 'An error occurred';
+                    document.getElementById('errorMessage').style.display = 'block';
+                }
+            })
+            .catch(function() {
+                btn.disabled = false;
+                btn.innerHTML = origText;
+                document.getElementById('errorText').textContent = 'Network error. Please try again.';
+                document.getElementById('errorMessage').style.display = 'block';
+            });
+
+            return false;
+        }
+
+        function toggleLanguage() {
+            var html = document.documentElement;
+            var currentLang = html.getAttribute('lang');
+            var newLang = currentLang === 'de' ? 'en' : 'de';
+            html.setAttribute('lang', newLang);
+            localStorage.setItem('lang', newLang);
+
+            var url = new URL(window.location);
+            url.searchParams.set('lang', newLang);
+            window.history.pushState({}, '', url);
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            var targetLang = 'en';
+
+            var urlParams = new URLSearchParams(window.location.search);
+            var urlLang = urlParams.get('lang');
+            if (urlLang === 'en' || urlLang === 'de') {
+                targetLang = urlLang;
+            } else if (localStorage.getItem('lang')) {
+                targetLang = localStorage.getItem('lang');
+            } else {
+                var browserLang = navigator.language || navigator.userLanguage;
+                if (browserLang.startsWith('de')) {
+                    targetLang = 'de';
+                }
+            }
+
+            document.documentElement.setAttribute('lang', targetLang);
+            localStorage.setItem('lang', targetLang);
+        });
+    </script>
+</body>
+</html>

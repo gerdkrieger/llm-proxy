@@ -484,12 +484,12 @@ deploy:production:
     
     - echo "Deployment complete!"
     - docker compose -f deployments/docker-compose.openwebui.yml ps
-    - echo "✅ LLM-Proxy Backend running on https://llmproxy.aitrail.ch"
-    - echo "✅ Admin UI accessible at https://llmproxy.aitrail.ch"
+    - echo "✅ LLM-Proxy Backend running on https://scrubgate.tech"
+    - echo "✅ Admin UI accessible at https://scrubgate.tech"
     - echo "ℹ️  Open WebUI configured at https://chat.aitrail.ch"
   environment:
     name: production
-    url: https://llmproxy.aitrail.ch
+    url: https://scrubgate.tech
   only:
     - master
   when: manual  # MANUAL - Use working local images, not broken registry images

@@ -38,7 +38,7 @@ Sie sollten eine Sektion sehen wie:
 │ OpenAI                                  │
 ├─────────────────────────────────────────┤
 │ API Base URL                            │
-│ [https://llmproxy.aitrail.ch/v1     ]  │
+│ [https://scrubgate.tech/v1     ]  │
 │                                         │
 │ API Key                                 │
 │ [*********************************** ]  │
@@ -54,7 +54,7 @@ Sie sollten eine Sektion sehen wie:
 
 1. **API Base URL:**
    ```
-   https://llmproxy.aitrail.ch/v1
+   https://scrubgate.tech/v1
    ```
 
 2. **API Key:**
@@ -105,7 +105,7 @@ Admin Panel → Models → Add Model
 │ Provider: OpenAI Compatible             │
 │                                         │
 │ Base URL:                               │
-│ [https://llmproxy.aitrail.ch/v1     ]  │
+│ [https://scrubgate.tech/v1     ]  │
 │                                         │
 │ API Key:                                │
 │ [sk-llm-proxy-openwebui-2026...     ]  │
@@ -145,7 +145,7 @@ services:
       # Ihre bestehenden Variablen...
       
       # LLM-Proxy Konfiguration
-      - OPENAI_API_BASE_URLS=https://llmproxy.aitrail.ch/v1
+      - OPENAI_API_BASE_URLS=https://scrubgate.tech/v1
       - OPENAI_API_KEYS=sk-llm-proxy-openwebui-2026-01-30-secure-key-abc123xyz789
 ```
 
@@ -202,7 +202,7 @@ Custom Headers:
 ### Methode 1: Nur API Key Feld (Empfohlen) ⭐
 
 ```
-Base URL: https://llmproxy.aitrail.ch/v1
+Base URL: https://scrubgate.tech/v1
 API Key: sk-llm-proxy-openwebui-2026-01-30-secure-key-abc123xyz789
 Custom Headers: [leer]
 ```
@@ -222,7 +222,7 @@ Custom Headers: [leer]
 Falls Sie unbedingt Custom Headers nutzen wollen:
 
 ```
-Base URL: https://llmproxy.aitrail.ch/v1
+Base URL: https://scrubgate.tech/v1
 API Key: [leer]
 
 Custom Headers:
@@ -299,7 +299,7 @@ ssh openweb "docker logs -f llm-proxy-backend 2>&1 | grep '172.18.0.2'"
 
 ### Test 5: Live Monitor
 
-1. Öffnen Sie: `https://llmproxy.aitrail.ch:3005`
+1. Öffnen Sie: `https://scrubgate.tech:3005`
 2. Login: `YOUR_ADMIN_API_KEY_HERE`
 3. Klicken Sie: **🔴 Live Monitor**
 4. Sollte zeigen:
@@ -375,7 +375,7 @@ Probieren Sie das Format, das Ihre OpenWebUI Version verwendet.
 ```bash
 # Testen Sie direkt mit curl
 curl -H "Authorization: Bearer sk-llm-proxy-openwebui-2026-01-30-secure-key-abc123xyz789" \
-  https://llmproxy.aitrail.ch/v1/models
+  https://scrubgate.tech/v1/models
 
 # Sollte Liste von Modellen zeigen
 ```

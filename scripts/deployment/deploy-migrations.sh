@@ -342,8 +342,8 @@ main() {
     echo ""
     echo "Next steps:"
     echo "1. Check backend logs: ssh ${SERVER} 'docker logs -f ${BACKEND_CONTAINER}'"
-    echo "2. Test API endpoints: curl https://llmproxy.aitrail.ch/health"
-    echo "3. Monitor for errors in Live Monitor: https://llmproxy.aitrail.ch:3005"
+    echo "2. Test API endpoints: curl https://scrubgate.tech/health"
+    echo "3. Monitor for errors in Live Monitor: https://scrubgate.tech:3005"
 }
 
 # Run main function

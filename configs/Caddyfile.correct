@@ -44,7 +44,7 @@ moms.aitrail.ch {
 #          Admin-UI Seiten zu Port 3005
 # =============================================================================
 
-llmproxy.aitrail.ch {
+scrubgate.tech {
     # Admin API → Backend (Port 8080)
     handle /admin/* {
         reverse_proxy 127.0.0.1:8080

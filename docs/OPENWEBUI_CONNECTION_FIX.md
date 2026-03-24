@@ -102,7 +102,7 @@ docker compose -f docker-compose.openwebui.yml restart backend
 
 | Feld | Wert | Wichtig! |
 |------|------|----------|
-| **Base URL** | `https://llmproxy.aitrail.ch/v1` | OHNE Trailing Slash! |
+| **Base URL** | `https://scrubgate.tech/v1` | OHNE Trailing Slash! |
 | **API Key** | `sk-llm-proxy-openwebui-2026-...` | ✅ Muss mit `sk-llm-proxy-` beginnen! |
 | **Enable** | ✅ Aktiviert | |
 
@@ -122,7 +122,7 @@ services:
   open-webui:
     environment:
       # LLM-Proxy Integration
-      - OPENAI_API_BASE_URLS=https://llmproxy.aitrail.ch/v1
+      - OPENAI_API_BASE_URLS=https://scrubgate.tech/v1
       - OPENAI_API_KEYS=sk-llm-proxy-openwebui-2026-02-06-[IHR_KEY]
 ```
 
@@ -137,7 +137,7 @@ docker compose restart open-webui
 
 ```bash
 curl -H "Authorization: Bearer sk-llm-proxy-openwebui-2026-..." \
-  https://llmproxy.aitrail.ch/v1/models | jq .
+  https://scrubgate.tech/v1/models | jq .
 ```
 
 **Erwartete Ausgabe:**
@@ -228,7 +228,7 @@ Eine **visuelle Monitoring-Komponente** in der Admin UI die **in Echtzeit** zeig
 ### Zugriff:
 
 ```
-URL: https://llmproxy.aitrail.ch:3005
+URL: https://scrubgate.tech:3005
 Login: YOUR_ADMIN_API_KEY_HERE
 
 Menü: 🔴 Live Monitor (grüner Button)
@@ -292,7 +292,7 @@ Die Komponente identifiziert OpenWebUI durch:
 - [ ] Key in `config.yaml` hinzugefügt
 - [ ] Backend neu gestartet
 - [ ] Key in OpenWebUI eingetragen (Settings → Connections)
-- [ ] Base URL korrekt: `https://llmproxy.aitrail.ch/v1`
+- [ ] Base URL korrekt: `https://scrubgate.tech/v1`
 
 ### Verifizierung:
 
@@ -337,12 +337,12 @@ Die Komponente identifiziert OpenWebUI durch:
 
 **Lösung:**
 1. Base URL prüfen:
-   - ✅ `https://llmproxy.aitrail.ch/v1` (mit /v1!)
-   - ❌ `https://llmproxy.aitrail.ch` (ohne /v1)
+   - ✅ `https://scrubgate.tech/v1` (mit /v1!)
+   - ❌ `https://scrubgate.tech` (ohne /v1)
 
 2. Netzwerk-Verbindung testen:
    ```bash
-   curl https://llmproxy.aitrail.ch/v1/models
+   curl https://scrubgate.tech/v1/models
    ```
 
 3. OpenWebUI Cache leeren:
@@ -394,7 +394,7 @@ Die Komponente identifiziert OpenWebUI durch:
 
 ### Mit Live Monitor:
 
-1. **Öffnen:** https://llmproxy.aitrail.ch:3005
+1. **Öffnen:** https://scrubgate.tech:3005
 2. **Navigieren:** 🔴 Live Monitor
 3. **Prüfen:**
    - ✅ OpenWebUI Status: "Connected" (grün)
@@ -446,7 +446,7 @@ docker logs llm-proxy-backend -f | grep -i "openwebui\|172.18.0.2"
 **Lösung:** Korrekten Static API Key verwenden
 - ✅ Key muss Format haben: `sk-llm-proxy-...`
 - ✅ In OpenWebUI Settings → Connections eintragen
-- ✅ Base URL: `https://llmproxy.aitrail.ch/v1`
+- ✅ Base URL: `https://scrubgate.tech/v1`
 
 **Verifizierung:** Live Monitor in Admin UI
 - ✅ Zeigt Connection Status in Echtzeit

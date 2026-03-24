@@ -176,9 +176,9 @@ Die Pipeline ist auf `when: manual` gesetzt und sollte **NICHT** verwendet werde
 
 ## ✅ Produktion URLs
 
-- **Backend API:** https://llmproxy.aitrail.ch
-- **Admin UI:** https://llmproxy.aitrail.ch (Port 3005)
-- **Health Check:** https://llmproxy.aitrail.ch/health
+- **Backend API:** https://scrubgate.tech
+- **Admin UI:** https://scrubgate.tech (Port 3005)
+- **Health Check:** https://scrubgate.tech/health
 - **OpenWebUI:** https://chat.aitrail.ch
 
 ---

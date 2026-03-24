@@ -534,7 +534,7 @@ ssh openweb "docker logs llm-proxy-backend --tail 100 | grep -i attachment"
 ```bash
 # Filter prüfen
 curl -H "X-Admin-API-Key: your_key" \
-  https://llmproxy.aitrail.ch/admin/filters
+  https://scrubgate.tech/admin/filters
 
 # Mindestens ein Filter sollte enabled=true haben
 ```
@@ -547,7 +547,7 @@ echo "Test PDF" > test.txt
 cat test.txt | base64
 
 # Request senden
-curl -X POST https://llmproxy.aitrail.ch/v1/chat/completions \
+curl -X POST https://scrubgate.tech/v1/chat/completions \
   -H "Authorization: Bearer your_client_key" \
   -H "Content-Type: application/json" \
   -d '{

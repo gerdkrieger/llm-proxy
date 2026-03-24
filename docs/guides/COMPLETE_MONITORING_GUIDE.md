@@ -340,7 +340,7 @@ LIMIT 20;
 ### URL öffnen
 
 ```
-https://llmproxy.aitrail.ch:3005
+https://scrubgate.tech:3005
 ```
 
 ### Login
@@ -378,7 +378,7 @@ API Key: YOUR_ADMIN_API_KEY_HERE
 ### Basis-URL
 
 ```
-https://llmproxy.aitrail.ch/admin
+https://scrubgate.tech/admin
 ```
 
 ### Authentication
@@ -394,7 +394,7 @@ X-Admin-API-Key: YOUR_ADMIN_API_KEY_HERE
 
 ```bash
 curl -H "X-Admin-API-Key: YOUR_ADMIN_API_KEY_HERE" \
-  "https://llmproxy.aitrail.ch/admin/logs?limit=100&offset=0" | jq .
+  "https://scrubgate.tech/admin/logs?limit=100&offset=0" | jq .
 ```
 
 **Parameter:**
@@ -435,7 +435,7 @@ curl -H "X-Admin-API-Key: YOUR_ADMIN_API_KEY_HERE" \
 
 ```bash
 curl -H "X-Admin-API-Key: YOUR_ADMIN_API_KEY_HERE" \
-  "https://llmproxy.aitrail.ch/admin/filters/stats" | jq .
+  "https://scrubgate.tech/admin/filters/stats" | jq .
 ```
 
 **Response:**
@@ -464,7 +464,7 @@ curl -H "X-Admin-API-Key: YOUR_ADMIN_API_KEY_HERE" \
 
 ```bash
 curl -H "X-Admin-API-Key: YOUR_ADMIN_API_KEY_HERE" \
-  "https://llmproxy.aitrail.ch/admin/filter-matches?limit=50" | jq .
+  "https://scrubgate.tech/admin/filter-matches?limit=50" | jq .
 ```
 
 **Response:**
@@ -490,7 +490,7 @@ curl -H "X-Admin-API-Key: YOUR_ADMIN_API_KEY_HERE" \
 
 ```bash
 curl -H "X-Admin-API-Key: YOUR_ADMIN_API_KEY_HERE" \
-  "https://llmproxy.aitrail.ch/admin/health" | jq .
+  "https://scrubgate.tech/admin/health" | jq .
 ```
 
 **Response:**
@@ -511,7 +511,7 @@ curl -H "X-Admin-API-Key: YOUR_ADMIN_API_KEY_HERE" \
 ### Metrics Endpoint
 
 ```bash
-curl http://llmproxy.aitrail.ch:9091/metrics
+curl http://scrubgate.tech:9091/metrics
 ```
 
 ### Wichtige Metriken
@@ -694,7 +694,7 @@ COPY (
 
 # Als JSON exportieren (via API)
 curl -H "X-Admin-API-Key: admin_dev_key_..." \
-  "https://llmproxy.aitrail.ch/admin/logs?limit=10000" > logs.json
+  "https://scrubgate.tech/admin/logs?limit=10000" > logs.json
 ```
 
 ### Frage 5: Wie lange werden Logs gespeichert?
@@ -846,8 +846,8 @@ watch -n 5 'docker exec llm-proxy-postgres psql -U proxy_user -d llm_proxy -t -c
 ## 📞 Support & Weitere Informationen
 
 - **Dokumentation:** `docs/guides/`
-- **Admin UI:** https://llmproxy.aitrail.ch:3005
-- **Prometheus:** http://llmproxy.aitrail.ch:9091/metrics
+- **Admin UI:** https://scrubgate.tech:3005
+- **Prometheus:** http://scrubgate.tech:9091/metrics
 
 ---
 

@@ -85,7 +85,7 @@ LLM-Proxy implements a **three-tier authentication system** with strict separati
 ### Purpose
 
 Admin authentication is **exclusively** for:
-- Accessing Admin UI (`https://llmproxy.aitrail.ch:3005`)
+- Accessing Admin UI (`https://scrubgate.tech:3005`)
 - Managing system configuration via Admin API
 - Viewing statistics and logs
 - Managing OAuth clients and filters
@@ -154,18 +154,18 @@ All routes under `/admin/*`:
 ```bash
 # The Admin UI automatically adds X-Admin-API-Key header
 curl -H "X-Admin-API-Key: admin_dev_local_key_12345..." \
-  https://llmproxy.aitrail.ch/admin/clients
+  https://scrubgate.tech/admin/clients
 ```
 
 **Direct Admin API Access:**
 ```bash
 # Using X-Admin-API-Key header (recommended)
 curl -H "X-Admin-API-Key: admin_dev_local_key_12345..." \
-  https://llmproxy.aitrail.ch/admin/system/stats
+  https://scrubgate.tech/admin/system/stats
 
 # Using Authorization Bearer (alternative)
 curl -H "Authorization: Bearer admin_dev_local_key_12345..." \
-  https://llmproxy.aitrail.ch/admin/clients
+  https://scrubgate.tech/admin/clients
 ```
 
 ### ⚠️ Critical Security Warning
@@ -175,7 +175,7 @@ curl -H "Authorization: Bearer admin_dev_local_key_12345..." \
 ```bash
 # This will FAIL (admin key cannot access /v1/*)
 curl -H "Authorization: Bearer admin_dev_local_key_12345..." \
-  https://llmproxy.aitrail.ch/v1/models
+  https://scrubgate.tech/v1/models
 
 # Response: 401 Unauthorized
 # Reason: Admin middleware is NOT applied to /v1/* routes
@@ -299,7 +299,7 @@ client_api_keys:
 **OpenWebUI Configuration:**
 ```bash
 # In OpenWebUI Admin Panel → Settings → Connections
-Base URL: https://llmproxy.aitrail.ch/v1
+Base URL: https://scrubgate.tech/v1
 API Key: sk-llm-proxy-openwebui-2026-01-30-secure-key-abc123xyz789
 ```
 
@@ -307,7 +307,7 @@ API Key: sk-llm-proxy-openwebui-2026-01-30-secure-key-abc123xyz789
 ```json
 {
   "openai": {
-    "baseURL": "https://llmproxy.aitrail.ch/v1",
+    "baseURL": "https://scrubgate.tech/v1",
     "apiKey": "sk-llm-proxy-cursor-2026-01-30-secure-key-def456uvw012"
   }
 }
@@ -317,10 +317,10 @@ API Key: sk-llm-proxy-openwebui-2026-01-30-secure-key-abc123xyz789
 ```bash
 # List models
 curl -H "Authorization: Bearer sk-llm-proxy-openwebui-2026..." \
-  https://llmproxy.aitrail.ch/v1/models
+  https://scrubgate.tech/v1/models
 
 # Chat completion
-curl -X POST https://llmproxy.aitrail.ch/v1/chat/completions \
+curl -X POST https://scrubgate.tech/v1/chat/completions \
   -H "Authorization: Bearer sk-llm-proxy-openwebui-2026..." \
   -H "Content-Type: application/json" \
   -d '{
@@ -336,7 +336,7 @@ curl -X POST https://llmproxy.aitrail.ch/v1/chat/completions \
 ```bash
 # This will FAIL (client key cannot access /admin/*)
 curl -H "Authorization: Bearer sk-llm-proxy-openwebui-2026..." \
-  https://llmproxy.aitrail.ch/admin/clients
+  https://scrubgate.tech/admin/clients
 
 # Response: 401 Unauthorized
 # Reason: APIKeyMiddleware is NOT applied to /admin/* routes
@@ -394,7 +394,7 @@ func (m *OAuthMiddleware) Authenticate(next http.Handler) http.Handler {
 
 1. **Client Registration** (via Admin API):
    ```bash
-   curl -X POST https://llmproxy.aitrail.ch/admin/clients \
+   curl -X POST https://scrubgate.tech/admin/clients \
      -H "X-Admin-API-Key: admin_dev_local_key_12345..." \
      -H "Content-Type: application/json" \
      -d '{
@@ -414,7 +414,7 @@ func (m *OAuthMiddleware) Authenticate(next http.Handler) http.Handler {
 
 2. **Authorization Request** (user redirected to):
    ```
-   https://llmproxy.aitrail.ch/oauth/authorize?
+   https://scrubgate.tech/oauth/authorize?
      client_id=client_abc123xyz789&
      redirect_uri=https://myapp.com/callback&
      response_type=code&
@@ -423,7 +423,7 @@ func (m *OAuthMiddleware) Authenticate(next http.Handler) http.Handler {
 
 3. **Token Exchange** (backend):
    ```bash
-   curl -X POST https://llmproxy.aitrail.ch/oauth/token \
+   curl -X POST https://scrubgate.tech/oauth/token \
      -H "Content-Type: application/x-www-form-urlencoded" \
      -d "grant_type=authorization_code" \
      -d "code=auth_code_from_callback" \
@@ -444,14 +444,14 @@ func (m *OAuthMiddleware) Authenticate(next http.Handler) http.Handler {
 4. **API Access** (using access token):
    ```bash
    curl -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." \
-     https://llmproxy.aitrail.ch/v1/chat/completions \
+     https://scrubgate.tech/v1/chat/completions \
      -H "Content-Type: application/json" \
      -d '{"model": "gpt-4", "messages": [...]}'
    ```
 
 5. **Token Refresh** (when expired):
    ```bash
-   curl -X POST https://llmproxy.aitrail.ch/oauth/token \
+   curl -X POST https://scrubgate.tech/oauth/token \
      -H "Content-Type: application/x-www-form-urlencoded" \
      -d "grant_type=refresh_token" \
      -d "refresh_token=refresh_ghi789jkl345mno678" \
@@ -736,7 +736,7 @@ client_api_keys:
 **Cause:**
 ```javascript
 // WRONG: OAuth token cannot access admin routes
-fetch('https://llmproxy.aitrail.ch/admin/clients', {
+fetch('https://scrubgate.tech/admin/clients', {
   headers: {
     'Authorization': `Bearer ${oauthAccessToken}`
   }
@@ -746,7 +746,7 @@ fetch('https://llmproxy.aitrail.ch/admin/clients', {
 **Fix:**
 ```javascript
 // CORRECT: Use admin key for admin operations
-fetch('https://llmproxy.aitrail.ch/admin/clients', {
+fetch('https://scrubgate.tech/admin/clients', {
   headers: {
     'X-Admin-API-Key': adminKey
   }
@@ -863,7 +863,7 @@ set -euo pipefail
 # Test authentication separation
 # Ensures admin keys can't access LLM API and vice versa
 
-BASE_URL="https://llmproxy.aitrail.ch"
+BASE_URL="https://scrubgate.tech"
 ADMIN_KEY="admin_dev_local_key_12345678901234567890123456789012"
 CLIENT_KEY="sk-llm-proxy-openwebui-2026-01-30-secure-key-abc123xyz789"
 
@@ -997,7 +997,7 @@ ssh openweb "docker logs llm-proxy-backend 2>&1 | grep 'z789'"
 ```bash
 # Verbose output shows exact HTTP exchange
 curl -v -H "Authorization: Bearer sk-llm-proxy-..." \
-  https://llmproxy.aitrail.ch/v1/models
+  https://scrubgate.tech/v1/models
 ```
 
 **Check Configuration:**

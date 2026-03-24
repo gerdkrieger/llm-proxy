@@ -34,7 +34,7 @@ OpenWebUI is currently NOT successfully connecting to the LLM-Proxy. Analysis sh
 4. Look for **OpenAI API** section
 
 **Expected to see:**
-- Base URL: `https://llmproxy.aitrail.ch/v1` ✅
+- Base URL: `https://scrubgate.tech/v1` ✅
 - API Key: `sk-llm-proxy-openwebui-2026-01-30-secure-key-abc123xyz789` ✅
 
 **Likely problem:**
@@ -73,7 +73,7 @@ ssh openweb "grep -A 2 'sk-llm-proxy-openwebui' /opt/llm-proxy/configs/config.ya
 4. Find **OpenAI API** section
 5. Configure:
    ```
-   Base URL: https://llmproxy.aitrail.ch/v1
+   Base URL: https://scrubgate.tech/v1
    API Key: sk-llm-proxy-openwebui-2026-01-30-secure-key-abc123xyz789
    ```
 6. Click **Save**
@@ -96,7 +96,7 @@ Add these environment variables:
 services:
   open-webui:
     environment:
-      - OPENAI_API_BASE_URL=https://llmproxy.aitrail.ch/v1
+      - OPENAI_API_BASE_URL=https://scrubgate.tech/v1
       - OPENAI_API_KEY=sk-llm-proxy-openwebui-2026-01-30-secure-key-abc123xyz789
 ```
 
@@ -128,7 +128,7 @@ ssh openweb "docker logs -f llm-proxy-backend 2>&1 | grep '172.18.0.2'"
 ```
 
 **Test 2: Check Live Monitor**
-1. Open `https://llmproxy.aitrail.ch:3005`
+1. Open `https://scrubgate.tech:3005`
 2. Login with admin key
 3. Click **🔴 Live Monitor**
 4. Should see:
@@ -190,13 +190,13 @@ OPENAI_API_KEY: openwebui-2026-01-30-secure-key-abc123xyz789
 
 **WRONG:**
 ```yaml
-OPENAI_API_BASE_URL: https://llmproxy.aitrail.ch
+OPENAI_API_BASE_URL: https://scrubgate.tech
 ```
 
 **Why it fails:**
 - Missing `/v1` path prefix
-- OpenWebUI appends `/chat/completions` → `https://llmproxy.aitrail.ch/chat/completions`
-- LLM-Proxy expects: `https://llmproxy.aitrail.ch/v1/chat/completions`
+- OpenWebUI appends `/chat/completions` → `https://scrubgate.tech/chat/completions`
+- LLM-Proxy expects: `https://scrubgate.tech/v1/chat/completions`
 
 **Result:** `404 Not Found`
 
@@ -245,7 +245,7 @@ After applying the fix, verify these items:
 
 - [ ] Live Monitor shows connection
   ```bash
-  # Visit https://llmproxy.aitrail.ch:3005
+  # Visit https://scrubgate.tech:3005
   # See green ✅ Connected status
   ```
 
@@ -283,7 +283,7 @@ ssh openweb "docker compose -f docker-compose.openwebui.yml restart backend"
 ```bash
 # Test manually with curl
 curl -H "Authorization: Bearer sk-llm-proxy-openwebui-2026..." \
-  https://llmproxy.aitrail.ch/v1/models
+  https://scrubgate.tech/v1/models
 # Should return 200 with model list
 ```
 
@@ -328,7 +328,7 @@ ssh openweb "grep -A 10 'providers:' /opt/llm-proxy/configs/config.yaml | head -
 **Check 2: Test models endpoint directly**
 ```bash
 curl -H "Authorization: Bearer sk-llm-proxy-openwebui-2026..." \
-  https://llmproxy.aitrail.ch/v1/models | jq .
+  https://scrubgate.tech/v1/models | jq .
 # Should return list of models
 ```
 
@@ -346,7 +346,7 @@ scopes: ["read", "write"]  # ← Must include "read"
 
 **OpenWebUI Settings:**
 ```
-Base URL: https://llmproxy.aitrail.ch/v1
+Base URL: https://scrubgate.tech/v1
 API Key: sk-llm-proxy-openwebui-2026-01-30-secure-key-abc123xyz789
 ```
 
@@ -354,7 +354,7 @@ API Key: sk-llm-proxy-openwebui-2026-01-30-secure-key-abc123xyz789
 ```bash
 # Test authentication (should return 200)
 curl -H "Authorization: Bearer sk-llm-proxy-openwebui-2026-01-30-secure-key-abc123xyz789" \
-  https://llmproxy.aitrail.ch/v1/models
+  https://scrubgate.tech/v1/models
 
 # Watch for OpenWebUI requests
 ssh openweb "docker logs -f llm-proxy-backend 2>&1 | grep '172.18.0.2'"
@@ -362,7 +362,7 @@ ssh openweb "docker logs -f llm-proxy-backend 2>&1 | grep '172.18.0.2'"
 
 **Live Monitor:**
 ```
-URL: https://llmproxy.aitrail.ch:3005
+URL: https://scrubgate.tech:3005
 Login: YOUR_ADMIN_API_KEY_HERE
 Navigate to: Live Monitor (top menu)
 ```

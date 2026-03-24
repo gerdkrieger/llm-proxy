@@ -86,7 +86,7 @@ Creates example content filters for demonstration and testing.
 ./scripts/setup/create-example-filters.sh
 
 # Custom URL and API key
-BASE_URL=https://llmproxy.aitrail.ch \
+BASE_URL=https://scrubgate.tech \
 ADMIN_KEY=your_api_key \
 ./scripts/setup/create-example-filters.sh
 ```

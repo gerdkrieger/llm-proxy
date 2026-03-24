@@ -80,3 +80,6 @@ main
 
 # Token and config files
 OPENWEBUI_*.txt
+
+# Backups
+backups/

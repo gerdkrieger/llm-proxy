@@ -44,10 +44,10 @@ git log --oneline -10
 ssh openweb "docker ps --filter name=llm-proxy"
 
 # Health Check
-curl https://llmproxy.aitrail.ch/health
+curl https://scrubgate.tech/health
 
 # Admin-UI öffnen
-# Browser: https://llmproxy.aitrail.ch
+# Browser: https://scrubgate.tech
 # Login mit: YOUR_ADMIN_API_KEY_HERE
 ```
 
@@ -109,7 +109,7 @@ docker save llm-proxy-backend:latest | ssh openweb "docker load"
 ssh openweb "docker restart llm-proxy-backend"
 
 # 6. Verifizieren
-curl https://llmproxy.aitrail.ch/health
+curl https://scrubgate.tech/health
 
 # 7. Commit & Push
 git add .
@@ -138,7 +138,7 @@ ssh openweb "docker restart llm-proxy-backend"
 
 ```bash
 # Option 1: Via Admin-UI (empfohlen)
-# 1. https://llmproxy.aitrail.ch öffnen
+# 1. https://scrubgate.tech öffnen
 # 2. Login mit Admin Key
 # 3. "Filters" Tab → "New Filter"
 # 4. Pattern, Type, Replacement konfigurieren
@@ -166,7 +166,7 @@ ssh openweb "docker restart llm-proxy-backend"
 
 **LIVE Server:**
 - **SSH:** `ssh openweb` (root@68.183.208.213)
-- **Admin-UI:** https://llmproxy.aitrail.ch
+- **Admin-UI:** https://scrubgate.tech
 - **Admin API Key:** `YOUR_ADMIN_API_KEY_HERE`
 
 **Datenbank:**
@@ -186,10 +186,10 @@ llm-proxy-redis      → Port 6379
 ### Wichtige URLs
 
 ```
-https://llmproxy.aitrail.ch           → Admin-UI
-https://llmproxy.aitrail.ch/health    → Backend Health
-https://llmproxy.aitrail.ch/admin/*   → Admin API
-https://llmproxy.aitrail.ch/v1/*      → LLM Proxy API
+https://scrubgate.tech           → Admin-UI
+https://scrubgate.tech/health    → Backend Health
+https://scrubgate.tech/admin/*   → Admin API
+https://scrubgate.tech/v1/*      → LLM Proxy API
 http://68.183.208.213:9091/metrics    → Prometheus Metrics
 ```
 
@@ -343,7 +343,7 @@ ssh openweb "docker ps | grep llm-proxy"
 ssh openweb "docker logs llm-proxy-backend --tail 50"
 
 # Health Check
-curl https://llmproxy.aitrail.ch/health
+curl https://scrubgate.tech/health
 
 # Admin-UI neu starten
 ssh openweb "docker restart llm-proxy-admin-ui"

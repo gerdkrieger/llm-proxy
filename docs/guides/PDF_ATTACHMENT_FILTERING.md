@@ -642,7 +642,7 @@ pdftoppm -png -f 1 -l 1 -singlefile -r 300 input.pdf output
 base64 output.png > output.base64
 
 # Als image/png senden (nicht application/pdf)
-curl -X POST https://llmproxy.aitrail.ch/v1/chat/completions \
+curl -X POST https://scrubgate.tech/v1/chat/completions \
   -H "Authorization: Bearer YOUR_KEY" \
   -d '{
     "model": "claude-3-haiku-20240307",

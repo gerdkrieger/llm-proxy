@@ -3,6 +3,8 @@ package middleware
 
 import (
 	"context"
+	"crypto/subtle"
+	"encoding/json"
 	"net/http"
 	"strings"
 
@@ -48,7 +50,7 @@ func (m *AdminMiddleware) Authenticate(next http.Handler) http.Handler {
 		// Check if API key is valid (check against all configured admin keys)
 		validKey := false
 		for _, validAPIKey := range m.config.Admin.APIKeys {
-			if apiKey == validAPIKey {
+			if subtle.ConstantTimeCompare([]byte(apiKey), []byte(validAPIKey)) == 1 {
 				validKey = true
 				break
 			}
@@ -75,7 +77,8 @@ func (m *AdminMiddleware) Authenticate(next http.Handler) http.Handler {
 func (m *AdminMiddleware) respondUnauthorized(w http.ResponseWriter, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusUnauthorized)
-	w.Write([]byte(`{"error":"unauthorized","message":"` + message + `"}`))
+	resp, _ := json.Marshal(map[string]string{"error": "unauthorized", "message": message})
+	w.Write(resp)
 }
 
 // maskAPIKey masks an API key for logging

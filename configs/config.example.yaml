@@ -27,6 +27,14 @@ server:
   timeout: 300s
   read_timeout: 30s
   write_timeout: 30s
+  # CORS allowed origins (adjust for your environment)
+  cors_origins:
+    - http://localhost:5173
+    - http://localhost:3005
+    - http://localhost:3000
+    # Production:
+    # - https://scrubgate.tech
+    # - https://scrubgate.com
 
 # -----------------------------------------------------------------------------
 # DATABASE CONFIGURATION (PostgreSQL)

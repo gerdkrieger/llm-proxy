@@ -180,6 +180,7 @@ func main() {
 	adminHandler := api.NewAdminHandler(clientRepo, tokenRepo, requestLogRepo, filterMatchRepo, providerModelRepo, providerConfigRepo, providerAPIKeyRepo, systemSettingsRepo, cacheService, providerManager, log)
 	filterHandler := api.NewContentFilterHandler(contentFilterRepo, filterService, log)
 	providerMgmtHandler := api.NewProviderManagementHandler(providerSettingsRepo, providerConfigRepo, providerModelRepo, providerAPIKeyRepo, providerManager, cfg, log)
+	contactHandler := api.NewContactHandler(cfg, log)
 
 	// Initialize middleware
 	log.Info("Initializing middleware...")
@@ -192,7 +193,7 @@ func main() {
 
 	// Create router with all handlers
 	log.Info("Initializing router...")
-	router := api.NewRouter(cfg, db, redis, log, oauthHandler, chatHandler, modelsHandler, adminHandler, filterHandler, providerMgmtHandler, apiKeyMiddleware, apiKeyAuthMiddleware, oauthMiddleware, adminMiddleware, requestLoggerMiddleware, metricsMiddleware, promhttp.Handler())
+	router := api.NewRouter(cfg, db, redis, log, oauthHandler, chatHandler, modelsHandler, adminHandler, filterHandler, providerMgmtHandler, contactHandler, apiKeyMiddleware, apiKeyAuthMiddleware, oauthMiddleware, adminMiddleware, requestLoggerMiddleware, metricsMiddleware, promhttp.Handler())
 
 	// Create HTTP server
 	server := &http.Server{

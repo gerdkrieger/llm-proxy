@@ -64,14 +64,14 @@ docker exec llm-proxy-postgres psql -U proxy_user -d llm_proxy -c \
 
 ```bash
 # Mit CSV-Datei via API
-curl -X POST https://llmproxy.aitrail.ch/admin/filters/bulk-import \
+curl -X POST https://scrubgate.tech/admin/filters/bulk-import \
   -H "X-Admin-API-Key: admin_dev_key_12345..." \
   -H "Content-Type: text/csv" \
   --data-binary @migrations/filters/enterprise_filters.csv
 ```
 
 **Via Admin UI:**
-1. Open: `https://llmproxy.aitrail.ch:3005`
+1. Open: `https://scrubgate.tech:3005`
 2. Navigate to: **Filters** → **Bulk Import**
 3. Upload: `enterprise_filters.csv`
 4. Click: **Import**
@@ -167,7 +167,7 @@ docker exec llm-proxy-postgres psql -U proxy_user -d llm_proxy \
 ### Test 1: Kreditkarte
 
 ```bash
-curl -X POST https://llmproxy.aitrail.ch/admin/filters/test \
+curl -X POST https://scrubgate.tech/admin/filters/test \
   -H "X-Admin-API-Key: admin_dev_key_12345..." \
   -H "Content-Type: application/json" \
   -d '{
@@ -196,7 +196,7 @@ curl -X POST https://llmproxy.aitrail.ch/admin/filters/test \
 ### Test 2: IBAN
 
 ```bash
-curl -X POST https://llmproxy.aitrail.ch/admin/filters/test \
+curl -X POST https://scrubgate.tech/admin/filters/test \
   -H "X-Admin-API-Key: admin_dev_key_12345..." \
   -H "Content-Type: application/json" \
   -d '{
@@ -217,7 +217,7 @@ curl -X POST https://llmproxy.aitrail.ch/admin/filters/test \
 ### Test 3: Email (bereits vorhanden)
 
 ```bash
-curl -X POST https://llmproxy.aitrail.ch/admin/filters/test \
+curl -X POST https://scrubgate.tech/admin/filters/test \
   -H "X-Admin-API-Key: admin_dev_key_12345..." \
   -H "Content-Type: application/json" \
   -d '{
@@ -230,7 +230,7 @@ curl -X POST https://llmproxy.aitrail.ch/admin/filters/test \
 ### Test 4: API Key
 
 ```bash
-curl -X POST https://llmproxy.aitrail.ch/admin/filters/test \
+curl -X POST https://scrubgate.tech/admin/filters/test \
   -H "X-Admin-API-Key: admin_dev_key_12345..." \
   -H "Content-Type: application/json" \
   -d '{
@@ -309,7 +309,7 @@ INSERT INTO content_filters (
 ```bash
 # Filter-Statistiken anzeigen
 curl -H "X-Admin-API-Key: admin_dev_key_12345..." \
-  https://llmproxy.aitrail.ch/admin/filters/stats | jq .
+  https://scrubgate.tech/admin/filters/stats | jq .
 ```
 
 ---
@@ -342,7 +342,7 @@ curl -H "X-Admin-API-Key: admin_dev_key_12345..." \
 ```bash
 # Filter-Statistiken prüfen
 curl -H "X-Admin-API-Key: ..." \
-  https://llmproxy.aitrail.ch/admin/filters/stats
+  https://scrubgate.tech/admin/filters/stats
 ```
 
 ### Monatlich

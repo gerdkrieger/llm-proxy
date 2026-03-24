@@ -24,7 +24,7 @@ const API_BASE_URL = window.location.origin;
 
 // Examples:
 // - On http://localhost:3005 → API_BASE_URL = "http://localhost:3005"
-// - On https://llmproxy.aitrail.ch → API_BASE_URL = "https://llmproxy.aitrail.ch"
+// - On https://scrubgate.tech → API_BASE_URL = "https://scrubgate.tech"
 ```
 
 This approach:

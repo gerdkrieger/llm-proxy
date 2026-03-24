@@ -1,11 +1,11 @@
 # .dockerignore - Exclude files from Docker build context
+# Only Go source, go.mod/go.sum, and configs needed for build
 # =============================================================================
 
-# Environment files (should be provided at runtime, not baked into image)
+# Environment files (provided at runtime, never baked into image)
 .env
 .env.*
 !.env.example
-!.env.*.example
 
 # Git
 .git
@@ -14,13 +14,12 @@
 
 # Documentation
 *.md
-!README.md
 docs/
-.github/
 
-# Development files
+# Development & IDE
 .vscode/
 .idea/
+.claude/
 *.swp
 *.swo
 *~
@@ -54,7 +53,18 @@ temp/
 *.log
 *.tmp
 
-# Docker files (when building)
+# Docker files
 docker-compose*.yml
 Dockerfile*
-deployments/docker/docker-compose*.yml
+deployments/
+
+# Not needed in container
+scripts/
+landing/
+admin-ui/
+backups/
+Makefile*
+*.sql
+*.json
+configs/
+.github/

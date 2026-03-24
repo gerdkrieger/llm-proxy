@@ -11,7 +11,7 @@ set -euo pipefail
 ##############################################################################
 
 # Configuration
-BASE_URL="${LLM_PROXY_URL:-https://llmproxy.aitrail.ch}"
+BASE_URL="${LLM_PROXY_URL:-https://scrubgate.tech}"
 ADMIN_KEY="${LLM_PROXY_ADMIN_KEY:-admin_dev_key_12345678901234567890123456789012}"
 CLIENT_KEY="${LLM_PROXY_CLIENT_KEY:-sk-llm-proxy-openwebui-2026-01-30-secure-key-abc123xyz789}"
 

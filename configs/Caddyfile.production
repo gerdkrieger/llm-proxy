@@ -56,6 +56,11 @@ scrubgate.tech {
 		reverse_proxy 127.0.0.1:8080
 	}
 
+	# Public API (contact form) → Backend (Port 8080)
+	handle /api/* {
+		reverse_proxy 127.0.0.1:8080
+	}
+
 	# Health Check → Backend (Port 8080)
 	handle /health {
 		reverse_proxy 127.0.0.1:8080

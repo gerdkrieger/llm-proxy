@@ -1,11 +1,11 @@
 # robots.txt for LLM-Proxy Landing Page
-# https://landing.llmproxy.aitrail.ch/
+# https://scrubgate.com/
 
 User-agent: *
 Allow: /
 
 # Sitemap
-Sitemap: https://landing.llmproxy.aitrail.ch/sitemap.xml
+Sitemap: https://scrubgate.com/sitemap.xml
 
 # Crawl-delay (optional, for polite crawlers)
 Crawl-delay: 1

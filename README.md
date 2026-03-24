@@ -279,9 +279,9 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 
 ## 📞 **Contact & Support**
 
-- **Website:** [https://landing.llmproxy.aitrail.ch/](https://landing.llmproxy.aitrail.ch/)
+- **Website:** [https://scrubgate.com/](https://scrubgate.com/)
 - **Demo Meeting:** [Book a 30-min demo](https://cal.com/gerd-krieger-plwn35/llm-proxy)
-- **Email:** service@aitrail.ch
+- **Email:** service@scrubgate.com
 - **Issues:** [GitHub Issues](https://github.com/krieger-engineering/llm-proxy/issues)
 
 ---

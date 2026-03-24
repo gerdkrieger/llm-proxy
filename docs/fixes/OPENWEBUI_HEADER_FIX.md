@@ -85,7 +85,7 @@ Don't use custom headers at all! OpenWebUI should have standard fields:
 
 **Configuration:**
 ```
-Base URL: https://llmproxy.aitrail.ch/v1
+Base URL: https://scrubgate.tech/v1
 API Key: sk-llm-proxy-openwebui-2026-01-30-secure-key-abc123xyz789
 ```
 
@@ -106,7 +106,7 @@ Authorization: Bearer sk-llm-proxy-openwebui-2026-01-30-secure-key-abc123xyz789
 ```bash
 # This FAILS because X-Admin-API-Key is not recognized on /v1/*
 curl -v -H "X-Admin-API-Key: sk-llm-proxy-openwebui-2026-01-30-secure-key-abc123xyz789" \
-  https://llmproxy.aitrail.ch/v1/models
+  https://scrubgate.tech/v1/models
 
 # Result: 401 Unauthorized
 ```
@@ -115,7 +115,7 @@ curl -v -H "X-Admin-API-Key: sk-llm-proxy-openwebui-2026-01-30-secure-key-abc123
 ```bash
 # This WORKS because Authorization Bearer is correct
 curl -v -H "Authorization: Bearer sk-llm-proxy-openwebui-2026-01-30-secure-key-abc123xyz789" \
-  https://llmproxy.aitrail.ch/v1/models
+  https://scrubgate.tech/v1/models
 
 # Result: 200 OK with model list
 ```
@@ -150,7 +150,7 @@ ssh openweb "docker logs -f llm-proxy-backend 2>&1 | grep '172.18.0.2'"
 ### Test 3: Live Monitor
 
 After fix:
-1. Open `https://llmproxy.aitrail.ch:3005`
+1. Open `https://scrubgate.tech:3005`
 2. Go to **Live Monitor**
 3. Should show: ✅ **Connected** (green)
 4. Recent requests showing 200 status codes
@@ -193,7 +193,7 @@ Authorization: Bearer <api-key>
 **OpenWebUI Settings:**
 ```
 Provider Type: OpenAI
-Base URL: https://llmproxy.aitrail.ch/v1
+Base URL: https://scrubgate.tech/v1
 API Key: sk-llm-proxy-openwebui-2026-01-30-secure-key-abc123xyz789
 Custom Headers: (empty)
 ```
@@ -201,7 +201,7 @@ Custom Headers: (empty)
 **What OpenWebUI Sends:**
 ```http
 POST /v1/chat/completions HTTP/1.1
-Host: llmproxy.aitrail.ch
+Host: scrubgate.tech
 Authorization: Bearer sk-llm-proxy-openwebui-2026-01-30-secure-key-abc123xyz789
 Content-Type: application/json
 ```
@@ -221,7 +221,7 @@ Authorization: Bearer sk-llm-proxy-*
 **OpenWebUI Settings:**
 ```
 Provider Type: OpenAI
-Base URL: https://llmproxy.aitrail.ch/v1
+Base URL: https://scrubgate.tech/v1
 API Key: (empty or other)
 Custom Headers:
 {
@@ -232,7 +232,7 @@ Custom Headers:
 **What OpenWebUI Sends:**
 ```http
 POST /v1/chat/completions HTTP/1.1
-Host: llmproxy.aitrail.ch
+Host: scrubgate.tech
 X-Admin-API-Key: sk-llm-proxy-openwebui-2026-01-30-secure-key-abc123xyz789
 Content-Type: application/json
 ```
@@ -263,7 +263,7 @@ If for some reason you can't change OpenWebUI, we could modify the APIKeyMiddlew
 - [ ] OpenWebUI using `Authorization: Bearer` header (not `X-Admin-API-Key`)
 - [ ] API Key field contains: `sk-llm-proxy-openwebui-2026-01-30-secure-key-abc123xyz789`
 - [ ] Custom Headers field is empty
-- [ ] Base URL is: `https://llmproxy.aitrail.ch/v1`
+- [ ] Base URL is: `https://scrubgate.tech/v1`
 - [ ] Test connection in OpenWebUI shows success
 - [ ] Live Monitor shows green ✅ Connected
 - [ ] Can send chat messages in OpenWebUI
@@ -277,7 +277,7 @@ If for some reason you can't change OpenWebUI, we could modify the APIKeyMiddlew
 ```bash
 curl -s -o /dev/null -w "%{http_code}\n" \
   -H "X-Admin-API-Key: sk-llm-proxy-openwebui-2026-01-30-secure-key-abc123xyz789" \
-  https://llmproxy.aitrail.ch/v1/models
+  https://scrubgate.tech/v1/models
 # Expected: 401
 ```
 
@@ -285,7 +285,7 @@ curl -s -o /dev/null -w "%{http_code}\n" \
 ```bash
 curl -s -o /dev/null -w "%{http_code}\n" \
   -H "Authorization: Bearer sk-llm-proxy-openwebui-2026-01-30-secure-key-abc123xyz789" \
-  https://llmproxy.aitrail.ch/v1/models
+  https://scrubgate.tech/v1/models
 # Expected: 200
 ```
 

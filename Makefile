@@ -347,10 +347,10 @@ deploy-filters: ## Deploy content filters to production server
 	@./scripts/deployment/deploy-filters.sh
 	@echo "$(COLOR_GREEN)Filters deployed successfully$(COLOR_RESET)"
 
-deploy-full: ## Full deployment (code + migrations + filters + restart)
-	@echo "$(COLOR_BLUE)Starting full deployment...$(COLOR_RESET)"
-	@./scripts/deployment/deploy-full.sh
-	@echo "$(COLOR_GREEN)Full deployment complete$(COLOR_RESET)"
+deploy: ## Deploy to production (build images, transfer via SSH, restart)
+	@echo "$(COLOR_BLUE)Starting deployment...$(COLOR_RESET)"
+	@./scripts/deployment/deploy.sh
+	@echo "$(COLOR_GREEN)Deployment complete$(COLOR_RESET)"
 
 deploy-auto: ## Run auto-deployment check (detects pending migrations/filters)
 	@./scripts/deployment/auto-deploy-migrations.sh

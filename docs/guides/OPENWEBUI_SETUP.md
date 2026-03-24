@@ -93,7 +93,7 @@ Der LLM-Proxy unterstützt **statische API-Keys** im Format `sk-llm-proxy-*` fü
 4. **API-Key testen:**
    ```bash
    curl -H "Authorization: Bearer sk-llm-proxy-openwebui-2026-02-06-[DEIN_KEY]" \
-     https://llmproxy.aitrail.ch/v1/models
+     https://scrubgate.tech/v1/models
    ```
 
    **Erwartete Ausgabe:**
@@ -113,7 +113,7 @@ Falls Sie OAuth verwenden möchten (komplexer, aber flexibler):
 
 1. **OAuth Client erstellen:**
    ```bash
-   curl -X POST https://llmproxy.aitrail.ch/oauth/clients \
+   curl -X POST https://scrubgate.tech/oauth/clients \
      -H "Content-Type: application/json" \
      -d '{
        "name": "OpenWebUI",
@@ -124,7 +124,7 @@ Falls Sie OAuth verwenden möchten (komplexer, aber flexibler):
 
 2. **Access Token erhalten:**
    ```bash
-   curl -X POST https://llmproxy.aitrail.ch/oauth/token \
+   curl -X POST https://scrubgate.tech/oauth/token \
      -d "grant_type=client_credentials" \
      -d "client_id=YOUR_CLIENT_ID" \
      -d "client_secret=YOUR_CLIENT_SECRET"
@@ -149,7 +149,7 @@ OpenWebUI verwendet die **OpenAI-kompatible API**, daher konfigurieren wir den L
 
 | Feld | Wert | Erklärung |
 |------|------|-----------|
-| **API Base URL** | `https://llmproxy.aitrail.ch/v1` | LLM-Proxy Endpunkt (nicht OpenAI!) |
+| **API Base URL** | `https://scrubgate.tech/v1` | LLM-Proxy Endpunkt (nicht OpenAI!) |
 | **API Key** | `sk-llm-proxy-openwebui-2026-02-06-[DEIN_KEY]` | Statischer API-Key vom LLM-Proxy |
 | **Enable** | ✅ | Aktivieren |
 
@@ -162,7 +162,7 @@ OpenWebUI verwendet die **OpenAI-kompatible API**, daher konfigurieren wir den L
 │                                            │
 │ Base URL:                                  │
 │ ┌────────────────────────────────────────┐ │
-│ │https://llmproxy.aitrail.ch/v1         │ │
+│ │https://scrubgate.tech/v1         │ │
 │ └────────────────────────────────────────┘ │
 │                                            │
 │ API Key:                                   │
@@ -190,7 +190,7 @@ services:
       - "3000:8080"
     environment:
       # LLM-Proxy Integration
-      - OPENAI_API_BASE_URLS=https://llmproxy.aitrail.ch/v1
+      - OPENAI_API_BASE_URLS=https://scrubgate.tech/v1
       - OPENAI_API_KEYS=sk-llm-proxy-openwebui-2026-02-06-[DEIN_KEY]
       
       # Optional: Weitere Einstellungen
@@ -214,7 +214,7 @@ docker compose up -d
 docker run -d \
   --name open-webui \
   -p 3000:8080 \
-  -e OPENAI_API_BASE_URLS=https://llmproxy.aitrail.ch/v1 \
+  -e OPENAI_API_BASE_URLS=https://scrubgate.tech/v1 \
   -e OPENAI_API_KEYS=sk-llm-proxy-openwebui-2026-02-06-[DEIN_KEY] \
   -v open-webui:/app/backend/data \
   --restart unless-stopped \
@@ -241,7 +241,7 @@ docker run -d \
 ```bash
 # Test API direkt
 curl -H "Authorization: Bearer sk-llm-proxy-openwebui-..." \
-  https://llmproxy.aitrail.ch/v1/models | jq .
+  https://scrubgate.tech/v1/models | jq .
 
 # Prüfe OpenWebUI Logs
 docker logs open-webui --tail 50
@@ -387,7 +387,7 @@ docker logs llm-proxy-backend | grep -i "ocr\|redact\|attachment"
 1. **API-Key prüfen:**
    ```bash
    curl -H "Authorization: Bearer DEIN_KEY" \
-     https://llmproxy.aitrail.ch/v1/models
+     https://scrubgate.tech/v1/models
    ```
 
 2. **Key Format prüfen:**
@@ -415,12 +415,12 @@ docker logs llm-proxy-backend | grep -i "ocr\|redact\|attachment"
 **Lösung:**
 1. **Base URL prüfen:**
    - Muss `/v1` am Ende haben
-   - ✅ `https://llmproxy.aitrail.ch/v1`
-   - ❌ `https://llmproxy.aitrail.ch` (ohne /v1)
+   - ✅ `https://scrubgate.tech/v1`
+   - ❌ `https://scrubgate.tech` (ohne /v1)
 
 2. **Netzwerk-Verbindung testen:**
    ```bash
-   curl https://llmproxy.aitrail.ch/v1/models
+   curl https://scrubgate.tech/v1/models
    ```
 
 3. **OpenWebUI Cache leeren:**
@@ -438,11 +438,11 @@ docker logs llm-proxy-backend | grep -i "ocr\|redact\|attachment"
 1. **Filter prüfen:**
    ```bash
    curl -H "X-Admin-API-Key: admin_dev_key_..." \
-     https://llmproxy.aitrail.ch/admin/filters
+     https://scrubgate.tech/admin/filters
    ```
 
 2. **Filter aktivieren:**
-   - Öffnen Sie Admin UI: https://llmproxy.aitrail.ch:3005
+   - Öffnen Sie Admin UI: https://scrubgate.tech:3005
    - Navigieren zu **Content Filters**
    - Stellen Sie sicher, dass Filter **enabled** sind
 
@@ -516,7 +516,7 @@ docker logs llm-proxy-backend | grep -i "ocr\|redact\|attachment"
 
 ### LLM-Proxy Admin UI
 
-**URL:** https://llmproxy.aitrail.ch:3005
+**URL:** https://scrubgate.tech:3005
 
 **Features:**
 - ✅ Content Filter Management
@@ -531,7 +531,7 @@ docker logs llm-proxy-backend | grep -i "ocr\|redact\|attachment"
 
 ```bash
 curl -H "X-Admin-API-Key: admin_dev_key_..." \
-  https://llmproxy.aitrail.ch/admin/logs | jq .
+  https://scrubgate.tech/admin/logs | jq .
 ```
 
 **Beispiel-Ausgabe:**
@@ -553,7 +553,7 @@ curl -H "X-Admin-API-Key: admin_dev_key_..." \
 
 ### Prometheus Metrics
 
-**URL:** http://llmproxy.aitrail.ch:9091/metrics
+**URL:** http://scrubgate.tech:9091/metrics
 
 **Wichtige Metriken:**
 ```
@@ -599,8 +599,8 @@ llm_proxy_provider_errors_total{provider="claude"}
 ### Netzwerk-Sicherheit
 
 1. **HTTPS verwenden:**
-   - ✅ `https://llmproxy.aitrail.ch`
-   - ❌ `http://llmproxy.aitrail.ch`
+   - ✅ `https://scrubgate.tech`
+   - ❌ `http://scrubgate.tech`
 
 2. **Firewall-Regeln:**
    ```bash
@@ -625,7 +625,7 @@ llm_proxy_provider_errors_total{provider="claude"}
 
 2. **Custom Filter für branchenspezifische Daten:**
    ```bash
-   curl -X POST https://llmproxy.aitrail.ch/admin/filters \
+   curl -X POST https://scrubgate.tech/admin/filters \
      -H "X-Admin-API-Key: ..." \
      -d '{
        "pattern": "\\b\\d{3}-\\d{3}-\\d{4}\\b",
@@ -656,7 +656,7 @@ llm_proxy_provider_errors_total{provider="claude"}
 
 1. ✅ **API-Key vom LLM-Proxy holen** (`sk-llm-proxy-...`)
 2. ✅ **In OpenWebUI konfigurieren:**
-   - Base URL: `https://llmproxy.aitrail.ch/v1`
+   - Base URL: `https://scrubgate.tech/v1`
    - API Key: `sk-llm-proxy-openwebui-...`
 3. ✅ **Testen:**
    - Modelle laden

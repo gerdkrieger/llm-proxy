@@ -36,6 +36,7 @@ func NewRouter(
 	adminHandler *AdminHandler,
 	filterHandler *ContentFilterHandler,
 	providerMgmtHandler *ProviderManagementHandler,
+	contactHandler *ContactHandler,
 	apiKeyMiddleware *customMiddleware.APIKeyMiddleware,
 	apiKeyAuthMiddleware *customMiddleware.APIKeyAuthMiddleware,
 	oauthMiddleware *customMiddleware.OAuthMiddleware,
@@ -61,16 +62,9 @@ func NewRouter(
 	// Metrics middleware (must be before routes)
 	r.Use(metricsMiddleware)
 
-	// CORS middleware
+	// CORS middleware - origins loaded from config (server.cors_origins)
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins: []string{
-			"http://localhost:5173",
-			"http://localhost:3005",
-			"http://localhost:3000",
-			"https://llmproxy.aitrail.ch",
-			"https://llmproxy.aitrail.ch:3005",
-			"https://chat.aitrail.ch",
-		},
+		AllowedOrigins: cfg.Server.CORSOrigins,
 		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-Request-ID", "X-Admin-API-Key"},
 		ExposedHeaders:   []string{"X-Request-ID"},
@@ -94,6 +88,9 @@ func NewRouter(
 	// OAuth endpoints (public)
 	r.Post("/oauth/token", oauthHandler.Token)
 	r.Post("/oauth/revoke", oauthHandler.Revoke)
+
+	// Contact form endpoint (public, rate-limited in handler)
+	r.Post("/api/contact", contactHandler.Submit)
 
 	// OpenAI-compatible API endpoints (Static API Key OR DB API Key OR OAuth protected)
 	r.Route("/v1", func(r chi.Router) {

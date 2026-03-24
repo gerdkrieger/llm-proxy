@@ -189,7 +189,7 @@ https://docs.anthropic.com/en/docs/models-overview
 
 ### Method 2: Check LLM-Proxy Admin UI
 
-1. Open: `https://llmproxy.aitrail.ch:3005`
+1. Open: `https://scrubgate.tech:3005`
 2. Login with admin key
 3. Go to: **Providers** or **Models** section
 4. See: List of configured models
@@ -199,7 +199,7 @@ https://docs.anthropic.com/en/docs/models-overview
 ```bash
 # List available models via LLM-Proxy
 curl -H "Authorization: Bearer sk-llm-proxy-..." \
-  https://llmproxy.aitrail.ch/v1/models | jq '.data[] | select(.id | startswith("claude"))'
+  https://scrubgate.tech/v1/models | jq '.data[] | select(.id | startswith("claude"))'
 ```
 
 ---
@@ -231,7 +231,7 @@ docker logs llm-proxy-backend 2>&1 | grep -i "claude"
 
 ```bash
 curl -H "Authorization: Bearer sk-llm-proxy-openwebui-2026..." \
-  https://llmproxy.aitrail.ch/v1/models | jq '.data[] | select(.id == "claude-3-5-sonnet-20241022")'
+  https://scrubgate.tech/v1/models | jq '.data[] | select(.id == "claude-3-5-sonnet-20241022")'
 ```
 
 **Expected:** Model object returned
@@ -239,7 +239,7 @@ curl -H "Authorization: Bearer sk-llm-proxy-openwebui-2026..." \
 ### Test 2: Make Request with Correct Model
 
 ```bash
-curl -X POST https://llmproxy.aitrail.ch/v1/chat/completions \
+curl -X POST https://scrubgate.tech/v1/chat/completions \
   -H "Authorization: Bearer sk-llm-proxy-openwebui-2026..." \
   -H "Content-Type: application/json" \
   -d '{
@@ -253,7 +253,7 @@ curl -X POST https://llmproxy.aitrail.ch/v1/chat/completions \
 ### Test 3: Try Wrong Model (Should Fail)
 
 ```bash
-curl -X POST https://llmproxy.aitrail.ch/v1/chat/completions \
+curl -X POST https://scrubgate.tech/v1/chat/completions \
   -H "Authorization: Bearer sk-llm-proxy-openwebui-2026..." \
   -H "Content-Type: application/json" \
   -d '{

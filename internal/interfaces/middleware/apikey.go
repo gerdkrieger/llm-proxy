@@ -3,6 +3,8 @@ package middleware
 
 import (
 	"context"
+	"crypto/subtle"
+	"encoding/json"
 	"net/http"
 	"strings"
 
@@ -96,7 +98,7 @@ func (m *APIKeyMiddleware) Authenticate(next http.Handler) http.Handler {
 // validateAPIKey checks if the provided key is valid and enabled
 func (m *APIKeyMiddleware) validateAPIKey(key string) *config.ClientAPIKeyConfig {
 	for _, apiKey := range m.apiKeys {
-		if apiKey.Key == key {
+		if subtle.ConstantTimeCompare([]byte(apiKey.Key), []byte(key)) == 1 {
 			return &apiKey
 		}
 	}
@@ -107,5 +109,6 @@ func (m *APIKeyMiddleware) validateAPIKey(key string) *config.ClientAPIKeyConfig
 func (m *APIKeyMiddleware) respondError(w http.ResponseWriter, statusCode int, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
-	w.Write([]byte(`{"error":"` + message + `"}`))
+	resp, _ := json.Marshal(map[string]string{"error": message})
+	w.Write(resp)
 }

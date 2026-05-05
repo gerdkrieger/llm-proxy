@@ -26,6 +26,11 @@ go.work
 .env
 .env.local
 .env.*.local
+.env.server*
+# Any password-containing env backups
+env.*.backup
+*.env.backup
+.env.backup
 
 # IDE
 .idea/

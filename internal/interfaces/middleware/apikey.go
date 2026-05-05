@@ -109,6 +109,13 @@ func (m *APIKeyMiddleware) validateAPIKey(key string) *config.ClientAPIKeyConfig
 func (m *APIKeyMiddleware) respondError(w http.ResponseWriter, statusCode int, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
-	resp, _ := json.Marshal(map[string]string{"error": message})
-	w.Write(resp)
+	resp, err := json.Marshal(map[string]string{"error": message})
+	if err != nil {
+		m.logger.Errorf(err, "Failed to marshal API key error response")
+		w.Write([]byte(`{"error":"internal_error"}`))
+		return
+	}
+	if _, err := w.Write(resp); err != nil {
+		m.logger.Errorf(err, "Failed to write API key error response")
+	}
 }

@@ -11,9 +11,10 @@ import (
 )
 
 const (
-	// MinJWTSecretLength defines the minimum required length for JWT secrets
-	// Using 64 characters ensures 512 bits of entropy when base64 encoded
-	MinJWTSecretLength = 64
+	// MinJWTSecretLength defines the minimum required length for JWT secrets.
+	// Using 32 characters ensures 256 bits of entropy.
+	// NOTE: This MUST stay in sync with config.go validate() which also enforces >=32.
+	MinJWTSecretLength = 32
 )
 
 // TokenGenerator handles JWT token generation and validation

@@ -18,6 +18,14 @@ import (
 	"github.com/llm-proxy/llm-proxy/pkg/logger"
 )
 
+// maskAPIKey masks an API key for safe logging.
+func maskAPIKey(key string) string {
+	if len(key) <= 8 {
+		return "***"
+	}
+	return key[:4] + "..." + key[len(key)-4:]
+}
+
 // ProviderManagementHandler handles provider management requests
 type ProviderManagementHandler struct {
 	providerSettingsRepo *repositories.ProviderSettingsRepository
@@ -239,7 +247,7 @@ func (h *ProviderManagementHandler) testGeminiProvider(config *repositories.Prov
 	// Test Gemini API by listing models
 	url := "https://generativelanguage.googleapis.com/v1beta/models?key=" + apiKey
 
-	h.logger.Infof("Testing Gemini API: %s", url)
+	h.logger.Infof("Testing Gemini API with key %s...", maskAPIKey(apiKey))
 
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Get(url)
@@ -254,7 +262,12 @@ func (h *ProviderManagementHandler) testGeminiProvider(config *repositories.Prov
 	defer resp.Body.Close()
 
 	body, _ := io.ReadAll(resp.Body)
-	h.logger.Infof("Gemini API response status: %d, body: %s", resp.StatusCode, string(body))
+	if resp.StatusCode != http.StatusOK {
+		// Only log body on non-success to avoid verbose logs
+		h.logger.Warnf("Gemini API non-success status: %d, body: %s", resp.StatusCode, string(body))
+	} else {
+		h.logger.Infof("Gemini API response status: %d", resp.StatusCode)
+	}
 
 	if resp.StatusCode != http.StatusOK {
 		return map[string]interface{}{
@@ -335,7 +348,7 @@ func (h *ProviderManagementHandler) testOpenRouterProvider(config *repositories.
 	// Test OpenRouter API by listing models
 	url := "https://openrouter.ai/api/v1/models"
 
-	h.logger.Infof("Testing OpenRouter API: %s", url)
+	h.logger.Infof("Testing OpenRouter API with key %s...", maskAPIKey(apiKey))
 
 	client := &http.Client{Timeout: 10 * time.Second}
 	req, err := http.NewRequest("GET", url, nil)

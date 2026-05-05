@@ -58,6 +58,7 @@ type Service struct {
 	cachedFilters []*compiledFilter
 	cacheTime     time.Time
 	cacheTTL      time.Duration
+	loading       sync.Mutex // Prevents concurrent DB loads (cache stampede/avalanche)
 }
 
 // NewService creates a new filtering service
@@ -144,15 +145,13 @@ func (s *Service) ApplyFilters(ctx context.Context, messages []models.OpenAIMess
 	for _, match := range allMatches {
 		matches = append(matches, *match)
 
-		// Record match asynchronously
+		// Record match asynchronously (batch increment by count)
 		go func(filterID int, count int) {
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 			defer cancel()
 
-			for i := 0; i < count; i++ {
-				if err := s.repo.IncrementMatchCount(ctx, filterID); err != nil {
-					s.logger.Warnf("Failed to record match for filter %d: %v", filterID, err)
-				}
+			if err := s.repo.IncrementMatchCountBy(ctx, filterID, count); err != nil {
+				s.logger.Warnf("Failed to record match for filter %d: %v", filterID, err)
 			}
 		}(match.FilterID, match.MatchCount)
 	}
@@ -197,8 +196,22 @@ func (s *Service) applyFiltersToText(text string, filters []*compiledFilter) Fil
 	return result
 }
 
-// getActiveFilters returns cached filters or loads from database
+// getActiveFilters returns cached filters or loads from database.
+// Uses a lock to prevent cache stampede (multiple goroutines reloading simultaneously).
 func (s *Service) getActiveFilters(ctx context.Context) ([]*compiledFilter, error) {
+	s.mu.RLock()
+	if time.Since(s.cacheTime) < s.cacheTTL && s.cachedFilters != nil {
+		filters := s.cachedFilters
+		s.mu.RUnlock()
+		return filters, nil
+	}
+	s.mu.RUnlock()
+
+	// Only one goroutine should reload the cache
+	s.loading.Lock()
+	defer s.loading.Unlock()
+
+	// Double-check after acquiring lock
 	s.mu.RLock()
 	if time.Since(s.cacheTime) < s.cacheTTL && s.cachedFilters != nil {
 		filters := s.cachedFilters
@@ -335,19 +348,37 @@ func (s *Service) ValidateFilterPattern(filterType, pattern string) error {
 
 	// Additional validation for regex patterns
 	if filterType == FilterTypeRegex {
-		// Check for potentially dangerous patterns
+		patLower := strings.ToLower(pattern)
+
+		// Heuristic 1: Catastrophic backtracking patterns
 		dangerous := []string{
-			".*.*",  // Catastrophic backtracking
-			".+.+",  // Catastrophic backtracking
-			"(.*)+", // Catastrophic backtracking
-			"(.+)+", // Catastrophic backtracking
+			".*.*",
+			".+.+",
+			"(.*)+",
+			"(.+)+",
+		}
+		for _, d := range dangerous {
+			if strings.Contains(patLower, d) {
+				return fmt.Errorf("potentially dangerous regex pattern: catastrophic backtracking detected")
+			}
 		}
 
-		lower := strings.ToLower(pattern)
-		for _, d := range dangerous {
-			if strings.Contains(lower, d) {
-				return fmt.Errorf("potentially dangerous regex pattern detected")
-			}
+		// Heuristic 2: Nested quantifiers (a+)+ or (a*)*
+		nestedRe := regexp.MustCompile(`\([^{}]*[+?*]\)[+?*]`)
+		if nestedRe.MatchString(patLower) {
+			return fmt.Errorf("potentially dangerous regex pattern: nested quantifiers detected")
+		}
+
+		// Heuristic 3: Excessive repetition like {1000,} or {0,99999}
+		excessiveRe := regexp.MustCompile(`\{\d{4,},?\}|\{\d+,\d{3,}\}`)
+		if excessiveRe.MatchString(patLower) {
+			return fmt.Errorf("potentially dangerous regex pattern: excessive repetition detected")
+		}
+
+		// Heuristic 4: Alternation with overlapping patterns (a|a)*
+		overlapRe := regexp.MustCompile(`\([^|]+\|[^)]+\)[*+]`)
+		if overlapRe.MatchString(patLower) {
+			return fmt.Errorf("potentially dangerous regex pattern: overlapping alternation detected")
 		}
 	}
 

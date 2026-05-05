@@ -133,9 +133,11 @@ func (m *OAuthMiddleware) RequireScope(requiredScope string) func(http.Handler) 
 func (m *OAuthMiddleware) respondError(w http.ResponseWriter, statusCode int, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
-	json.NewEncoder(w).Encode(map[string]string{
+	if err := json.NewEncoder(w).Encode(map[string]string{
 		"error": message,
-	})
+	}); err != nil {
+		m.logger.Errorf(err, "Failed to encode OAuth error response")
+	}
 }
 
 // GetClientID extracts client ID from context

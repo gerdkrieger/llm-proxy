@@ -236,6 +236,25 @@ func (m *RequestLoggerMiddleware) Middleware(next http.Handler) http.Handler {
 		// Calculate duration
 		duration := time.Since(start)
 
+		// Extract LLM metrics from context (set by ChatHandler)
+		var promptTokens, completionTokens int
+		var costUSD float64
+		if ptCtx := r.Context().Value("prompt_tokens"); ptCtx != nil {
+			if pt, ok := ptCtx.(int); ok {
+				promptTokens = pt
+			}
+		}
+		if ctCtx := r.Context().Value("completion_tokens"); ctCtx != nil {
+			if ct, ok := ctCtx.(int); ok {
+				completionTokens = ct
+			}
+		}
+		if costCtx := r.Context().Value("cost_usd"); costCtx != nil {
+			if cost, ok := costCtx.(float64); ok {
+				costUSD = cost
+			}
+		}
+
 		// Extract error message if any
 		var errorMsg *string
 		if wrapped.statusCode >= 400 {
@@ -311,6 +330,10 @@ func (m *RequestLoggerMiddleware) Middleware(next http.Handler) http.Handler {
 			Path:              r.URL.Path,
 			Model:             model,
 			Provider:          provider,
+			PromptTokens:      promptTokens,
+			CompletionTokens:  completionTokens,
+			TotalTokens:       promptTokens + completionTokens,
+			CostUSD:           costUSD,
 			DurationMS:        int(duration.Milliseconds()),
 			StatusCode:        wrapped.statusCode,
 			IPAddress:         &ipAddress,
@@ -400,12 +423,10 @@ func extractAuthInfo(ctx context.Context) (*string, *string, *uuid.UUID) {
 		}
 	}
 
-	// Check for OAuth authentication
-	if oauthClientID := ctx.Value("oauth_client_id"); oauthClientID != nil {
-		if _, ok := oauthClientID.(string); ok {
-			authTypeVal := "oauth"
-			authType = &authTypeVal
-		}
+	// Check for OAuth authentication (via JWT claims)
+	if claims := GetClaims(ctx); claims != nil {
+		authTypeVal := "oauth"
+		authType = &authTypeVal
 	}
 
 	// Check for admin authentication

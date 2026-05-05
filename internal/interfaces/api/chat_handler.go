@@ -26,7 +26,6 @@ import (
 // ChatHandler handles chat completion requests
 type ChatHandler struct {
 	providerManager   *providers.ProviderManager
-	requestLogRepo    *repositories.RequestLogRepository
 	filterMatchRepo   *repositories.FilterMatchRepository
 	clientRepo        *repositories.OAuthClientRepository
 	cacheService      *caching.Service
@@ -39,7 +38,6 @@ type ChatHandler struct {
 // NewChatHandler creates a new chat handler
 func NewChatHandler(
 	providerManager *providers.ProviderManager,
-	requestLogRepo *repositories.RequestLogRepository,
 	filterMatchRepo *repositories.FilterMatchRepository,
 	clientRepo *repositories.OAuthClientRepository,
 	cacheService *caching.Service,
@@ -50,7 +48,6 @@ func NewChatHandler(
 ) *ChatHandler {
 	return &ChatHandler{
 		providerManager:   providerManager,
-		requestLogRepo:    requestLogRepo,
 		filterMatchRepo:   filterMatchRepo,
 		clientRepo:        clientRepo,
 		cacheService:      cacheService,
@@ -76,20 +73,20 @@ func (h *ChatHandler) CreateCompletion(w http.ResponseWriter, r *http.Request) {
 	// Parse OpenAI request
 	var openAIReq models.OpenAIRequest
 	if err := json.NewDecoder(r.Body).Decode(&openAIReq); err != nil {
-		h.logRequest(ctx, r, clientID, requestID, "", http.StatusBadRequest, 0, 0, 0, startTime, err)
+		r = h.setErrorContext(r, err)
 		h.respondError(w, http.StatusBadRequest, "invalid_request_error", "Invalid request body: "+err.Error())
 		return
 	}
 
 	// Validate request
 	if openAIReq.Model == "" {
-		h.logRequest(ctx, r, clientID, requestID, "", http.StatusBadRequest, 0, 0, 0, startTime, nil)
+		r = h.setErrorContext(r, fmt.Errorf("model is required"))
 		h.respondError(w, http.StatusBadRequest, "invalid_request_error", "model is required")
 		return
 	}
 
 	if len(openAIReq.Messages) == 0 {
-		h.logRequest(ctx, r, clientID, requestID, openAIReq.Model, http.StatusBadRequest, 0, 0, 0, startTime, nil)
+		r = h.setErrorContext(r, fmt.Errorf("messages are required"))
 		h.respondError(w, http.StatusBadRequest, "invalid_request_error", "messages are required")
 		return
 	}
@@ -99,13 +96,13 @@ func (h *ChatHandler) CreateCompletion(w http.ResponseWriter, r *http.Request) {
 		hasAccess, err := h.checkModelAccess(ctx, clientID, openAIReq.Model)
 		if err != nil {
 			h.logger.Errorf(err, "Failed to check model access for client %s", clientID)
-			h.logRequest(ctx, r, clientID, requestID, openAIReq.Model, http.StatusInternalServerError, 0, 0, 0, startTime, err)
+			r = h.setErrorContext(r, err)
 			h.respondError(w, http.StatusInternalServerError, "server_error", "Failed to verify model access")
 			return
 		}
 		if !hasAccess {
 			h.logger.Warnf("Client %s attempted to access unauthorized model: %s", clientID, openAIReq.Model)
-			h.logRequest(ctx, r, clientID, requestID, openAIReq.Model, http.StatusForbidden, 0, 0, 0, startTime, nil)
+			r = h.setErrorContext(r, fmt.Errorf("no access to model '%s'", openAIReq.Model))
 			h.respondError(w, http.StatusForbidden, "model_not_allowed", fmt.Sprintf("no access to model '%s'", openAIReq.Model))
 			return
 		}
@@ -173,27 +170,16 @@ func (h *ChatHandler) CreateCompletion(w http.ResponseWriter, r *http.Request) {
 			// Update request ID
 			cachedResp.ID = requestID
 
-			// Log cached request
-			duration := time.Since(startTime)
-			h.logRequest(
-				ctx,
-				r,
-				clientID,
-				requestID,
-				openAIReq.Model,
-				http.StatusOK,
-				cachedResp.Usage.PromptTokens,
-				cachedResp.Usage.CompletionTokens,
-				duration.Milliseconds(),
-				startTime,
-				nil,
-			)
+			// Set LLM metrics in context for RequestLoggerMiddleware
+			r = h.setLLMMetrics(r, cachedResp.Usage.PromptTokens, cachedResp.Usage.CompletionTokens, 0)
 
 			// Send cached response
 			w.Header().Set("Content-Type", "application/json")
 			w.Header().Set("X-Cache", "HIT")
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(cachedResp)
+			if err := json.NewEncoder(w).Encode(cachedResp); err != nil {
+				h.logger.Errorf(err, "Failed to encode cached response")
+			}
 			return
 		} else if h.metrics != nil {
 			h.metrics.RecordCacheMiss(time.Since(startTime))
@@ -201,80 +187,34 @@ func (h *ChatHandler) CreateCompletion(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Route to appropriate provider
-	if provider == "openai" {
+	switch provider {
+	case "openai":
 		h.handleOpenAICompletion(w, r, ctx, clientID, requestID, &openAIReq, cacheKey, startTime)
-	} else {
+	case "abacus":
+		h.respondError(w, http.StatusNotImplemented, "not_implemented", "Abacus.ai provider chat completions are not yet implemented")
+	default:
 		h.handleClaudeCompletion(w, r, ctx, clientID, requestID, &openAIReq, cacheKey, startTime)
 	}
 }
 
-// logRequest logs the request to database (async, fire-and-forget)
-func (h *ChatHandler) logRequest(
-	ctx context.Context,
-	r *http.Request,
-	clientID string,
-	requestID string,
-	model string,
-	statusCode int,
-	promptTokens int,
-	completionTokens int,
-	durationMS int64,
-	startTime time.Time,
-	err error,
-) {
-	// Extract IP address and user agent from request
-	ipAddr := h.extractIPAddress(r)
-	userAgent := r.UserAgent()
-	var userAgentPtr *string
-	if userAgent != "" {
-		userAgentPtr = &userAgent
-	}
+// setLLMMetrics sets LLM-specific metrics in the request context so the
+// RequestLoggerMiddleware can include them in the request log.
+func (h *ChatHandler) setLLMMetrics(r *http.Request, promptTokens, completionTokens int, costUSD float64) *http.Request {
+	ctx := r.Context()
+	ctx = context.WithValue(ctx, "prompt_tokens", promptTokens)
+	ctx = context.WithValue(ctx, "completion_tokens", completionTokens)
+	ctx = context.WithValue(ctx, "cost_usd", costUSD)
+	return r.WithContext(ctx)
+}
 
-	// Determine provider based on model
-	provider := h.providerManager.DetermineProvider(model)
-
-	// Create log entry
-	log := &repositories.RequestLog{
-		ID:               uuid.New(),
-		RequestID:        requestID,
-		Method:           r.Method,
-		Path:             r.URL.Path,
-		Model:            model,
-		Provider:         provider,
-		PromptTokens:     promptTokens,
-		CompletionTokens: completionTokens,
-		TotalTokens:      promptTokens + completionTokens,
-		CostUSD:          claude.CalculateCost(model, promptTokens, completionTokens),
-		DurationMS:       int(durationMS),
-		StatusCode:       statusCode,
-		Cached:           false,
-		IPAddress:        ipAddr,
-		UserAgent:        userAgentPtr,
-	}
-
-	// Get client UUID and auth info from client_id string
-	if clientID != "" {
-		client, err := h.clientRepo.GetByClientID(ctx, clientID)
-		if err == nil {
-			log.ClientID = &client.ID
-			authType := "api_key"
-			log.AuthType = &authType
-			log.APIKeyName = &client.Name
-		}
-	}
-
-	// Add error message if present
+// setErrorContext attaches an error string to the request context for the
+// RequestLoggerMiddleware to capture.
+func (h *ChatHandler) setErrorContext(r *http.Request, err error) *http.Request {
 	if err != nil {
-		errMsg := err.Error()
-		log.ErrorMessage = &errMsg
+		ctx := context.WithValue(r.Context(), "error", err.Error())
+		return r.WithContext(ctx)
 	}
-
-	// Save to database (fire-and-forget, don't block response)
-	go func() {
-		if err := h.requestLogRepo.Create(context.Background(), log); err != nil {
-			h.logger.Error(err, "Failed to log request")
-		}
-	}()
+	return r
 }
 
 // extractIPAddress extracts the client IP address from the request
@@ -413,8 +353,7 @@ func (h *ChatHandler) handleStreamingCompletion(
 	eventChan, err := claudeClient.CreateMessageStream(ctx, claudeReq)
 	if err != nil {
 		h.logger.Errorf(err, "Failed to start stream")
-		h.logRequest(ctx, r, clientID, requestID, model,
-			http.StatusBadGateway, 0, 0, time.Since(startTime).Milliseconds(), startTime, err)
+		r = h.setErrorContext(r, err)
 		h.respondError(w, http.StatusBadGateway, "upstream_error", "Failed to start stream: "+err.Error())
 		return
 	}
@@ -468,26 +407,14 @@ func (h *ChatHandler) handleStreamingCompletion(
 		h.writeSSEData(w, flusher, string(chunkJSON))
 	}
 
-	// Log request (with usage from mapper)
+	// Set LLM metrics in context for RequestLoggerMiddleware
 	usage := mapper.GetUsage()
 	duration := time.Since(startTime)
-	h.logRequest(
-		ctx,
-		r,
-		clientID,
-		requestID,
-		model,
-		http.StatusOK,
-		usage.PromptTokens,
-		usage.CompletionTokens,
-		duration.Milliseconds(),
-		startTime,
-		nil,
-	)
+	cost := claude.CalculateCost(model, usage.PromptTokens, usage.CompletionTokens)
+	r = h.setLLMMetrics(r, usage.PromptTokens, usage.CompletionTokens, cost)
 
 	// Record LLM metrics for streaming
 	if h.metrics != nil {
-		cost := claude.CalculateCost(model, usage.PromptTokens, usage.CompletionTokens)
 		h.metrics.RecordLLMRequest(model, "claude", "success", duration,
 			usage.PromptTokens, usage.CompletionTokens, cost, clientID)
 	}
@@ -510,8 +437,13 @@ func (h *ChatHandler) writeSSEError(w http.ResponseWriter, flusher http.Flusher,
 			Type:    "stream_error",
 		},
 	}
-	errorJSON, _ := json.Marshal(errorResponse)
-	fmt.Fprintf(w, "data: %s\n\n", string(errorJSON))
+	errorJSON, err := json.Marshal(errorResponse)
+	if err != nil {
+		h.logger.Errorf(err, "Failed to marshal SSE error response")
+		fmt.Fprintf(w, "data: {\"error\": \"%s\"}\n\n", message)
+	} else {
+		fmt.Fprintf(w, "data: %s\n\n", string(errorJSON))
+	}
 	flusher.Flush()
 }
 
@@ -552,12 +484,14 @@ func (h *ChatHandler) checkModelAccess(ctx context.Context, clientID string, mod
 func (h *ChatHandler) respondError(w http.ResponseWriter, statusCode int, errorType, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
-	json.NewEncoder(w).Encode(models.OpenAIErrorResponse{
+	if err := json.NewEncoder(w).Encode(models.OpenAIErrorResponse{
 		Error: models.OpenAIError{
 			Message: message,
 			Type:    errorType,
 		},
-	})
+	}); err != nil {
+		h.logger.Errorf(err, "Failed to encode error response")
+	}
 }
 
 // handleClaudeCompletion handles completion requests routed to Claude
@@ -574,7 +508,7 @@ func (h *ChatHandler) handleClaudeCompletion(
 	// Convert OpenAI request to Claude format
 	claudeReq, err := claude.MapOpenAIToClaude(openAIReq)
 	if err != nil {
-		h.logRequest(ctx, r, clientID, requestID, openAIReq.Model, http.StatusBadRequest, 0, 0, 0, startTime, err)
+		r = h.setErrorContext(r, err)
 		h.respondError(w, http.StatusBadRequest, "invalid_request_error", "Failed to convert request: "+err.Error())
 		return
 	}
@@ -599,7 +533,7 @@ func (h *ChatHandler) handleClaudeCompletion(
 			errorType = apiErr.Type
 		}
 
-		h.logRequest(ctx, r, clientID, requestID, openAIReq.Model, statusCode, 0, 0, 0, startTime, err)
+		r = h.setErrorContext(r, err)
 		if h.metrics != nil {
 			h.metrics.RecordLLMError(openAIReq.Model, "claude", errorType)
 		}
@@ -623,21 +557,9 @@ func (h *ChatHandler) handleClaudeCompletion(
 	// Calculate cost
 	cost := claude.CalculateCost(openAIReq.Model, claudeResp.Usage.InputTokens, claudeResp.Usage.OutputTokens)
 
-	// Log successful request
+	// Set LLM metrics in context for RequestLoggerMiddleware
 	duration := time.Since(startTime)
-	h.logRequest(
-		ctx,
-		r,
-		clientID,
-		requestID,
-		openAIReq.Model,
-		http.StatusOK,
-		claudeResp.Usage.InputTokens,
-		claudeResp.Usage.OutputTokens,
-		duration.Milliseconds(),
-		startTime,
-		nil,
-	)
+	r = h.setLLMMetrics(r, claudeResp.Usage.InputTokens, claudeResp.Usage.OutputTokens, cost)
 
 	h.logger.Infof("Chat completion successful: tokens=%d, cost=$%.6f, duration=%v",
 		claudeResp.Usage.InputTokens+claudeResp.Usage.OutputTokens, cost, duration)
@@ -652,7 +574,9 @@ func (h *ChatHandler) handleClaudeCompletion(
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("X-Cache", "MISS")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(openAIResp)
+	if err := json.NewEncoder(w).Encode(openAIResp); err != nil {
+		h.logger.Errorf(err, "Failed to encode Claude response")
+	}
 }
 
 // handleOpenAICompletion handles completion requests routed to OpenAI
@@ -669,7 +593,7 @@ func (h *ChatHandler) handleOpenAICompletion(
 	// Get OpenAI client
 	openaiClient := h.providerManager.GetOpenAIClient()
 	if openaiClient == nil {
-		h.logRequest(ctx, r, clientID, requestID, openAIReq.Model, http.StatusServiceUnavailable, 0, 0, 0, startTime, nil)
+		r = h.setErrorContext(r, fmt.Errorf("OpenAI provider not available"))
 		h.respondError(w, http.StatusServiceUnavailable, "provider_unavailable", "OpenAI provider not available")
 		return
 	}
@@ -688,7 +612,7 @@ func (h *ChatHandler) handleOpenAICompletion(
 		statusCode := http.StatusInternalServerError
 		errorType := "api_error"
 
-		h.logRequest(ctx, r, clientID, requestID, openAIReq.Model, statusCode, 0, 0, 0, startTime, err)
+		r = h.setErrorContext(r, err)
 		if h.metrics != nil {
 			h.metrics.RecordLLMError(openAIReq.Model, "openai", errorType)
 		}
@@ -708,21 +632,9 @@ func (h *ChatHandler) handleOpenAICompletion(
 		}()
 	}
 
-	// Log successful request
+	// Set LLM metrics in context for RequestLoggerMiddleware
 	duration := time.Since(startTime)
-	h.logRequest(
-		ctx,
-		r,
-		clientID,
-		requestID,
-		openAIReq.Model,
-		http.StatusOK,
-		openAIResp.Usage.PromptTokens,
-		openAIResp.Usage.CompletionTokens,
-		duration.Milliseconds(),
-		startTime,
-		nil,
-	)
+	r = h.setLLMMetrics(r, openAIResp.Usage.PromptTokens, openAIResp.Usage.CompletionTokens, 0)
 
 	h.logger.Infof("Chat completion successful: tokens=%d, duration=%v",
 		openAIResp.Usage.TotalTokens, duration)
@@ -737,7 +649,9 @@ func (h *ChatHandler) handleOpenAICompletion(
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("X-Cache", "MISS")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(openAIResp)
+	if err := json.NewEncoder(w).Encode(openAIResp); err != nil {
+		h.logger.Errorf(err, "Failed to encode OpenAI response")
+	}
 }
 
 // handleOpenAIStreamingCompletion handles streaming chat completion requests for OpenAI models.
@@ -762,8 +676,7 @@ func (h *ChatHandler) handleOpenAIStreamingCompletion(
 	eventChan, err := openaiClient.CreateMessageStream(ctx, openAIReq)
 	if err != nil {
 		h.logger.Errorf(err, "Failed to start OpenAI stream")
-		h.logRequest(ctx, r, clientID, requestID, openAIReq.Model,
-			http.StatusBadGateway, 0, 0, time.Since(startTime).Milliseconds(), startTime, err)
+		r = h.setErrorContext(r, err)
 		h.respondError(w, http.StatusBadGateway, "upstream_error", "Failed to start stream: "+err.Error())
 		return
 	}
@@ -806,10 +719,9 @@ func (h *ChatHandler) handleOpenAIStreamingCompletion(
 		h.writeSSEData(w, flusher, event.Data)
 	}
 
-	// Log request
+	// Set LLM metrics in context for RequestLoggerMiddleware
 	duration := time.Since(startTime)
-	h.logRequest(ctx, r, clientID, requestID, openAIReq.Model,
-		http.StatusOK, promptTokens, completionTokens, duration.Milliseconds(), startTime, nil)
+	r = h.setLLMMetrics(r, promptTokens, completionTokens, 0)
 
 	// Record LLM metrics for streaming
 	if h.metrics != nil {

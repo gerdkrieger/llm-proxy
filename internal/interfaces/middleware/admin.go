@@ -77,8 +77,15 @@ func (m *AdminMiddleware) Authenticate(next http.Handler) http.Handler {
 func (m *AdminMiddleware) respondUnauthorized(w http.ResponseWriter, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusUnauthorized)
-	resp, _ := json.Marshal(map[string]string{"error": "unauthorized", "message": message})
-	w.Write(resp)
+	resp, err := json.Marshal(map[string]string{"error": "unauthorized", "message": message})
+	if err != nil {
+		m.logger.Errorf(err, "Failed to marshal admin unauthorized response")
+		w.Write([]byte(`{"error":"unauthorized"}`))
+		return
+	}
+	if _, err := w.Write(resp); err != nil {
+		m.logger.Errorf(err, "Failed to write admin unauthorized response")
+	}
 }
 
 // maskAPIKey masks an API key for logging

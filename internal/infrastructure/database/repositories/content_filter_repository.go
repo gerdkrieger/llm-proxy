@@ -131,9 +131,14 @@ func (r *ContentFilterRepository) Delete(ctx context.Context, id int) error {
 	return err
 }
 
-// IncrementMatchCount increments the match counter for a filter
+// IncrementMatchCount increments the match counter for a filter by 1.
 func (r *ContentFilterRepository) IncrementMatchCount(ctx context.Context, id int) error {
-	query := `UPDATE content_filters SET match_count = match_count + 1, last_matched_at = NOW() WHERE id = $1`
-	_, err := r.db.Pool.Exec(ctx, query, id)
+	return r.IncrementMatchCountBy(ctx, id, 1)
+}
+
+// IncrementMatchCountBy increments the match counter for a filter by a given amount.
+func (r *ContentFilterRepository) IncrementMatchCountBy(ctx context.Context, id int, count int) error {
+	query := `UPDATE content_filters SET match_count = match_count + $2, last_matched_at = NOW() WHERE id = $1`
+	_, err := r.db.Pool.Exec(ctx, query, id, count)
 	return err
 }

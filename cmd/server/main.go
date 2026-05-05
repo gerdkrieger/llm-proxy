@@ -175,7 +175,7 @@ func main() {
 	// Initialize handlers
 	log.Info("Initializing API handlers...")
 	oauthHandler := api.NewOAuthHandler(oauthService, log)
-	chatHandler := api.NewChatHandler(providerManager, requestLogRepo, filterMatchRepo, clientRepo, cacheService, filterService, attachmentService, metricsCollector, log)
+	chatHandler := api.NewChatHandler(providerManager, filterMatchRepo, clientRepo, cacheService, filterService, attachmentService, metricsCollector, log)
 	modelsHandler := api.NewModelsHandler(providerManager, providerModelRepo, log)
 	adminHandler := api.NewAdminHandler(clientRepo, tokenRepo, requestLogRepo, filterMatchRepo, providerModelRepo, providerConfigRepo, providerAPIKeyRepo, systemSettingsRepo, cacheService, providerManager, log)
 	filterHandler := api.NewContentFilterHandler(contentFilterRepo, filterService, log)
@@ -191,9 +191,13 @@ func main() {
 	requestLoggerMiddleware := middleware.NewRequestLoggerMiddleware(requestLogRepo, systemSettingsRepo, log)
 	metricsMiddleware := middleware.MetricsMiddleware(metricsCollector)
 
+	// Initialize rate limiting middleware
+	log.Info("Initializing rate limiting middleware...")
+	rateLimitMiddleware := middleware.NewRateLimitMiddleware(cfg.RateLimiting, redis, log)
+
 	// Create router with all handlers
 	log.Info("Initializing router...")
-	router := api.NewRouter(cfg, db, redis, log, oauthHandler, chatHandler, modelsHandler, adminHandler, filterHandler, providerMgmtHandler, contactHandler, apiKeyMiddleware, apiKeyAuthMiddleware, oauthMiddleware, adminMiddleware, requestLoggerMiddleware, metricsMiddleware, promhttp.Handler())
+	router := api.NewRouter(cfg, db, redis, log, oauthHandler, chatHandler, modelsHandler, adminHandler, filterHandler, providerMgmtHandler, contactHandler, apiKeyMiddleware, apiKeyAuthMiddleware, oauthMiddleware, adminMiddleware, requestLoggerMiddleware, metricsMiddleware, promhttp.Handler(), rateLimitMiddleware)
 
 	// Create HTTP server
 	server := &http.Server{

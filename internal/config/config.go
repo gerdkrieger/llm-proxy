@@ -431,7 +431,7 @@ func validate(cfg *Config) error {
 		return fmt.Errorf("oauth jwt_secret is required")
 	}
 	if len(cfg.OAuth.JWTSecret) < 32 {
-		return fmt.Errorf("oauth jwt_secret must be at least 32 characters")
+		return fmt.Errorf("oauth jwt_secret must be at least 32 characters (64+ recommended)")
 	}
 
 	// Admin

@@ -44,6 +44,7 @@ func NewRouter(
 	requestLoggerMiddleware *customMiddleware.RequestLoggerMiddleware,
 	metricsMiddleware func(http.Handler) http.Handler,
 	metricsHandler http.Handler,
+	rateLimitMiddleware *customMiddleware.RateLimitMiddleware,
 ) *Router {
 	r := chi.NewRouter()
 
@@ -89,11 +90,19 @@ func NewRouter(
 	r.Post("/oauth/token", oauthHandler.Token)
 	r.Post("/oauth/revoke", oauthHandler.Revoke)
 
-	// Contact form endpoint (public, rate-limited in handler)
-	r.Post("/api/contact", contactHandler.Submit)
+	// Contact form endpoint (public, rate-limited via middleware + in handler)
+	if rateLimitMiddleware != nil {
+		r.With(rateLimitMiddleware.Limit).Post("/api/contact", contactHandler.Submit)
+	} else {
+		r.Post("/api/contact", contactHandler.Submit)
+	}
 
 	// OpenAI-compatible API endpoints (Static API Key OR DB API Key OR OAuth protected)
 	r.Route("/v1", func(r chi.Router) {
+		// Rate limiting first (before auth so unauthenticated requests also count)
+		if rateLimitMiddleware != nil {
+			r.Use(rateLimitMiddleware.Limit)
+		}
 		// Try static API key first (pass through if not static key)
 		r.Use(apiKeyMiddleware.Authenticate)
 		// Then try DB-based API key (client secrets from oauth_clients table)

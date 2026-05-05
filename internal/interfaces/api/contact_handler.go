@@ -234,7 +234,12 @@ func (h *ContactHandler) checkRateLimit(ip string, maxRequests int, window time.
 		return false
 	}
 
-	h.rateLimit[ip] = append(valid, now)
+	// Remove IP entry if no valid timestamps remain
+	if len(valid) == 0 {
+		delete(h.rateLimit, ip)
+	} else {
+		h.rateLimit[ip] = append(valid, now)
+	}
 	return true
 }
 

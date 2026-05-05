@@ -164,13 +164,15 @@ func (s *Service) handleRefreshToken(ctx context.Context, req *TokenRequest) (*T
 		return nil, fmt.Errorf("client is disabled")
 	}
 
-	// Generate new access token
-	scope := req.Scope
-	if scope == "" {
-		scope = claims.Scope
-		if scope == "refresh" {
-			scope = client.DefaultScope
-		}
+	// Scope during refresh-locked to original claim scope to prevent escalation.
+	scope := claims.Scope
+	if scope == "refresh" {
+		scope = client.DefaultScope
+	}
+	if req.Scope != "" && req.Scope != scope {
+		s.logger.Warnf(`Client %s attempted scope escalation during refresh: %q to %q`,
+			client.ClientID, scope, req.Scope)
+		return nil, fmt.Errorf("scope escalation rejected")
 	}
 
 	accessToken, expiresAt, err := s.tokenGen.GenerateAccessToken(client.ClientID, scope)
